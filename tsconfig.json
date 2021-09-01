@@ -36,10 +36,12 @@
         // path, even if it's more recent. We should investigate a design-time
         // command which would generate a base tsconfig file for developer IDEs
         // using the target of their choosing and not be committed to source control.
+
         "../out/Component/gen/*",
         "../out/Static/gen/*",
         "../out/Release/gen/*",
         "../out/Debug/gen/*",
+
       ],
       "chrome://resources/*": [
         "../out/Component/gen/ui/webui/resources/preprocessed/*",
@@ -47,11 +49,28 @@
         "../out/Release/gen/ui/webui/resources/preprocessed/*",
         "../out/Debug/gen/ui/webui/resources/preprocessed/*",
       ]
+
+      ]
+      // "chrome://resources/mojo/*": ["../out/Component/gen/*"],
+      // "chrome://resources/*": ["../out/Component/gen/ui/webui/resources/preprocessed/*"]
+
     },
     "typeRoots": [
       "./node_modules/@types",
       "./components/definitions"
     ],
+    // "rootDirs": [
+    //   "..",
+    //   // This list of [configuration]/gen is not used at compile-time
+    //   // since we don't want results from 1 compilation to affect another.
+    //   // However, we specify them all here for developer design / coding time
+    //   // intellisense support. They get overriden at compile-time in
+    //   // webpack.config.js.
+    //   "../out/Component/gen",
+    //   "../out/Static/gen",
+    //   "../out/Release/gen",
+    //   "../out/Debug/gen",
+    // ],
     // optional
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
