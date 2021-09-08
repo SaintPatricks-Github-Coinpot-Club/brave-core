@@ -543,7 +543,7 @@ public abstract class BraveActivity<C extends ChromeActivityComponent> extends C
         }
         checkSetDefaultBrowserModal();
         checkFingerPrintingOnUpgrade();
-<<<<<<< HEAD
+        
         if (BraveVpnUtils.isBraveVpnFeatureEnable()) {
             ConnectivityManager connectivityManager =
                     (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -598,19 +598,20 @@ public abstract class BraveActivity<C extends ChromeActivityComponent> extends C
         braveVpnCalloutDialogFragment.show(
                 getSupportFragmentManager(), "BraveVpnCalloutDialogFragment");
 
-        Log.d("bn", "getActivityTab() :" + getActivityTab());
-        Log.d("bn", "getActivityTab().getUrlString() :" + getActivityTab().getUrlString());
-        Log.d("bn",
-                "getActivityTab() isNTPUrl :"
-                        + UrlUtilities.isNTPUrl(getActivityTab().getUrlString()));
-
-        // if it's new tab add the brave news settings bar to the layout
-        if (getActivityTab() != null && getActivityTab().getUrlString() != null
-                && UrlUtilities.isNTPUrl(getActivityTab().getUrlString())) {
-            inflateNewsSettingsBar();
+        Tab tab = getActivityTab();
+        if (tab != null){
+            // // if it's new tab add the brave news settings bar to the layout
+            if (tab != null && tab.getUrl().getSpec() != null
+                    && UrlUtilities.isNTPUrl(tab.getUrl().getSpec())) {
+                inflateNewsSettingsBar();
+            } else {
+                removeSetttingsBar();
+            } 
         } else {
-            removeSetttingsBar();
+            Log.d("bn", "tab is null");
         }
+
+
 
         Log.d("BN", "lifecycle BraveActivity finishNativeInitialization");
     }

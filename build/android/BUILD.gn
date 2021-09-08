@@ -199,4 +199,10 @@ generate_jni("jni_headers") {
       "//brave/android/java/org/chromium/chrome/browser/crypto_wallet/SwapControllerFactory.java",
     ]
   }
+
+  if (brave_news_enabled) {
+    sources += [
+      "//brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsControllerFactory.java",
+    ]
+  }
 }
