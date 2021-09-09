@@ -16,7 +16,7 @@ import NewTabPage from './newTab'
 import { sendWithPromise } from 'chrome://resources/js/cr.m'
 
 import * as PreferencesAPI from '../api/preferences'
-import getBraveNewsController from '../api/brave_news'
+import braveNewsController from '../api/brave_news/brave_news_proxy'
 import { getActionsForDispatch } from '../api/getActions'
 
 // Types
@@ -40,7 +40,7 @@ const getBraveNewsDisplayAd: GetDisplayAdContent = function GetBraveNewsDisplayA
   return sendWithPromise('todayGetDisplayAd')
 
 const getBraveNewsDisplayAd = function GetBraveNewsDisplayAd () {
-  return getBraveNewsController().getDisplayAd()
+  return braveNewsController.getDisplayAd()
 }
 
 function DefaultPage (props: Props) {
