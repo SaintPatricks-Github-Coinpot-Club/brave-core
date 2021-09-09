@@ -271,38 +271,6 @@ void BraveNewTabMessageHandler::RegisterMessages() {
       "customizeClicked",
       base::BindRepeating(&BraveNewTabMessageHandler::HandleCustomizeClicked,
                           base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayInteractionBegin",
-      base::BindRepeating(
-          &BraveNewTabMessageHandler::HandleTodayInteractionBegin,
-          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayOnCardVisit",
-      base::BindRepeating(&BraveNewTabMessageHandler::HandleTodayOnCardVisit,
-                          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayOnCardViews",
-      base::BindRepeating(&BraveNewTabMessageHandler::HandleTodayOnCardViews,
-                          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayOnPromotedCardView",
-      base::BindRepeating(
-          &BraveNewTabMessageHandler::HandleTodayOnPromotedCardView,
-          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayGetDisplayAd",
-      base::BindRepeating(&BraveNewTabMessageHandler::HandleTodayGetDisplayAd,
-                          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayOnDisplayAdVisit",
-      base::BindRepeating(
-          &BraveNewTabMessageHandler::HandleTodayOnDisplayAdVisit,
-          base::Unretained(this)));
-  web_ui()->RegisterMessageCallback(
-      "todayOnDisplayAdView",
-      base::BindRepeating(
-          &BraveNewTabMessageHandler::HandleTodayOnDisplayAdView,
-          base::Unretained(this)));
 }
 
 void BraveNewTabMessageHandler::OnJavascriptAllowed() {
@@ -611,6 +579,7 @@ void BraveNewTabMessageHandler::HandleCustomizeClicked(
       kNTPCustomizeUsageStatus, g_browser_process->local_state());
 }
 
+<<<<<<< HEAD
 void BraveNewTabMessageHandler::HandleTodayInteractionBegin(
     base::Value::ConstListView args) {
   AllowJavascript();
