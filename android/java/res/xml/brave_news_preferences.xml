@@ -8,20 +8,20 @@
     xmlns:app="http://schemas.android.com/apk/res-auto" >
 
     <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
-        android:key="turn_on_news"
+        android:key="kBraveTodayOptedIn"
         android:title="@string/news_turn_on_button"
         android:summaryOff="@string/news_turn_on_text" />
 
     <org.chromium.components.browser_ui.settings.ChromeSwitchPreference
-        android:key="show_news"
+        android:key="kNewTabPageShowToday"
         android:title="@string/news_show"
-        android:dependency="turn_on_news"
+        android:dependency="kBraveTodayOptedIn"
         android:summaryOn="@string/news_turn_on_text"
         android:summaryOff="@string/news_turn_on_text" />
 
     <PreferenceCategory
         android:key="your_sources_section"
-        android:dependency="show_news"
+        android:dependency="kNewTabPageShowToday"
         android:title="@string/news_your_sources_section"/>
 
    <org.chromium.components.browser_ui.settings.ChromeBasePreference
@@ -29,13 +29,13 @@
         android:key="add_source_news"
         android:id="@android:id/edit"
         android:persistent="false"
-        android:dependency="show_news"
+        android:dependency="kNewTabPageShowToday"
         android:summary="@string/news_add_source"
         android:title="@string/news_add_source"/>
 
     <PreferenceCategory
         android:key="default_sources_section"
-        android:dependency="show_news"
+        android:dependency="kNewTabPageShowToday"
         android:title="@string/news_default_sources_section"/>
 
 </androidx.preference.PreferenceScreen>

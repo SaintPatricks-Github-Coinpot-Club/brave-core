@@ -640,6 +640,7 @@ brave_java_resources = [
   "java/res/drawable/ic_rewards.xml",
   "java/res/drawable/ic_safe.xml",
   "java/res/drawable/ic_search.xml",
+  "java/res/drawable/ic_promoted.xml",
   "java/res/drawable/ic_search_21dp.xml",
   "java/res/drawable/ic_search_vector.xml",
   "java/res/drawable/ic_server_selection_check.xml",

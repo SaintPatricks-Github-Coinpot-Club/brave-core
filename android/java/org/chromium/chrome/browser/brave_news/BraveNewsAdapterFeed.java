@@ -37,14 +37,16 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.brave_news.models.NewsItem;
+import org.chromium.chrome.browser.brave_news.models.FeedItemCard;
 import org.chromium.chrome.browser.ntp.BraveNewTabPageLayout;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.chromium.brave_news.mojom.FeedItem;
 
-public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.ViewHolder> {
-    private List<String> mData;
+public class BraveNewsAdapterFeed extends RecyclerView.Adapter<BraveNewsAdapterFeed.ViewHolder> {
+
     private LayoutInflater mInflater;
     public RecycleItemClickListener mClickListener;
     private int mType;
@@ -53,47 +55,24 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
     private View view;
     private LinearLayout linearLayout;
     private LinearLayout.LayoutParams linearLayoutParams;
-    private CopyOnWriteArrayList<NewsItem> mNewsItems;
 
-    private int cardPosition;
-    private boolean isOptIn;
-
-    private final int CARD_LAYOUT = 0;
-    private final int BUTTON_LAYOUT = 1;
-
-    private final int HEADLINE = 0;
-    private final int HEADLINEPAIR = 1;
-    private final int THREE_ROWS_PHOTO = 2;
-    private final int TOP_NEWS = 3;
-    private final int THREE_ROWS_HEADLINES = 4;
-    private final int DISPLAY_AD = 5;
-    private final int DEALS = 6;
-    private final int WELCOME = 7;
-
-    private ViewHolder mHolder;
+	private CopyOnWriteArrayList<FeedItem> mNewsItems;
+    private CopyOnWriteArrayList<FeedItemCard> mNewsItemsCard;
+	private ViewHolder mHolder;
     private final String TAG = "BN";
 
-    public BraveNewsAdapter(Activity activity, CopyOnWriteArrayList<NewsItem> newsItems) {
+
+    public BraveNewsAdapterFeed(Activity activity, CopyOnWriteArrayList<FeedItem> newsItems) {
         this.mInflater = LayoutInflater.from(activity);
         this.mActivity = activity;
         this.mNewsItems = newsItems;
     }
 
-    private int getHeight() {
-        DisplayMetrics displayMetrics = new DisplayMetrics();
-        mActivity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int height = displayMetrics.heightPixels;
 
-        return height;
-    }
-
-    // @Override
-    // public int getItemViewType(int position) {
-    //     if (position == 0) {
-    //         return 0;
-    //     } else {
-    //         return 1;
-    //     }
+    // public BraveNewsAdapterFeed(Activity activity, CopyOnWriteArrayList<FeedItemCard> newsItemsCard) {
+    //     this.mInflater = LayoutInflater.from(activity);
+    //     this.mActivity = activity;
+    //     this.mNewsItemsCard = newsItemsCard;
     // }
 
     @NonNull
@@ -107,125 +86,45 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
     }
 
     @Override
-    public void onBindViewHolder(@NonNull BraveNewsAdapter.ViewHolder holder, int position) {
-        Log.d("bn", "onBindViewHolder position:" + position);
-        Log.d("bn", "onBindViewHolder getItemViewType:" + holder.getItemViewType());
-
-        if (position >= getItemCount() - 10) {
-            Log.d(TAG, "end");
-            return;
-        }
+    public void onBindViewHolder(@NonNull BraveNewsAdapterFeed.ViewHolder holder, int position) {
         LinearLayout.LayoutParams params1;
+        if (mNewsItems != null){
 
-        //        Log.d(TAG, "optedin:" + isOptIn);
+            Log.d("bn", "createfeed onBindViewHolder position:" + position);
+            Log.d("bn", "createfeed onBindViewHolder mNewsItem:" + mNewsItems.get(position));
+            Log.d("bn", "createfeed onBindViewHolder mNewsItem which:" + mNewsItems.get(position).which());
+            // Log.d("BN", "onBindViewHolder getItemViewType:" + holder.getItemViewType());
 
-        //        if (!isOptIn) {
-        //            createCard(WELCOME, position);
-        //        } else
-        //            {
-        //            linearLayoutParams.setMargins(40, 0, 40, 40);
-        switch (cardPosition) {
-            case 0:
-                // TOP news
-                Log.d(TAG, "creating TOP_NEWS");
-                new CardBuilder(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),
-                        TOP_NEWS);
-                break;
-            case 1:
-                Log.d(TAG, "creating HEADLINE");
-                new CardBuilder(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),
-                        HEADLINE);
-                // Display Ad
-                break;
-            case 2:
-            case 3:
-                /* headline
+            // if (position >= getItemCount() - 10) {
+            //     Log.d(TAG, "end");
+            //     return;
+            // }
 
-                      Image
-                    -------------
-                    |           |
-                    |           |
-                    -------------
-                      Title
-                      Description
+            // new CardBuilderFeed(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),mNewsItems.get(position).which());
+        } 
+        // else if (mNewsItemsCard != null){
+        //     Log.d("bn", "createfeed onBindViewHolder position:" + position);
+        //     Log.d("bn", "createfeed onBindViewHolder mNewsItem:" + mNewsItemsCard.get(position));
+        //     Log.d("bn", "createfeed onBindViewHolder mNewsItem which:" + mNewsItemsCard.get(position).which());
+        //     // Log.d("BN", "onBindViewHolder getItemViewType:" + holder.getItemViewType());
 
-                */
-                new CardBuilder(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),
-                        HEADLINE);
-                break;
-            case 4:
-                /*headlinepair
+        //     // if (position >= getItemCount() - 10) {
+        //     //     Log.d(TAG, "end");
+        //     //     return;
+        //     // }
 
-                      Image      Image
-                    ---------    ---------
-                    |       |    |       |
-                    |       |    |       |
-                    ---------    ---------
-                      Title        Title
-                   Description    Description
-
-                 */
-                new CardBuilder(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),
-                        HEADLINEPAIR);
-
-                break;
-            case 5:
-                // promoted content
-                new CardBuilder(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),
-                        HEADLINE);
-                break;
-            case 6:
-                // 3x Headlines
-                new CardBuilder(mHolder.linearLayout, mActivity, position, mNewsItems.get(position),
-                        THREE_ROWS_HEADLINES);
-                break;
-            case 7:
-            case 8:
-                new CardBuilder(
-                        mHolder.linearLayout, mActivity, position, mNewsItems.get(position), DEALS);
-                // headline
-                break;
-            case 9:
-            case 10:
-            case 11:
-                // 2 col headline
-                break;
-            case 12:
-                // Display Ad
-                break;
-            case 13:
-            case 14:
-                // Headline
-                break;
-            case 15:
-                // Publisher card (3x cards)
-                break;
-            case 16:
-                // List card (3x cards)
-                break;
-            case 17:
-                // Headline
-                break;
-            case 18:
-                // Offers card
-                break;
-            case 19:
-                // Headline
-                break;
-            case 20:
-                // 2 col Headline
-                break;
-        }
-        if (position % 30 == 0) {
-            cardPosition = 0;
-        }
-        cardPosition++;
+        //     new CardBuilderFeed(mHolder.linearLayout, mActivity, position, mNewsItemsCard.get(position),mNewsItemsCard.get(position).which()); 
+        // }
     }
 
     @Override
     public int getItemCount() {
-        return mNewsItems.size();
+
+            return mNewsItems.size();
+
+        // return mNewsItemsCard.size();
     }
+
 
     public void setClickListener(BraveNewTabPageLayout recyclerMain) {
         this.mClickListener = recyclerMain;
@@ -311,8 +210,10 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
         }
     }
 
-    public NewsItem getItem(int id) {
-        return mNewsItems.get(id);
+    public FeedItem getItem(int id) {
+            return mNewsItems.get(id);
+
+        // return mNewsItemsCard.get(id);
     }
 
     public interface RecycleItemClickListener {

@@ -53,8 +53,8 @@ import java.util.List;
 public class BraveNewsPreferences
         extends BravePreferenceFragment implements Preference.OnPreferenceChangeListener,
         ConnectionErrorHandler {
-    public static final String PREF_TURN_ON_NEWS = "turn_on_news";
-    public static final String PREF_SHOW_NEWS = "show_news";
+    public static final String PREF_TURN_ON_NEWS = "kBraveTodayOptedIn";
+    public static final String PREF_SHOW_NEWS = "kNewTabPageShowToday";
     public static final String PREF_SHOW_OPTIN = "show_optin";
     public static final String PREF_SOURCES_SECTION = "your_sources_section";
     public static final String PREF_ADD_SOURCES = "add_source_news";

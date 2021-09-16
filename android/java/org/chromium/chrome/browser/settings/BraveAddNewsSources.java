@@ -43,6 +43,7 @@ import org.chromium.mojo.system.MojoException;
 import java.util.Map;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class BraveAddNewsSources
         extends BravePreferenceFragment implements Preference.OnPreferenceChangeListener,
@@ -52,6 +53,7 @@ public class BraveAddNewsSources
     private EditText mEditText;
     private PreferenceScreen mainScreen;
     private BraveNewsController mBraveNewsController; 
+    private ArrayList<Publisher> mPublishers;
 
     public static int getPreferenceSummary() {
         return BraveLaunchIntentDispatcher.useCustomTabs() ? R.string.text_on : R.string.text_off;
@@ -84,12 +86,14 @@ public class BraveAddNewsSources
 
         addSource = (EditTextPreference) findPreference(PREF_ADD_SOURCES);
         addSource.setPositiveButtonText(R.string.search_title);
+        mPublishers = new ArrayList<>();
 
         mBraveNewsController.getPublishers((publishers) -> {
             Log.d("bn", "getfeed publishers: " + publishers);
             for (Map.Entry<String,Publisher> entry : publishers.entrySet()) {
                 String key = entry.getKey();
                 Publisher publisher = entry.getValue();
+                mPublishers.add(publisher);
                 Log.d("bn", "getfeed publisher data key: " + key);
                 Log.d("bn", "getfeed publisher data value: " + publisher);
                 CheckBoxPreference source = new CheckBoxPreference(ContextUtils.getApplicationContext());
@@ -148,7 +152,6 @@ public class BraveAddNewsSources
                 @Override
                 public boolean onPreferenceClick(Preference preference) {
                     Log.d("bn", "adding sources...");
-
                     ArrayList<Preference> list =
                             getPreferenceList(sourcesScreen, new ArrayList<Preference>());
                     for (Preference p : list) {
@@ -160,11 +163,7 @@ public class BraveAddNewsSources
                             }
                         }
                     }
-                    // setPreferenceScreen(mainScreen);
                     setPreferencesFromResource(R.xml.brave_news_preferences, null);
-                    // SettingsUtils.addPreferencesFromResource(this, R.xml.brave_news_preferences);
-                    // inflateFromResource(ContextUtils.getApplicationContext(),
-                    // R.layout.brave_news_preferences, getPreferenceScreen());
                     return true;
                 }
             });

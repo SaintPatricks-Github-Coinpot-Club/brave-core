@@ -18,11 +18,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.chromium.brave_news.mojom.Publisher;
+
 public class BraveNewsUtils {
     private Context mContext;
-
-    private static final String PREF_TURN_ON_NEWS = "turn_on_news";
-    private static final String PREF_SHOW_NEWS = "show_news";
 
     public BraveNewsUtils(Context context) {
         mContext = context;
@@ -58,6 +57,12 @@ public class BraveNewsUtils {
         } catch (JSONException e) {
             e.printStackTrace();
         }
+
+        return newsItems;
+    }
+
+    public CopyOnWriteArrayList<NewsItem> createFeed() {
+        CopyOnWriteArrayList<NewsItem> newsItems = new CopyOnWriteArrayList<NewsItem>();
 
         return newsItems;
     }
@@ -137,5 +142,12 @@ public class BraveNewsUtils {
         }
 
         return true;
+    }
+
+    private Publisher getPublisher(){
+        Publisher publisher = null;
+
+        return publisher;
+
     }
 }

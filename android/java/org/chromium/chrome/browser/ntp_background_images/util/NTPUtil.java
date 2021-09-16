@@ -66,6 +66,12 @@ import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
 
+import org.chromium.brave_news.mojom.FeedItem;
+import org.chromium.brave_news.mojom.FeedItemMetadata;
+import org.chromium.brave_news.mojom.PromotedArticle;
+import org.chromium.brave_news.mojom.Deal;
+import org.chromium.brave_news.mojom.Article;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.SoftReference;
@@ -83,6 +89,39 @@ public class NTPUtil {
     public static void turnOnAds() {
         BraveAdsNativeHelper.nativeSetAdsEnabled(Profile.getLastUsedRegularProfile());
         BraveRewardsNativeWorker.getInstance().SetAutoContributeEnabled(true);
+    }
+
+
+    public static void showItemInfo(FeedItem feedItem, String id) {
+        switch(feedItem.which()){
+            case FeedItem.Tag.Article:
+                
+                Article article = feedItem.getArticle();
+                FeedItemMetadata articleData = article.data;
+                
+                Log.d("bn", id+" articleData: " + articleData.title);
+                break;
+            case FeedItem.Tag.PromotedArticle:
+                PromotedArticle promotedArticle = feedItem.getPromotedArticle();
+                FeedItemMetadata promotedArticleData = promotedArticle.data;
+                String creativeInstanceId = promotedArticle.creativeInstanceId;
+                // braveNewsItems.add(item.getPromotedArticle());
+
+                Log.d("bn", id+" PromotedArticle: " + promotedArticleData.title);
+                // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type PromotedArticle creativeInstanceId: " + creativeInstanceId);
+                break;                                            
+            case FeedItem.Tag.Deal:
+                Deal deal = feedItem.getDeal();
+                FeedItemMetadata dealData = deal.data;
+                String offersCategory = deal.offersCategory;
+
+                // braveNewsItems.add(item.getDeal());
+                // braveNewsItems.add(deal.data);
+                Log.d("bn", id+" Deal: " + dealData.title);
+                // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type Deal offersCategory: " + offersCategory); 
+                break;
+              // textView.setText(itemData.title);  
+        }
     }
 
     public static int correctImageCreditLayoutTopPosition(NTPImage ntpImage) {
@@ -224,7 +263,7 @@ public class NTPUtil {
         //     }
         // }
 
-        int topMargin = correctImageCreditLayoutTopPosition(ntpImage);
+        int topMargin = 100;// correctImageCreditLayoutTopPosition(ntpImage);
 
         imageCreditLayoutParams.setMargins(0, topMargin, 0, 0);
         // imageCreditLayoutParams.setMargins(0, displayMetrics.heightPixels, 0, 0);

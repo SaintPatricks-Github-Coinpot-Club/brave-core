@@ -17,6 +17,7 @@ import org.chromium.chrome.browser.settings.SearchPreference;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.brave_news.mojom.Publisher;
+import org.chromium.brave_news.mojom.UserEnabled;
 import org.chromium.brave_news.mojom.BraveNewsController;
 import org.chromium.chrome.browser.brave_news.BraveNewsControllerFactory;
 import org.chromium.chrome.browser.brave_news.models.NewsItem;
@@ -132,7 +133,30 @@ public class BraveNewsCategorySources extends PreferenceFragmentCompat implement
                     SwitchPreference source = new SwitchPreference(ContextUtils.getApplicationContext()); 
                     source.setTitle(publisher.publisherName);
                     source.setKey(publisher.publisherName);
-                    source.setChecked(publisher.isEnabled); 
+                    source.setChecked(publisher.isEnabled);
+                    source.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
+                        @Override
+                        public boolean onPreferenceChange(Preference preference, Object newValue) {
+                            //  SetPublisherPref(string publisher_id, UserEnabled new_status);
+                            // UserEnabled newStatus = UserEnabled.EnumType(1);
+                            // UserEnabled newStatus = (UserEnabled) UserEnabled.NOT_MODIFIED;
+                            @UserEnabled.EnumType int type = UserEnabled.NOT_MODIFIED;
+
+                            if ((boolean) newValue){
+                                type = UserEnabled.ENABLED;
+                            } else {
+                                type = UserEnabled.DISABLED;
+                            }
+                            Log.d("bn", "newValue: "+newValue);
+                            // Log.d("bn", "newValue: "+ (boolean) newValue);
+                            // Log.d("bn", "newValue: "+ (int) newValue);
+                            if (mBraveNewsController != null){
+                                mBraveNewsController.setPublisherPref(publisher.publisherId, type);
+                            }
+                            source.setChecked((boolean) newValue);
+                            return false;
+                        }
+                    });
                     sourcesScreen.addPreference(source); 
                 }
             }
