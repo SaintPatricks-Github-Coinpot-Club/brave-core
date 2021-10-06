@@ -60,7 +60,6 @@ public class BraveNewsAdapterFeedCard extends RecyclerView.Adapter<BraveNewsAdap
     private Activity mActivity;
     private View view;
     private LinearLayout linearLayout;
-    private LinearLayout.LayoutParams linearLayoutParams;
 
 	// private CopyOnWriteArrayList<FeedItemCard> mNewsItems;
     private CopyOnWriteArrayList<FeedItemsCard> mNewsItems;
@@ -98,7 +97,7 @@ public class BraveNewsAdapterFeedCard extends RecyclerView.Adapter<BraveNewsAdap
             // Log.d("bn", "createfeed BraveNewsAdapterFeedCard  onBindViewHolder mNewsItem which:" + mNewsItems.get(position).getFeedItem().which());
             Log.d("bn", "createfeed BraveNewsAdapterFeedCard  onBindViewHolder mNewsItem which:" + mNewsItems.get(position).getCardType());
             // Log.d("BN", "onBindViewHolder getItemViewType:" + holder.getItemViewType());
-            // NTPUtil.showItemInfo(mNewsItems.get(position).getFeedItem(), "createfeed BraveNewsAdapterFeedCard  onBindViewHolder  position");
+            NTPUtil.showItemInfo(mNewsItems.get(position), "createfeed BraveNewsAdapterFeedCard  onBindViewHolder  position");
             // NTPUtil.showItemInfo(mNewsItems.get(position+1).getFeedItem(), "createfeed BraveNewsAdapterFeedCard  onBindViewHolder  position + 1");
             // if (position >= getItemCount() - 10) {
             //     Log.d(TAG, "end");
@@ -246,10 +245,6 @@ public class BraveNewsAdapterFeedCard extends RecyclerView.Adapter<BraveNewsAdap
 
             itemView.setOnClickListener(this);
             linearLayout = itemView.findViewById(R.id.card_layout);
-
-            linearLayoutParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            linearLayoutParams.setMargins(0, 40, 0, 40);
         }
 
         @Override

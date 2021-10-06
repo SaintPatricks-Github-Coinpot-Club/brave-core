@@ -30,6 +30,8 @@ import android.widget.TextView;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.widget.NestedScrollView;
+import com.bumptech.glide.Glide;
+import static com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.BraveActivity;
@@ -267,14 +269,13 @@ public class CardBuilderFeedCard {
             case CardType.PROMOTED_ARTICLE:
                 addElementsToSingleLayout(linearLayout, 0, type);
                 linearLayout.setBackground(makeRound(CARD_LAYOUT, R.color.card_background, 15));
-
                 break;
             case CardType.DEALS:
                 linearLayout.setOrientation(LinearLayout.VERTICAL);
                 linearLayout.setBackgroundColor(
                         mActivity.getResources().getColor(R.color.card_background));
                 linearLayoutParams.height = LinearLayout.LayoutParams.WRAP_CONTENT;
-                linearLayoutParams.setMargins(horizontalMargin, 0, horizontalMargin, 20);
+                linearLayoutParams.setMargins(horizontalMargin, 0, horizontalMargin, 40);
                 linearLayout.setLayoutParams(linearLayoutParams);
 
                 tableLayoutTopNews.setLayoutParams(
@@ -325,7 +326,7 @@ public class CardBuilderFeedCard {
                                 LinearLayout.LayoutParams.MATCH_PARENT));
                 tableParamsTopNews.setMargins(30, 40, 30, 40);
                 linearLayoutParams.height = LinearLayout.LayoutParams.WRAP_CONTENT;
-                linearLayoutParams.setMargins(horizontalMargin, 0, horizontalMargin, 20);
+                linearLayoutParams.setMargins(horizontalMargin, 0, horizontalMargin, 40);
                 linearLayout.setLayoutParams(linearLayoutParams);
 
                 linearLayout.addView(tableLayoutTopNews);
@@ -449,7 +450,7 @@ public class CardBuilderFeedCard {
                 linearLayout.setOrientation(LinearLayout.HORIZONTAL);
                 linearLayout.setBackgroundColor(Color.TRANSPARENT);
                 linearLayoutParams.height = 650;
-                linearLayoutParams.setMargins(horizontalMargin - 20 , 0, horizontalMargin, 20);
+                linearLayoutParams.setMargins(horizontalMargin - 20 , 0, horizontalMargin, 40);
                 linearLayout.setLayoutParams(linearLayoutParams);
 
                 LinearLayout.LayoutParams cellParams =
@@ -538,7 +539,7 @@ public class CardBuilderFeedCard {
                 linearLayoutRowParams1.width = 0;
                 linearLayoutRowParams1.weight = 1;
                 linearLayoutRowParams1.height = 500;
-                linearLayoutRowParams1.setMargins(30, 0, 30, 0);
+                linearLayoutRowParams1.setMargins(30, 0, 30, 40);
                 layoutDeals.setLayoutParams(linearLayoutRowParams1);
 
                 // image.setImageResource(R.drawable.img1);
@@ -576,10 +577,10 @@ public class CardBuilderFeedCard {
                 linearLayoutParams =
                         new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT);
-                linearLayoutParams.setMargins(horizontalMargin, 20, horizontalMargin, 30);
-
+                linearLayoutParams.setMargins(horizontalMargin, 20, horizontalMargin, 40);
+                Log.d("bn", "before setting params for CardType.HEADLINE");
                 layout.setLayoutParams(linearLayoutParams);
-
+                Log.d("bn", "after setting params for CardType.HEADLINE");
                 layout.addView(image);
                 layout.addView(title);
                 layout.addView(desc);
@@ -617,16 +618,15 @@ public class CardBuilderFeedCard {
                 publisher.setPadding(50, 0, 50, 0);
                 publisher.setLayoutParams(publisherParams);
 
-
-                logoParams.width = LinearLayout.LayoutParams.WRAP_CONTENT;
-                logoParams.height = 0;
-                logoParams.weight = 1;
-                logo.setPadding(30, 0, 30, 40);
-                logoParams.gravity = Gravity.CENTER_VERTICAL;
-                logo.setScaleType(ImageView.ScaleType.FIT_START);
-                logo.setImageResource(R.drawable.logo);
-                // setImage(logo, "image");
-                logo.setLayoutParams(logoParams);
+                // logoParams.width = LinearLayout.LayoutParams.WRAP_CONTENT;
+                // logoParams.height = 0;
+                // logoParams.weight = 1;
+                // logo.setPadding(30, 0, 30, 40);
+                // logoParams.gravity = Gravity.CENTER_VERTICAL;
+                // logo.setScaleType(ImageView.ScaleType.FIT_START);
+                // logo.setImageResource(R.drawable.logo);
+                // // setImage(logo, "image");
+                // logo.setLayoutParams(logoParams);
 
                 break;            
              case CardType.DISPLAY_AD:
@@ -634,7 +634,7 @@ public class CardBuilderFeedCard {
                 linearLayoutParams =
                         new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT);
-                linearLayoutParams.setMargins(horizontalMargin, 20, horizontalMargin, 50);
+                linearLayoutParams.setMargins(horizontalMargin, 20, horizontalMargin, 40);
                 layout.setLayoutParams(linearLayoutParams);
 
                 layout.addView(image);
@@ -680,7 +680,7 @@ public class CardBuilderFeedCard {
                 linearLayoutParams =
                         new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
                                 LinearLayout.LayoutParams.WRAP_CONTENT);
-                linearLayoutParams.setMargins(horizontalMargin, 20, horizontalMargin, 30);
+                linearLayoutParams.setMargins(horizontalMargin, 20, horizontalMargin, 40);
                 layout.setLayoutParams(linearLayoutParams);
 
                 TextView promoted = new TextView(mActivity);
@@ -804,23 +804,47 @@ public class CardBuilderFeedCard {
 
             case CardType.PUBLISHER_GROUP: // 3 numbered rows no photos 
 
+                TableLayout.LayoutParams layoutRowParams = new TableLayout.LayoutParams(
+                        TableLayout.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 TableRow layoutRow = (TableRow) view;
+                TextView no = new TextView(mActivity);
 
                 layoutRow.removeAllViews();
                 layou1.removeAllViews();
 
+                layoutRowParams.setMargins(0, 20, 0, 20);
+                layoutRowParams.weight = 1;
+                layoutRowParams.height = 0;
+                layoutRow.setPadding(30,0,30,0);
+                layoutRow.setLayoutParams(layoutRowParams);
+
+
+                TableRow.LayoutParams noParams = new TableRow.LayoutParams(
+                        TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.MATCH_PARENT);      
+                TableRow.LayoutParams layou1Params = new TableRow.LayoutParams(
+                        TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.MATCH_PARENT);    
+
+                no.setText(String.valueOf(index + 1));
+                no.setTextColor(mActivity.getResources().getColor(R.color.news_text_color));
+                noParams.width = 0;
+                noParams.weight = 1;
+                noParams.gravity =  Gravity.TOP;
+                no.setLayoutParams(noParams);
+
+                layoutRow.addView(no);
+                
                 layou1.setOrientation(LinearLayout.VERTICAL);
-                linearLayoutRowParams.width = 0;
-                linearLayoutRowParams.weight = 3;
-                linearLayoutRowParams.setMargins(0, 0, 0, 40);
+                layou1Params.width = 0;
+                layou1Params.weight = 4;
+                // layou1Params.setMargins(0, 0, 0, 30);
 
-                layou1.setPadding(30, 0 , 30, 0);
+                // layou1.setPadding(30, 0 , 30, 0);
 
-                layou1.setLayoutParams(linearLayoutRowParams);
+                layou1.setLayoutParams(layou1Params);
 
                 titleRowParams.height = 0;
                 titleRowParams.weight = 2;
-                titleRowParams.rightMargin = 20;
+                // titleRowParams.rightMargin = 20;
                 title.setTextSize(14);
                 title.setLayoutParams(titleRowParams);
                 title.setLines(2);
@@ -834,16 +858,8 @@ public class CardBuilderFeedCard {
                 desc.setLayoutParams(descRowParams);
                 layou1.addView(desc);
 
-                TextView no = new TextView(mActivity);
-                LinearLayout.LayoutParams noParams =
-                        new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-                no.setText("1.  ");
-                noParams.weight = 1;
-                no.setLayoutParams(noParams);
-                
-
-                layoutRow.addView(no);
                 layoutRow.addView(layou1);
+
                 break;
             case CardType.CATEGORY_GROUP: 
                 TableRow layoutRowPhotos = (TableRow) view;
@@ -920,25 +936,8 @@ public class CardBuilderFeedCard {
         title.setTextColor(mActivity.getResources().getColor(R.color.news_text_color));
         desc.setTextColor(mActivity.getResources().getColor(R.color.news_time_color));
 
-        // this section is common to all cases
-        // title.setText("mNewsItem.getTitle()");
         setTextFromFeed(title, TITLE, index);
-        // desc.setText("mNewsItem.getPublish_time()");
         setTextFromFeed(desc, TIME, index);
-
-        //        PrivateCDNHelper privateHelper = new PrivateCDNHelper(image);
-        //        privateHelper.setPaddedImage(image, mNewsItems.get(position).getPadded_img());
-        //  to add when there is an image      image.setImageResource(R.drawable.img4);
-
-        // title.setOnClickListener(new View.OnClickListener() {
-        //     @Override
-        //     public void onClick(View v) {
-        //         Log.d("Test", "click itemid:" + ("mNewsItem.getFeedItem().getUrl()"));
-        //         Intent browserIntent =
-        //                 new Intent(Intent.ACTION_VIEW, Uri.parse("mNewsItem.getFeedItem().getUrl()"));
-        //         mActivity.startActivity(browserIntent);
-        //     }
-        // });
     }
 
     void setCardClickListener(ItemClickListener itemClickListener) {
@@ -984,7 +983,7 @@ public class CardBuilderFeedCard {
                 FeedItemMetadata dealData = deal.data;
                 String offersCategory = deal.offersCategory;
                 itemData = deal.data;
-                setText(itemData, textView, type );
+                textView.setText(offersCategory);
                 // braveNewsItems.add(item.getDeal());
                 // braveNewsItems.add(deal.data);
                 Log.d("bn", "getfeed feed pages item type Deal: " + dealData.title);
@@ -1020,9 +1019,6 @@ public class CardBuilderFeedCard {
             case TIME:
                     textView.setText(itemData.relativeTimeDescription);
                     break;            
-            case CATEGORY:
-                    textView.setText(itemData.categoryName);
-                    break;
         }
     }
 
@@ -1038,8 +1034,14 @@ public class CardBuilderFeedCard {
                 byte[] imageByte = feedItemCard.getImageByte();
                 // byte[] imageByte = mNewsItem.getFeedItems().get(index).getImageByte();
                 if (imageByte != null){
-                        Bitmap decodedByte = BitmapFactory.decodeByteArray(imageByte, 0, imageByte.length);
-                        imageView.setImageBitmap(decodedByte);
+                        // Bitmap decodedByte = BitmapFactory.decodeByteArray(imageByte, 0, imageByte.length);
+                        // imageView.setImageBitmap(decodedByte);
+                        Glide.with(mActivity)
+                                .load(imageByte)
+                                .fitCenter()
+                                .transition(withCrossFade())
+                                .into(imageView);
+
                 }
         }
     }   
@@ -1055,14 +1057,16 @@ public class CardBuilderFeedCard {
 
         if (type == BUTTON_LAYOUT) {
             backgroundShape = new ShapeDrawable(new RoundRectShape(outerRadii, null, innerRadii));
-            backgroundShape.getPaint().setColor(
-                    mActivity.getResources().getColor(background)); // background color
+            // backgroundShape.getPaint().setColor(
+            //         mActivity.getResources().getColor(background)); // background color
             backgroundShape.getPaint().setStyle(Paint.Style.FILL); // Define background
             backgroundShape.getPaint().setAntiAlias(true);
             backgroundShape.setPadding(50, 10, 50, 10);
 
         } else if (type == CARD_LAYOUT) {
             backgroundShape = new ShapeDrawable(new RoundRectShape(outerRadii, null, innerRadii));
+            backgroundShape.getPaint().setStyle(Paint.Style.FILL); // Define background
+            backgroundShape.getPaint().setAntiAlias(true);
         }
 
         // Initialize an array of drawables

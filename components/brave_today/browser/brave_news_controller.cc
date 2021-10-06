@@ -170,17 +170,21 @@ void BraveNewsController::GetDisplayAd(GetDisplayAdCallback callback) {
   // some time later.
   if (!ads_service_) {
     VLOG(1) << "GetDisplayAd: no ads service";
+    ALOG("GetDisplayAd: no ads service ");
     std::move(callback).Run(nullptr);
   }
+  ALOG("GetDisplayAd: ads service ");
   auto on_ad_received = base::BindOnce(
     [](GetDisplayAdCallback callback, const bool success,
       const std::string& dimensions, const base::DictionaryValue& ad_data) {
       if (!success) {
         VLOG(1) << "GetDisplayAd: no ad";
+        ALOG("GetDisplayAd: no ad ");
         std::move(callback).Run(nullptr);
         return;
       }
       VLOG(1) << "GetDisplayAd: GOT ad";
+      ALOG("GetDisplayAd: Got ad ");
       // Convert to our mojom entity.
       // TODO(petemill): brave_ads seems to use mojom, perhaps we can receive
       // and send to callback the actual typed mojom struct from brave_ads?

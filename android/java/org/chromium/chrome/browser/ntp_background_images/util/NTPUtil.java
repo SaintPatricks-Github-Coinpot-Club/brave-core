@@ -65,6 +65,8 @@ import org.chromium.chrome.browser.util.PackageUtils;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.chrome.browser.brave_news.models.FeedItemCard;
+import org.chromium.chrome.browser.brave_news.models.FeedItemsCard;
 
 import org.chromium.brave_news.mojom.FeedItem;
 import org.chromium.brave_news.mojom.FeedItemMetadata;
@@ -92,35 +94,42 @@ public class NTPUtil {
     }
 
 
-    public static void showItemInfo(FeedItem feedItem, String id) {
-        switch(feedItem.which()){
-            case FeedItem.Tag.Article:
-                
-                Article article = feedItem.getArticle();
-                FeedItemMetadata articleData = article.data;
-                
-                Log.d("bn", id+" articleData: " + articleData.title);
-                break;
-            case FeedItem.Tag.PromotedArticle:
-                PromotedArticle promotedArticle = feedItem.getPromotedArticle();
-                FeedItemMetadata promotedArticleData = promotedArticle.data;
-                String creativeInstanceId = promotedArticle.creativeInstanceId;
-                // braveNewsItems.add(item.getPromotedArticle());
+    public static void showItemInfo(FeedItemsCard items, String id) {
 
-                Log.d("bn", id+" PromotedArticle: " + promotedArticleData.title);
-                // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type PromotedArticle creativeInstanceId: " + creativeInstanceId);
-                break;                                            
-            case FeedItem.Tag.Deal:
-                Deal deal = feedItem.getDeal();
-                FeedItemMetadata dealData = deal.data;
-                String offersCategory = deal.offersCategory;
+        for (FeedItemCard itemCard : items.getFeedItems()){
 
-                // braveNewsItems.add(item.getDeal());
-                // braveNewsItems.add(deal.data);
-                Log.d("bn", id+" Deal: " + dealData.title);
-                // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type Deal offersCategory: " + offersCategory); 
-                break;
-              // textView.setText(itemData.title);  
+            FeedItem feedItem = itemCard.getFeedItem();
+            Log.d("bn", id + " getImageByte: " + itemCard.getImageByte());
+            FeedItemMetadata itemMetaData = new FeedItemMetadata();
+            switch(feedItem.which()){
+                case FeedItem.Tag.Article:
+                    
+                    Article article = feedItem.getArticle();
+                    FeedItemMetadata articleData = article.data;
+                    
+                    Log.d("bn", id+" articleData: " + articleData.title);
+                    break;
+                case FeedItem.Tag.PromotedArticle:
+                    PromotedArticle promotedArticle = feedItem.getPromotedArticle();
+                    FeedItemMetadata promotedArticleData = promotedArticle.data;
+                    String creativeInstanceId = promotedArticle.creativeInstanceId;
+                    // braveNewsItems.add(item.getPromotedArticle());
+
+                    Log.d("bn", id+" PromotedArticle: " + promotedArticleData.title);
+                    // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type PromotedArticle creativeInstanceId: " + creativeInstanceId);
+                    break;                                            
+                case FeedItem.Tag.Deal:
+                    Deal deal = feedItem.getDeal();
+                    FeedItemMetadata dealData = deal.data;
+                    String offersCategory = deal.offersCategory;
+
+                    // braveNewsItems.add(item.getDeal());
+                    // braveNewsItems.add(deal.data);
+                    Log.d("bn", id+" Deal: " + dealData.title);
+                    // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type Deal offersCategory: " + offersCategory); 
+                    break;
+                  // textView.setText(itemData.title);  
+            }
         }
     }
 
