@@ -16,7 +16,7 @@ public class FeedItemsCard {
 
     private List<FeedItemCard> feedItems;
     private int cardType;
-
+    private byte[] imageByte;
 
     public FeedItemsCard() {
     }
@@ -38,12 +38,20 @@ public class FeedItemsCard {
         this.cardType = cardType;
     }
 
+    public byte[] getImageByte() {
+        return imageByte;
+    }
+
+    public void setImageByte(byte[] imageByte) {
+        this.imageByte = imageByte;
+    }
 
     @Override
     public String toString() {
         return "FeedItemsCard{" +
                 "feedItems=" + feedItems +
                 ", cardType=" + cardType +
+                ", imageByte=" + Arrays.toString(imageByte) +
                 '}';
     }
 }

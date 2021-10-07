@@ -51,8 +51,8 @@
     <color name="brave_rewards_theme_color">#392DD1</color>
 
     <!-- Brave news colors -->
-    <color name="card_background">#DC353535</color>
-    <!-- <color name="card_background">#35353578</color> -->
+    <!-- <color name="card_background">#DC353535</color> -->
+    <color name="card_background">#fff</color>
     <color name="card_background_solid">#353535</color>
     <color name="turn_on_button">#737ADE</color>
     <color name="news_text_color">@android:color/white</color>
