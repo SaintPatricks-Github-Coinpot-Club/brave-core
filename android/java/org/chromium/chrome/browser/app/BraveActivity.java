@@ -22,7 +22,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.graphics.Bitmap;
-
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -543,7 +543,7 @@ public abstract class BraveActivity<C extends ChromeActivityComponent> extends C
         }
         checkSetDefaultBrowserModal();
         checkFingerPrintingOnUpgrade();
-        
+
         if (BraveVpnUtils.isBraveVpnFeatureEnable()) {
             ConnectivityManager connectivityManager =
                     (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -703,7 +703,6 @@ public abstract class BraveActivity<C extends ChromeActivityComponent> extends C
         // true);
 
         scrollView.setBackground(new BitmapDrawable(bgWallpaper));
->>>>>>> [Android] refactors card creation in a separate class
     }
 
     private void checkFingerPrintingOnUpgrade() {
