@@ -12,6 +12,7 @@ def main():
     brave_path = replace_cc_arg(args)
     if 'CC_WRAPPER' in os.environ:
         args = [os.environ['CC_WRAPPER']] + args
+    print(args)
     cc_retcode = subprocess.call(args)
     # To check the redirected file timestamp, it should be marked as dependency for ninja.
     # Linux/MacOS gcc deps format includes this file properly.
