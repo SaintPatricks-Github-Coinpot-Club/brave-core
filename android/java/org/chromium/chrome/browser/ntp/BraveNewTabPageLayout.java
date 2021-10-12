@@ -18,6 +18,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -29,6 +30,7 @@ import android.text.Spannable;
 import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.util.Pair;
 import android.view.ContextMenu;
@@ -71,6 +73,18 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.AsyncTask;
+import org.chromium.brave_news.mojom.Article;
+import org.chromium.brave_news.mojom.BraveNewsController;
+import org.chromium.brave_news.mojom.CardType;
+import org.chromium.brave_news.mojom.Deal;
+import org.chromium.brave_news.mojom.Feed;
+import org.chromium.brave_news.mojom.FeedItem;
+import org.chromium.brave_news.mojom.FeedItemMetadata;
+import org.chromium.brave_news.mojom.FeedPage;
+import org.chromium.brave_news.mojom.FeedPageItem;
+import org.chromium.brave_news.mojom.Image;
+import org.chromium.brave_news.mojom.PromotedArticle;
+import org.chromium.brave_news.mojom.Publisher;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.BraveAdsNativeHelper;
 import org.chromium.chrome.browser.BraveRewardsHelper;
@@ -81,13 +95,12 @@ import org.chromium.chrome.browser.app.BraveActivity;
 import org.chromium.chrome.browser.brave_news.BraveNewsAdapter;
 import org.chromium.chrome.browser.brave_news.BraveNewsAdapterFeed;
 import org.chromium.chrome.browser.brave_news.BraveNewsAdapterFeedCard;
+import org.chromium.chrome.browser.brave_news.BraveNewsControllerFactory;
 import org.chromium.chrome.browser.brave_news.BraveNewsUtils;
+import org.chromium.chrome.browser.brave_news.models.NewsFeedResponse;
+import org.chromium.chrome.browser.brave_news.models.FeedItemCard;
+import org.chromium.chrome.browser.brave_news.models.FeedItemsCard;
 import org.chromium.chrome.browser.brave_news.models.NewsItem;
-import org.chromium.brave_news.mojom.Feed;
-import org.chromium.brave_news.mojom.Article;
-import org.chromium.brave_news.mojom.FeedItemMetadata;
-import org.chromium.brave_news.mojom.Publisher;
-
 import org.chromium.chrome.browser.brave_stats.BraveStatsUtil;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
@@ -119,14 +132,11 @@ import org.chromium.chrome.browser.offlinepages.RequestCoordinatorBridge;
 import org.chromium.chrome.browser.onboarding.OnboardingPrefManager;
 import org.chromium.chrome.browser.preferences.BravePref;
 import org.chromium.chrome.browser.preferences.BravePrefServiceBridge;
+import org.chromium.chrome.browser.preferences.BravePreferenceKeys;
+import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 import org.chromium.chrome.browser.profiles.Profile;
-
 import org.chromium.chrome.browser.settings.BraveNewsPreferences;
 import org.chromium.chrome.browser.settings.SettingsLauncherImpl;
-import org.chromium.brave_news.mojom.BraveNewsController;
-import org.chromium.chrome.browser.brave_news.BraveNewsControllerFactory;
-import org.chromium.mojo.bindings.ConnectionErrorHandler;
-import org.chromium.mojo.system.MojoException;
 import org.chromium.chrome.browser.suggestions.tile.TileGroup;
 import org.chromium.chrome.browser.sync.settings.BraveManageSyncSettings;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
@@ -147,8 +157,11 @@ import org.chromium.components.browser_ui.settings.SettingsLauncher;
 import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.user_prefs.UserPrefs;
+import org.chromium.mojo.bindings.ConnectionErrorHandler;
+import org.chromium.mojo.system.MojoException;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.widget.Toast;
+import org.chromium.url.mojom.Url;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -157,34 +170,22 @@ import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import org.chromium.chrome.browser.brave_news.models.FeedItemCard;
-import org.chromium.chrome.browser.brave_news.models.FeedItemsCard;
-import org.chromium.brave_news.mojom.FeedPage;
-import org.chromium.brave_news.mojom.FeedPageItem;
-import org.chromium.brave_news.mojom.FeedItem;
-import org.chromium.brave_news.mojom.Article;
-import org.chromium.brave_news.mojom.PromotedArticle;
-import org.chromium.brave_news.mojom.Deal;
-import org.chromium.brave_news.mojom.CardType;
-import org.chromium.brave_news.mojom.Image;
-import org.chromium.url.mojom.Url;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
-import android.util.Base64;
 
 public class BraveNewTabPageLayout
         extends NewTabPageLayout implements CryptoWidgetBottomSheetDialogFragment
                                                     .CryptoWidgetBottomSheetDialogDismissListener,
-                                            BraveNewsAdapter.RecycleItemClickListener,
-                                            BraveNewsAdapterFeed.RecycleItemClickListener,
                                             BraveNewsAdapterFeedCard.RecycleItemClickListener,
                                             ConnectionErrorHandler {
     private static final String TAG = "BraveNewTabPageView";
     private static final String BRAVE_BINANCE = "https://brave.com/binance/";
     private static final String BRAVE_REF_URL = "https://brave.com/r/";
+    private static final int ITEMS_PER_PAGE = 18;
+    private static final int MINIMUM_VISIBLE_HEIGHT_THRESHOLD = 50;
 
     private View mBraveStatsViewFallBackLayout;
 
@@ -237,11 +238,11 @@ public class BraveNewTabPageLayout
     private ImageView optinClose;
     private CopyOnWriteArrayList<NewsItem> newsItems = new CopyOnWriteArrayList<NewsItem>();
     private CopyOnWriteArrayList<FeedItem> newsItemsFeed = new CopyOnWriteArrayList<FeedItem>();
-    // private CopyOnWriteArrayList<FeedItemCard> newsItemsFeedCard = new CopyOnWriteArrayList<FeedItemCard>();
     private CopyOnWriteArrayList<FeedItemsCard> newsItemsFeedCard = new CopyOnWriteArrayList<FeedItemsCard>();
+    private CopyOnWriteArrayList<FeedItemsCard> newsRecyclerItems = new CopyOnWriteArrayList<FeedItemsCard>();
     private LinearLayout container;
     private RecyclerView recyclerView;
-    private NestedScrollView nestedScrollView;
+    // private NestedScrollView nestedScrollView;
     private TextView loading;
     private View loadingView;
     private View feedSpinner;
@@ -252,9 +253,22 @@ public class BraveNewTabPageLayout
     private NTPImage ntpImageGlobal;
     private boolean settingsBarIsClickable;
     private BraveNewsController mBraveNewsController;
-
+    private BraveNewsUtils braveNewsUtils;
 
     private CompositorViewHolder compositorView;
+
+    private long startCardViewTime;
+    private long endCardViewTime;
+    private String creativeInstanceId;
+    private String uuid;
+    //@TODO alex make an enum
+    private String cardType;
+    private int itemPosition;
+    private FeedItemsCard visibleCard;
+    private boolean isNewsOn;
+    private boolean isShowOptin;
+    private boolean isShowNewsOn;
+    private int viewedNewsCardsCount;   
 
     public BraveNewTabPageLayout(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -263,12 +277,13 @@ public class BraveNewTabPageLayout
         mBinanceNativeWorker = BinanceNativeWorker.getInstance();
         mNTPBackgroundImagesBridge.setNewTabPageListener(newTabPageListener);
         mDatabaseHelper = DatabaseHelper.getInstance();
-        Log.d("BN", "lifecycle init settingsBar3:" + settingsBar);
+        Log.d("BN", "persistencetest init settingsBar3:" + settingsBar);
     }
 
     @Override
     protected void onFinishInflate() {
         super.onFinishInflate();
+        Log.d("bn", "persistencetest onFinishInflate");
         ntpWidgetLayout = findViewById(R.id.ntp_widget_layout);
         indicatorLayout = findViewById(R.id.indicator_layout);
         ntpWidgetViewPager = findViewById(R.id.ntp_widget_view_pager);
@@ -276,6 +291,14 @@ public class BraveNewTabPageLayout
         ntpWidgetAdapter.setNTPWidgetListener(ntpWidgetListener);
         ntpWidgetViewPager.setAdapter(ntpWidgetAdapter);
         Log.d("BN", "lifecycle init settingsBar4:" + settingsBar);
+
+        SharedPreferences sharedPreferences = ContextUtils.getAppSharedPreferences();
+
+        isNewsOn = sharedPreferences.getBoolean(BraveNewsPreferences.PREF_TURN_ON_NEWS, false);
+        isShowOptin = sharedPreferences.getBoolean(BraveNewsPreferences.PREF_SHOW_OPTIN, false);
+        isShowNewsOn = sharedPreferences.getBoolean(BraveNewsPreferences.PREF_SHOW_NEWS, false);
+
+
         ntpWidgetViewPager.addOnPageChangeListener(new ViewPager.OnPageChangeListener() {
             @Override
             public void onPageScrolled(
@@ -298,6 +321,49 @@ public class BraveNewTabPageLayout
         showWidgetBasedOnOrder();
         NTPUtil.showBREBottomBanner(this);
         InitBraveNewsController();
+        braveNewsUtils = new BraveNewsUtils(mActivity);
+
+        boolean isFeedLoaded = BraveActivity.getBraveActivity().isLoadedFeed();
+        CopyOnWriteArrayList<FeedItemsCard> existingNewsFeedObject  = BraveActivity.getBraveActivity().getNewsItemsFeedCards();
+        int prevScrollPosition = BraveActivity.getBraveActivity().getNewsFeedScrollPosition();
+
+        Log.d("bn", "    d:"+isFeedLoaded+" prevScrollPosition:"+prevScrollPosition+" existingNewsFeedObject:"+existingNewsFeedObject);
+
+    if (isNewsOn && isShowOptin) {
+        if (!isFeedLoaded){
+            Log.d("bn", "persistencetest onFinishInflate  feed not loaded:");
+            SharedPreferencesManager.getInstance().writeInt(
+                            BravePreferenceKeys.BRAVE_NEWS_CARDS_VIEWED, 0);
+            getFeed();
+            // existingNewsFeedObject = newsItemsFeedCard;
+            // BraveActivity.getBraveActivity().setNewsItemsFeedCard(existingNewsFeedObject);
+        } else {
+            if (existingNewsFeedObject != null){
+                newsItemsFeedCard = null;
+                newsItemsFeedCard = existingNewsFeedObject;
+            }
+            Log.d("bn", "persistencetest onFinishInflate feed loaded:" +newsItemsFeedCard.size() + " adapterFeedCard:"+ adapterFeedCard + " prevScrollPosition:"+ prevScrollPosition + " recyclerview:"+recyclerView);
+        }
+    }
+
+
+        if (BraveActivity.getBraveActivity() != null) {
+            Tab tab = BraveActivity.getBraveActivity().getActivityTab();
+            if (tab != null && tab.getUrl().getSpec() != null
+                    && UrlUtilities.isNTPUrl(tab.getUrl().getSpec())) {
+                BraveActivity.getBraveActivity().inflateNewsSettingsBar();
+            } else {
+                Log.d("bn", "inflateNewsSettingsBar else remove move it");
+                BraveActivity.getBraveActivity().removeSetttingsBar();
+            } 
+            // BraveActivity.getBraveActivity().inflateNewsSettingsBar();
+            Log.d("bn", "inflatedSettingsBarLayout: " + BraveActivity.getBraveActivity().inflatedSettingsBarLayout + " compositorview:" + BraveActivity.getBraveActivity().compositorView) ;
+        }
+        if (recyclerView != null){
+            Log.d("bn", "recyclerView set y 1");
+            recyclerView.setY(100.0f);
+        } 
+        // initNews();
     }
 
     private void showFallBackNTPLayout() {
@@ -566,6 +632,23 @@ public class BraveNewTabPageLayout
         mBinanceNativeWorker.AddObserver(mBinanaceObserver);
         startTimer();
         initNews();
+        if (BraveActivity.getBraveActivity() != null) {
+            Tab tab = BraveActivity.getBraveActivity().getActivityTab();
+            if (tab != null && tab.getUrl().getSpec() != null
+                    && UrlUtilities.isNTPUrl(tab.getUrl().getSpec())) {
+                BraveActivity.getBraveActivity().inflateNewsSettingsBar();
+            } else {
+                Log.d("bn", "inflateNewsSettingsBar else remove move it");
+                BraveActivity.getBraveActivity().removeSetttingsBar();
+            } 
+            // BraveActivity.getBraveActivity().inflateNewsSettingsBar();
+            Log.d("bn", "inflatedSettingsBarLayout: " + BraveActivity.getBraveActivity().inflatedSettingsBarLayout + " compositorview:" + BraveActivity.getBraveActivity().compositorView) ;
+        } 
+        if (recyclerView != null){
+            Log.d("bn", "recyclerView set y 2");
+            recyclerView.setY(-150.0f);
+        } 
+        // inflateNewsSettingsBar();
     }
 
     @Override
@@ -628,36 +711,6 @@ public class BraveNewTabPageLayout
         }
     }
 
-    // public int correctImageCreditLayoutTopPosition(){
-    //     DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-    //     float dpHeight = displayMetrics.heightPixels / displayMetrics.density;
-    //     int pxHeight = dpToPx(mActivity, dpHeight);
-
-    //     boolean isTablet = ConfigurationUtils.isTablet(mActivity);
-    //     boolean isLandscape = ConfigurationUtils.isLandscape(mActivity);
-    //     int imageCreditCorrection = isLandscape ? (int) (pxHeight * 0.46) : (int) (pxHeight *
-    //     0.70); if (ntpImageGlobal instanceof BackgroundImage) {
-    //         if (!isTablet ){
-    //             // imageCreditCorrection = isLandscape ? (int) (dpHeight - 250) : (int) (dpHeight
-    //             + 150); imageCreditCorrection = isLandscape ? (int) (pxHeight * 0.12) : (int)
-    //             (pxHeight * 0.45);
-    //         }
-    //     } else {
-    //         if (!isTablet ){
-    //             Log.d("bn", "phone sponsored image dpHeight:"+dpHeight);
-    //             // imageCreditCorrection = isLandscape ? (int) (dpHeight - 350) : (int) (dpHeight
-    //             - 120); imageCreditCorrection = isLandscape ? (int) (pxHeight * 0.02) : (int)
-    //             (pxHeight * 0.30);
-    //         } else {
-    //             Log.d("bn", "tablet sponsored image dpHeight:"+dpHeight);
-    //             // imageCreditCorrection = isLandscape ? (int) (dpHeight - 320) : (int) (dpHeight
-    //             + 150); imageCreditCorrection = isLandscape ? (int) (pxHeight * 0.28) : (int)
-    //             (pxHeight * 0.56);
-
-    //         }
-    //     }
-    // }
-
     // corrects position of image credit and for the loading spinner. Used when News is active
     private void correctPosition() {
         DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
@@ -667,9 +720,6 @@ public class BraveNewTabPageLayout
         boolean isTablet = ConfigurationUtils.isTablet(mActivity);
         boolean isLandscape = ConfigurationUtils.isLandscape(mActivity);
 
-        // LinearLayout.LayoutParams linearLayoutParams = new
-        // LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-        // LinearLayout.LayoutParams.WRAP_CONTENT);
         LinearLayout.LayoutParams linearLayoutParams =
                 (LinearLayout.LayoutParams) imageCreditLayout.getLayoutParams();
         FrameLayout.LayoutParams feedSpinnerParams =
@@ -683,22 +733,22 @@ public class BraveNewTabPageLayout
         // (0.10 * mDeviceWidth) : 40; int imageCreditCorrection = isLandscape ? (int) (dpHeight -
         // 50) : (int) (dpHeight + 450);
 
-        Log.d("bn",
-                "onload - changing the layout positions before top marign :"
-                        + linearLayoutParams.topMargin
-                        + " feedSpinnerParams.topMargin:" + feedSpinnerParams.topMargin);
+        // Log.d("bn",
+        //         "onload - changing the layout positions before top marign :"
+        //                 + linearLayoutParams.topMargin
+        //                 + " feedSpinnerParams.topMargin:" + feedSpinnerParams.topMargin);
 
-        Log.d("bn", "margintop dpHeight:" + dpHeight);
-        Log.d("bn", "margintop dptopx dpHeight:" + dpToPx(mActivity, dpHeight));
-        Log.d("bn", "margintop displayMetrics.heightPixels:" + displayMetrics.heightPixels);
-        Log.d("bn", "margintop bottomToolbar:" + bottomToolbar);
+        // Log.d("bn", "margintop dpHeight:" + dpHeight);
+        // Log.d("bn", "margintop dptopx dpHeight:" + dpToPx(mActivity, dpHeight));
+        // Log.d("bn", "margintop displayMetrics.heightPixels:" + displayMetrics.heightPixels);
+        // Log.d("bn", "margintop bottomToolbar:" + bottomToolbar);
         // Log.d("bn", "margintop bottomToolbar:" + bottomToolbar.getTop());
-        Log.d("bn",
-                "margintop displayMetrics.heightPixels dpToPx:"
-                        + dpToPx(mActivity, displayMetrics.heightPixels));
-        Log.d("bn", "margintop 150 dpToPx:" + dpToPx(mActivity, 150));
-        Log.d("bn", "margintop 250 dpToPx:" + dpToPx(mActivity, 250));
-        Log.d("bn", "margintop 350 dpToPx:" + dpToPx(mActivity, 350));
+        // Log.d("bn",
+        //         "margintop displayMetrics.heightPixels dpToPx:"
+        //                 + dpToPx(mActivity, displayMetrics.heightPixels));
+        // Log.d("bn", "margintop 150 dpToPx:" + dpToPx(mActivity, 150));
+        // Log.d("bn", "margintop 250 dpToPx:" + dpToPx(mActivity, 250));
+        // Log.d("bn", "margintop 350 dpToPx:" + dpToPx(mActivity, 350));
         // int imageCreditCorrection = isLandscape ? (int) (pxHeight * 0.46) : (int) (pxHeight *
         // 0.70); if (ntpImageGlobal instanceof BackgroundImage) {
         //     if (!isTablet ){
@@ -721,96 +771,23 @@ public class BraveNewTabPageLayout
         //     }
         // }
 
-        int imageCreditCorrection = NTPUtil.correctImageCreditLayoutTopPosition(ntpImageGlobal);
+        int imageCreditCorrection = NTPUtil.correctImageCreditLayoutTopPosition(ntpImageGlobal) - 140;
 
         linearLayoutParams.setMargins(0, imageCreditCorrection, 0, 0);
-        Log.d("bn", "margintop imageCreditCorrection applied:" + imageCreditCorrection);
+        Log.d("bn", "margintop imageCreditCorrection applied:" + imageCreditLayout.getHeight());
         Log.d("bn", "margintop imageCreditCorrection:" + imageCreditLayout.getTop());
         // Log.d("bn", "margintop imageCreditCorrection:"+imageCreditLayout.getTop());
         imageCreditLayout.setLayoutParams(linearLayoutParams);
         int imageCreditLayoutBottom = imageCreditLayout.getBottom();
         feedSpinnerParams.topMargin = (int) (dpHeight
-                - 50); // imageCreditLayoutBottom;// imageCreditLayout.getBottom() + 20;
+                - 30); // imageCreditLayoutBottom;// imageCreditLayout.getBottom() + 20;
         feedSpinner.setLayoutParams(feedSpinnerParams);
     }
 
-
-
-    // private void processFeedItem(FeedItem item, FeedItemCard feedItemCard){
-
-    //     FeedItemMetadata itemMetaData = new FeedItemMetadata();
-    //     switch(item.which()){
-    //         case FeedItem.Tag.Article:
-                
-    //             Article article = item.getArticle();
-    //             FeedItemMetadata articleData = article.data;
-    //             itemMetaData = article.data;
-
-    //             // braveNewsItems.add(article.data);
-               
-
-    //             Log.d("bn", "getfeed feed pages type articleData: " + articleData.title);
-    //             Log.d("bn", "getfeed feed pages type articleData: " + articleData.categoryName);
-    //             break;
-    //         case FeedItem.Tag.PromotedArticle:
-    //             PromotedArticle promotedArticle = item.getPromotedArticle();
-    //             FeedItemMetadata promotedArticleData = promotedArticle.data;
-    //             String creativeInstanceId = promotedArticle.creativeInstanceId;
-    //             // braveNewsItems.add(item.getPromotedArticle());
-    //             // braveNewsItems.add(promotedArticle.data);
-    //             itemMetaData = promotedArticle.data;
-    //             Log.d("bn", "getfeed feed pages item type PromotedArticle: " + promotedArticleData.title);
-    //             Log.d("bn", "getfeed feed pages item type PromotedArticle: " + promotedArticleData.categoryName);
-    //             // Log.d("bn", "getfeed feed pages item type PromotedArticle creativeInstanceId: " + creativeInstanceId);
-    //             break;                                            
-    //         case FeedItem.Tag.Deal:
-    //             Deal deal = item.getDeal();
-    //             FeedItemMetadata dealData = deal.data;
-    //             String offersCategory = deal.offersCategory;
-    //             // braveNewsItems.add(item.getDeal());
-    //             // braveNewsItems.add(deal.data);
-    //             itemMetaData = deal.data;
-    //             Log.d("bn", "getfeed feed pages item type Deal: " + dealData.title);
-    //             Log.d("bn", "getfeed feed pages item type Deal: " + dealData.categoryName);
-    //             // Log.d("bn", "getfeed feed pages item type Deal offersCategory: " + offersCategory); 
-    //             break;
-    //     }
-
-    //     Url imageUrl = null;
-    //     switch(itemMetaData.image.which()){
-            
-    //         case Image.Tag.PaddedImageUrl:
-    //             imageUrl = itemMetaData.image.getPaddedImageUrl();
-    //             if (imageUrl != null){
-    //                 Log.d("bn", "createfeed feed pages item image padded: "+imageUrl.url);
-    //             }
-    //             break;
-    //         case Image.Tag.ImageUrl:
-    //             imageUrl = itemMetaData.image.getImageUrl();
-    //             if (imageUrl != null){
-    //                 Log.d("bn", "createfeed feed pages item image: "+imageUrl.url);
-    //             }
-    //             break;
-    //     }
-
-    //     Log.d("bn", "createfeed feed pages item getting for imageUrl:"+imageUrl);
-    //     mBraveNewsController.getImageData(imageUrl, imageData -> {
-    //         Log.d("bn", "createfeed feed pages item getting image data:"+imageData);
-    //         if (imageData != null){
-    //             // Log.d("bn", "createfeed feed pages image imageData1: "+imageData);
-    //             // String imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
-    //             feedItemCard.setImageByte(imageData);
-    //             // newsItemsFeedCard.add(feedItemCard);
-    //         }
-    //     });
-    //     newsItemsFeedCard.add(feedItemCard);
-
-    // }
-
-
     private void logFeedItem(FeedItemsCard items, String id){
-
-        Log.d("bn", id + " type " + items.getCardType() +" size: " +items.getFeedItems().size());
+        Log.d("bn",
+                id + " type " + items.getCardType() + " size: " + items.getFeedItems().size()
+                        + "uuid:" + items.getUuid() + " isViewStatSent:" + items.isViewStatSent());
 
         for (FeedItemCard itemCard : items.getFeedItems()){
 
@@ -828,7 +805,7 @@ public class BraveNewTabPageLayout
                    
 
                     Log.d("bn", id + " articleData: " + articleData.title);
-                    Log.d("bn", id + " articleData categoryName: " + articleData.categoryName);
+                    // Log.d("bn", id + " articleData categoryName: " + articleData.categoryName);
                     break;
                 case FeedItem.Tag.PromotedArticle:
                     PromotedArticle promotedArticle = item.getPromotedArticle();
@@ -838,8 +815,9 @@ public class BraveNewTabPageLayout
                     // braveNewsItems.add(promotedArticle.data);
                     itemMetaData = promotedArticle.data;
                     Log.d("bn", id+" PromotedArticle: " + promotedArticleData.title);
-                    Log.d("bn", id+" PromotedArticle categoryName: " + promotedArticleData.categoryName);
-                    // Log.d("bn", "getfeed feed pages item type PromotedArticle creativeInstanceId: " + creativeInstanceId);
+                    // Log.d("bn", id+" PromotedArticle categoryName: " +
+                    // promotedArticleData.categoryName); Log.d("bn", "getfeed feed pages item type
+                    // PromotedArticle creativeInstanceId: " + creativeInstanceId);
                     break;                                            
                 case FeedItem.Tag.Deal:
                     Deal deal = item.getDeal();
@@ -849,8 +827,9 @@ public class BraveNewTabPageLayout
                     // braveNewsItems.add(deal.data);
                     itemMetaData = deal.data;
                     Log.d("bn", id+" Deal: " + dealData.title);
-                    Log.d("bn", id+" Deal categoryName: " + dealData.categoryName);
-                    // Log.d("bn", "getfeed feed pages item type Deal offersCategory: " + offersCategory); 
+                    // Log.d("bn", id+" Deal categoryName: " + dealData.categoryName);
+                    // Log.d("bn", "getfeed feed pages item type Deal offersCategory: " +
+                    // offersCategory);
                     break;
             }
         }
@@ -861,45 +840,6 @@ public class BraveNewTabPageLayout
     final AtomicInteger check = new AtomicInteger(0);
     ExecutorService executors = Executors.newFixedThreadPool(1);
 
-    public void doSomeTaskAsync() {
-        
-        Runnable runnable = new Runnable() {
-            @Override
-            public void run() {
-                // your async code goes here.
-                try {
-                    Log.d("bn", " thread: - 1");
-                    Thread.sleep(10000);
-                    for (int i=0; i< 30; i++){
-                        Log.d("bn", " thread: - interrating " + i);
-                    }
-
-                    // create message and pass any object here doesn't matter
-                    // for a simple example I have used a simple string
-                    Log.d("bn", " thread: - 2");
-                    String msg = "My Message!";
-                    doSomethingOnUi(msg);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        executors.submit(runnable);
-    }
-
-    private void doSomethingOnUi(Object response) {
-        Log.d("bn", " thread: - 3");
-        Handler uiThread = new Handler(Looper.getMainLooper());
-        uiThread.post(new Runnable() {
-            @Override
-            public void run() {
-                Log.d("bn", " thread: - 4");
-                Log.d("bn", " thread: - 4 result: " + response);
-                // now update your UI here
-                // cast response to whatever you specified earlier
-            }
-        });
-    }
 
     private Url getImage(FeedItemMetadata itemMetaData) {
         Url imageUrlTemp = null;
@@ -924,13 +864,521 @@ public class BraveNewTabPageLayout
         return finalImageUrl;
     }
 
+
+    private void getFeedResponse(
+            final RepositoryCallback<List<FeedItemsCard>> callback
+    ) {
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+        executor.execute(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    NewsFeedResponse<List<FeedItemsCard>> result = getFeedItemsResponse();
+                    callback.onComplete(result);
+                } catch (Exception e) {
+                    NewsFeedResponse<List<FeedItemsCard>> errorResult = new NewsFeedResponse.ResponseError<>(e);
+                    callback.onComplete(errorResult);
+                }
+            }
+        });
+    }
+
+    private NewsFeedResponse<List<FeedItemsCard>> getFeedItemsResponse(){
+        mBraveNewsController.getFeed((feed) -> {
+            // ExecutorService executor = Executors.newSingleThreadExecutor();
+            // Handler handler = new Handler(Looper.getMainLooper());
+
+            // executor.execute(() -> {
+            //     //Background work here
+            //     Log.d("bn", "executor background work");
+
+
+                FeedItemsCard featuredItemsCard = new FeedItemsCard();
+
+                // process Featured item
+                FeedItem featuredItem = feed.featuredItem;
+
+                FeedItemMetadata featuredItemMetaData = new FeedItemMetadata();
+                Article featuredArticle = featuredItem.getArticle();
+                FeedItemMetadata featuredArticleData = featuredArticle.data;
+
+                FeedItemCard featuredItemCard = new FeedItemCard();
+                List<FeedItemCard> featuredCardItems = new ArrayList<>();
+
+                featuredItemsCard.setCardType(CardType.HEADLINE);
+                featuredItemsCard.setUuid(UUID.randomUUID().toString());
+
+                featuredItemCard.setFeedItem(featuredItem);
+                featuredCardItems.add(featuredItemCard);
+                // Url featuredImageUrl = getImage(featuredArticleData);
+                // mBraveNewsController.getImageData(featuredImageUrl, imageData -> {
+                //     if (imageData != null){
+                //         featuredItemCard.setImageByte(imageData);
+                //     }
+                // });
+
+                featuredItemsCard.setFeedItems(featuredCardItems);
+                newsItemsFeedCard.add(featuredItemsCard);
+
+                // start page loop
+                for (FeedPage page : feed.pages) {
+                   
+                       for (FeedPageItem cardData : page.items){
+                            // Log.d("bn", "getfeed feed pages: " + cardData);
+
+                            // Log.d("bn", "createfeed feed pages items: " + cardData.items);
+                            // Log.d("bn", "createfeed feed pages items size: " + cardData.items.length);
+
+                            if (cardData.cardType == CardType.DISPLAY_AD){
+                                Log.d("bn",
+                                        "createfeed feed pages type: "
+                                                + cardData.cardType);
+                                
+                                mBraveNewsController.getDisplayAd( adData -> {
+                                    Log.d("bn", "displayad:" + adData);
+                                    if (adData != null){
+                                        Log.d("bn", "displayad:" + adData.toString());
+                                        Log.d("bn", "displayad:" + adData.dimensions);
+                                        Log.d("bn", "displayad:" + adData.title);
+                                        Log.d("bn", "displayad:" + adData.description);
+                                        Log.d("bn", "displayad:" + adData.targetUrl);
+                                        Log.d("bn", "displayad:" + adData.ctaText);
+                                        Url imageUrlTemp = null;
+                                        switch(adData.image.which()){
+                                            case Image.Tag.PaddedImageUrl:
+                                                imageUrlTemp = adData.image.getPaddedImageUrl();
+                                                break;
+                                            case Image.Tag.ImageUrl:
+                                                imageUrlTemp = adData.image.getImageUrl();
+                                                break;
+                                        }
+
+                                        final Url adImageUrl = imageUrlTemp;
+                                        mBraveNewsController.getImageData(adImageUrl, imageData -> {
+                                            if (imageData != null){
+                                                // featuredItemCard.setImageByte(imageData);
+                                            }
+                                        }); 
+                                    } else {
+                                        
+                                    }
+                                });
+
+                            }
+
+                            FeedItemsCard feedItemsCard = new FeedItemsCard();
+                            
+                            feedItemsCard.setCardType(cardData.cardType);
+                            feedItemsCard.setUuid(UUID.randomUUID().toString());
+                            List<FeedItemCard> cardItems = new ArrayList<>();
+                            for (FeedItem item : cardData.items){
+                                
+                                // Log.d("bn", "createfeed feed pages item: " + item);
+                                // newsItemsFeed.add(item);
+
+                                FeedItemMetadata itemMetaData = new FeedItemMetadata();
+                                FeedItemCard feedItemCard = new FeedItemCard();
+                                feedItemCard.setFeedItem(item);
+                                // feedItemCard.setCardType(cardData.cardType);
+
+                                cardItems.add(feedItemCard);
+                                  
+                                switch(item.which()){
+                                    case FeedItem.Tag.Article:
+                                        
+                                        Article article = item.getArticle();
+                                        FeedItemMetadata articleData = article.data;
+                                        itemMetaData = article.data;
+
+                                        // braveNewsItems.add(article.data);
+
+                                        // Log.d("bn", "getfeed feed pages type
+                                        // articleData: " + articleData.title);
+                                        // Log.d("bn", "getfeed feed pages type
+                                        // articleData: " + articleData.categoryName);
+                                        break;
+                                    case FeedItem.Tag.PromotedArticle:
+                                        PromotedArticle promotedArticle = item.getPromotedArticle();
+                                        FeedItemMetadata promotedArticleData = promotedArticle.data;
+                                        String creativeInstanceId = promotedArticle.creativeInstanceId;
+                                        // braveNewsItems.add(item.getPromotedArticle());
+                                        // braveNewsItems.add(promotedArticle.data);
+                                        itemMetaData = promotedArticle.data;
+                                        // Log.d("bn", "getfeed feed pages item type
+                                        // PromotedArticle: " +
+                                        // promotedArticleData.title); Log.d("bn",
+                                        // "getfeed feed pages item type
+                                        // PromotedArticle: " +
+                                        // promotedArticleData.categoryName);
+                                        // Log.d("bn", "getfeed feed pages item type
+                                        // PromotedArticle creativeInstanceId: " +
+                                        // creativeInstanceId);
+                                        break;                                            
+                                    case FeedItem.Tag.Deal:
+                                        Deal deal = item.getDeal();
+                                        FeedItemMetadata dealData = deal.data;
+                                        String offersCategory = deal.offersCategory;
+                                        // braveNewsItems.add(item.getDeal());
+                                        // braveNewsItems.add(deal.data);
+                                        itemMetaData = deal.data;
+                                        // Log.d("bn", "getfeed feed pages item type
+                                        // Deal: " + dealData.title); Log.d("bn",
+                                        // "getfeed feed pages item type Deal: " +
+                                        // dealData.categoryName); Log.d("bn", "getfeed
+                                        // feed pages item type Deal: " +
+                                        // dealData.description); Log.d("bn", "getfeed
+                                        // feed pages item type Deal: " +
+                                        // dealData.publisherName); Log.d("bn", "getfeed
+                                        // feed pages item type Deal offersCategory: " +
+                                        // offersCategory);
+                                        break;
+                                }
+
+                                Url imageUrlTemp = null;
+                                switch(itemMetaData.image.which()){
+                                    
+                                    case Image.Tag.PaddedImageUrl:
+                                        imageUrlTemp = itemMetaData.image.getPaddedImageUrl();
+                                        if (imageUrlTemp != null){
+                                            // Log.d("bn", "createfeed feed pages item image padded: "+imageUrlTemp.url);
+                                        }
+                                        break;
+                                    case Image.Tag.ImageUrl:
+                                        imageUrlTemp = itemMetaData.image.getImageUrl();
+                                        if (imageUrlTemp != null){
+                                            // Log.d("bn", "createfeed feed pages item image: "+imageUrlTemp.url);
+                                        }
+                                        break;
+                                }
+
+                                final Url imageUrl = imageUrlTemp;
+
+                                // Log.d("bn", "thread imagesbeforeGet - "+i.get());  
+                                // 
+                                // if (index.get() < 1) { 
+                                    // mBraveNewsController.getImageData(imageUrl, imageData -> {
+                                    //     // Log.d("bn", "thread images processing - "+i.get());
+                                    //     // Log.d("bn", "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
+                                    //     if (imageData != null){
+                                    //         feedItemCard.setImageByte(imageData);
+                                    //         // newsItemsFeedCard.add(feedItemCard);
+                                    //     }
+                                    // });        
+                                // }                                                
+                                // Log.d("bn", "thread imagesafter - "+i.get());
+
+
+                                feedItemsCard.setFeedItems(cardItems);
+                                    
+                            }                            
+                            newsItemsFeedCard.add(feedItemsCard);
+                        }
+                    //}
+                    // index.getAndIncrement();    
+                }//end page loop
+        
+            // i.getAndIncrement();
+            // Log.d("bn", "thread 3 - "+i.get());
+        });
+
+        Log.d("bn", "executortest newsItemsFeedCard.size(): " + newsItemsFeedCard.size());
+        return new NewsFeedResponse.ResponseSuccess<List<FeedItemsCard>>(newsItemsFeedCard);
+    }
+
+    private void getFeed() {
+        final AtomicInteger index = new AtomicInteger(0);
+        final AtomicInteger i = new AtomicInteger(0);
+        // int i=0;
+
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Log.d("bn", "persistencetest  newsItemsFeedCard.size(): " + newsItemsFeedCard.size());
+                    
+                    mBraveNewsController.getFeed((feed) -> {
+                        i.incrementAndGet();
+                        Log.d("bn", "thread 4 - " +i.get());
+                        // ExecutorService executor = Executors.newSingleThreadExecutor();
+                        // Handler handler = new Handler(Looper.getMainLooper());
+
+                        // executor.execute(() -> {
+                        //     //Background work here
+                        //     Log.d("bn", "executor background work");
+
+
+                            FeedItemsCard featuredItemsCard = new FeedItemsCard();
+
+                            // process Featured item
+                            FeedItem featuredItem = feed.featuredItem;
+
+                            FeedItemMetadata featuredItemMetaData = new FeedItemMetadata();
+                            Article featuredArticle = featuredItem.getArticle();
+                            FeedItemMetadata featuredArticleData = featuredArticle.data;
+
+                            FeedItemCard featuredItemCard = new FeedItemCard();
+                            List<FeedItemCard> featuredCardItems = new ArrayList<>();
+
+                            featuredItemsCard.setCardType(CardType.HEADLINE);
+                            featuredItemsCard.setUuid(UUID.randomUUID().toString());
+
+                            featuredItemCard.setFeedItem(featuredItem);
+                            featuredCardItems.add(featuredItemCard);
+                            // Url featuredImageUrl = getImage(featuredArticleData);
+                            // mBraveNewsController.getImageData(featuredImageUrl, imageData -> {
+                            //     if (imageData != null){
+                            //         featuredItemCard.setImageByte(imageData);
+                            //     }
+                            // });
+
+                            featuredItemsCard.setFeedItems(featuredCardItems);
+                            newsItemsFeedCard.add(featuredItemsCard);
+
+                            // start page loop
+                            int noPages = 0;
+                            int totalPages = feed.pages.length;
+                            for (FeedPage page : feed.pages) {
+                               
+                                   for (FeedPageItem cardData : page.items){
+                                        // Log.d("bn", "getfeed feed pages: " + cardData);
+
+                                        // Log.d("bn", "createfeed feed pages items: " + cardData.items);
+                                        // Log.d("bn", "createfeed feed pages items size: " + cardData.items.length);
+
+                                        if (cardData.cardType == CardType.DISPLAY_AD){
+                                            Log.d("bn",
+                                                    "createfeed feed pages type: "
+                                                            + cardData.cardType);
+                                            mBraveNewsController.getDisplayAd( adData -> {
+                                                Log.d("bn", "displayad:" + adData);
+                                                if (adData != null){
+                                                    Log.d("bn", "displayad:" + adData.toString());
+                                                    Log.d("bn", "displayad:" + adData.dimensions);
+                                                    Log.d("bn", "displayad:" + adData.title);
+                                                    Log.d("bn", "displayad:" + adData.description);
+                                                    Log.d("bn", "displayad:" + adData.targetUrl);
+                                                    Log.d("bn", "displayad:" + adData.ctaText);
+                                                    Url imageUrlTemp = null;
+                                                    switch(adData.image.which()){
+                                                        case Image.Tag.PaddedImageUrl:
+                                                            imageUrlTemp = adData.image.getPaddedImageUrl();
+                                                            break;
+                                                        case Image.Tag.ImageUrl:
+                                                            imageUrlTemp = adData.image.getImageUrl();
+                                                            break;
+                                                    }
+
+                                                    final Url adImageUrl = imageUrlTemp;
+                                                    mBraveNewsController.getImageData(adImageUrl, imageData -> {
+                                                        if (imageData != null){
+                                                            // featuredItemCard.setImageByte(imageData);
+                                                        }
+                                                    }); 
+                                                } else {
+                                                    
+                                                }
+                                            });
+                                        }
+
+
+
+                                        FeedItemsCard feedItemsCard = new FeedItemsCard();
+                                        
+                                        feedItemsCard.setCardType(cardData.cardType);
+                                        feedItemsCard.setUuid(UUID.randomUUID().toString());
+                                        List<FeedItemCard> cardItems = new ArrayList<>();
+                                        for (FeedItem item : cardData.items){
+                                            
+                                            // Log.d("bn", "createfeed feed pages item: " + item);
+                                            // newsItemsFeed.add(item);
+
+                                            FeedItemMetadata itemMetaData = new FeedItemMetadata();
+                                            FeedItemCard feedItemCard = new FeedItemCard();
+                                            feedItemCard.setFeedItem(item);
+                                            // feedItemCard.setCardType(cardData.cardType);
+
+                                            if (cardData.cardType == CardType.DEALS) {
+                                            
+                                            }
+
+                                            cardItems.add(feedItemCard);
+                                              
+                                            switch(item.which()){
+                                                case FeedItem.Tag.Article:
+                                                    
+                                                    Article article = item.getArticle();
+                                                    FeedItemMetadata articleData = article.data;
+                                                    itemMetaData = article.data;
+
+                                                    // braveNewsItems.add(article.data);
+
+                                                    // Log.d("bn", "getfeed feed pages type
+                                                    // articleData: " + articleData.title);
+                                                    // Log.d("bn", "getfeed feed pages type
+                                                    // articleData: " + articleData.categoryName);
+                                                    break;
+                                                case FeedItem.Tag.PromotedArticle:
+                                                    PromotedArticle promotedArticle = item.getPromotedArticle();
+                                                    FeedItemMetadata promotedArticleData = promotedArticle.data;
+                                                    String creativeInstanceId = promotedArticle.creativeInstanceId;
+                                                    // braveNewsItems.add(item.getPromotedArticle());
+                                                    // braveNewsItems.add(promotedArticle.data);
+                                                    itemMetaData = promotedArticle.data;
+                                                    // Log.d("bn", "getfeed feed pages item type
+                                                    // PromotedArticle: " +
+                                                    // promotedArticleData.title); Log.d("bn",
+                                                    // "getfeed feed pages item type
+                                                    // PromotedArticle: " +
+                                                    // promotedArticleData.categoryName);
+                                                    // Log.d("bn", "getfeed feed pages item type
+                                                    // PromotedArticle creativeInstanceId: " +
+                                                    // creativeInstanceId);
+                                                    break;                                            
+                                                case FeedItem.Tag.Deal:
+                                                    Deal deal = item.getDeal();
+                                                    FeedItemMetadata dealData = deal.data;
+                                                    String offersCategory = deal.offersCategory;
+                                                    // braveNewsItems.add(item.getDeal());
+                                                    // braveNewsItems.add(deal.data);
+                                                    itemMetaData = deal.data;
+                                                    // Log.d("bn", "getfeed feed pages item type Deal title: " + dealData.title); 
+                                                    // Log.d("bn", "getfeed feed pages item type Deal categoryName: " +dealData.categoryName); 
+                                                    // Log.d("bn", "getfeed feed pages item type Deal description: " + dealData.description); 
+                                                    // Log.d("bn", "getfeed feed pages item type Deal publisherName: " +dealData.publisherName); 
+                                                    // Log.d("bn", "getfeed feed pages item type Deal offersCategory: " + offersCategory);
+                                                    break;
+                                            }
+
+                                            Url imageUrlTemp = null;
+                                            switch(itemMetaData.image.which()){
+                                                
+                                                case Image.Tag.PaddedImageUrl:
+                                                    imageUrlTemp = itemMetaData.image.getPaddedImageUrl();
+                                                    if (imageUrlTemp != null){
+                                                        // Log.d("bn", "createfeed feed pages item image padded: "+imageUrlTemp.url);
+                                                    }
+                                                    break;
+                                                case Image.Tag.ImageUrl:
+                                                    imageUrlTemp = itemMetaData.image.getImageUrl();
+                                                    if (imageUrlTemp != null){
+                                                        // Log.d("bn", "createfeed feed pages item image: "+imageUrlTemp.url);
+                                                    }
+                                                    break;
+                                            }
+
+                                            final Url imageUrl = imageUrlTemp;
+
+                                            // Log.d("bn", "thread imagesbeforeGet - "+i.get());  
+                                            // 
+                                            // if (index.get() < 1) { 
+                                                // mBraveNewsController.getImageData(imageUrl, imageData -> {
+                                                //     // Log.d("bn", "thread images processing - "+i.get());
+                                                //     // Log.d("bn", "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
+                                                //     if (imageData != null){
+                                                //         feedItemCard.setImageByte(imageData);
+                                                //         // newsItemsFeedCard.add(feedItemCard);
+                                                //     }
+                                                // });        
+                                            // }                                                
+                                            // Log.d("bn", "thread imagesafter - "+i.get());
+
+
+                                            feedItemsCard.setFeedItems(cardItems);
+                                                
+                                        }                            
+                                        newsItemsFeedCard.add(feedItemsCard);
+                                    }
+                                //}
+                                index.getAndIncrement();    
+
+                                Log.d("bn", "getfeedprocessing next page");
+                                if(noPages == totalPages - 1){
+                                    Log.d("bn", "getfeedprocessing last page");
+                                }
+                                noPages++;
+                            }//end page loop
+                            // existingNewsFeedObject = newsItemsFeedCard;
+                            processFeed();
+                            Log.d("bn", "getfeedprocessing after page loop newsItemsFeedCard:"+newsItemsFeedCard);
+                            BraveActivity.getBraveActivity().setNewsItemsFeedCards(newsItemsFeedCard);
+                            BraveActivity.getBraveActivity().setLoadedFeed(true);
+                        i.getAndIncrement();
+                        Log.d("bn", "thread 3 - "+i.get());
+                    });
+
+                    i.getAndIncrement();
+                    Log.d("bn", "thread 2 - "+i.get());
+                    // Thread.sleep(100);
+                    // handle response                 
+                    Handler uiThread = new Handler(Looper.getMainLooper());
+                    uiThread.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            i.getAndIncrement();
+                            Log.d("bn", " thread - 4 finish " +i.get());
+                           
+                            // now update your UI here
+                            // cast response to whatever you specified earlier
+                        }
+                    });
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        executors.submit(runnable);
+    }
+
+    private void inflateNewsSettingsBar() {
+        // get the main compositor view that we'll use to manipulate the views
+        CompositorViewHolder compositorView = findViewById(R.id.compositor_view_holder);
+        ViewGroup controlContainer = findViewById(R.id.control_container);
+        Log.d("bn", "controlContainer: " + controlContainer);
+        Log.d("bn", "controlContainer: " + controlContainer.getBottom());
+        int[] coords = {0, 0};
+        controlContainer.getLocationOnScreen(coords);
+        int absoluteTop = coords[1];
+        int absoluteBottom = coords[1] + controlContainer.getHeight();
+        Log.d("bn", "controlContainer absoluteBottom: " + absoluteBottom);
+        Log.d("bn",
+                "controlContainer controlContainer.getHeight(): " + controlContainer.getHeight());
+
+        for (int index = 0; index < ((ViewGroup) compositorView).getChildCount(); index++) {
+            View nextChild = ((ViewGroup) compositorView).getChildAt(index);
+            Log.d("bn",
+                    "compositorViewchildren braveactivity inflate nextchild before add:"
+                            + nextChild);
+        }
+
+        LayoutInflater inflater = LayoutInflater.from(mActivity);
+        // inflate the settings bar layout
+        View inflatedLayout = inflater.inflate(R.layout.brave_news_settings_bar_layout, null);
+        // add the bar to the layout stack
+        compositorView.addView(inflatedLayout, 2);
+        inflatedLayout.setAlpha(0f);
+        FrameLayout.LayoutParams inflatedLayoutParams =
+                new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, 100);
+        // position bellow the control_container element (nevigation bar) with 15dp compensation
+        inflatedLayoutParams.setMargins(0, controlContainer.getBottom() - 25, 0, 0);
+        inflatedLayout.setLayoutParams(inflatedLayoutParams);
+
+        compositorView.invalidate();
+
+        for (int index = 0; index < ((ViewGroup) compositorView).getChildCount(); index++) {
+            View nextChild = ((ViewGroup) compositorView).getChildAt(index);
+            Log.d("bn",
+                    "compositorViewchildren braveactivity inflate nextchild after add:"
+                            + nextChild);
+        }
+    }
+
     private void initNews() {
         Log.d("bravenews", "in initNews");
         // doSomeTaskAsync();
         settingsBarIsClickable = false;
         recyclerView = findViewById(R.id.newsRecycler);
         container = (LinearLayout) findViewById(R.id.ntp_main_layout);
-        // nestedScrollView = findViewById(R.id.nestedScrollView);
         optinButton = findViewById(R.id.optin_button);
         optinClose = findViewById(R.id.close_optin);
         optinLearnMore = findViewById(R.id.optin_learnmore);
@@ -942,6 +1390,16 @@ public class BraveNewTabPageLayout
         parentLayout = (LinearLayout) findViewById(R.id.parent_layout);
         ntpContent = (BraveNewTabPageLayout) findViewById(R.id.ntp_content);
 
+        // init Brave news parameters
+        startCardViewTime = 0;
+        endCardViewTime = 0;
+        creativeInstanceId = "";
+        uuid = "";
+        //@TODO alex make an enum
+        cardType = "";
+        itemPosition = 0;
+        visibleCard = null;
+
         recyclerView.setItemViewCacheSize(20);
         // recyclerView.setHasFixedSize(true);
         recyclerView.setDrawingCacheEnabled(true);
@@ -952,12 +1410,11 @@ public class BraveNewTabPageLayout
 
         recyclerView.setLayoutManager(new LinearLayoutManager(mActivity));
 
-        // adapter = new BraveNewsAdapter(mActivity, newsItems);
-        // recyclerView.setAdapter(adapter);
-        // adapterFeed = new BraveNewsAdapterFeed(mActivity, newsItemsFeed);
-        adapterFeedCard = new BraveNewsAdapterFeedCard(mActivity, newsItemsFeedCard);
+        adapterFeedCard =
+                new BraveNewsAdapterFeedCard(mActivity, newsItemsFeedCard, mBraveNewsController);
+        // adapterFeedCard = new BraveNewsAdapterFeedCard(mActivity, newsRecyclerItems);
         recyclerView.setAdapter(adapterFeedCard);
-        // adapter.setClickListener(this);
+        adapterFeedCard.setClickListener(this);
         loadingView.setVisibility(View.GONE);
 
         parentScrollView = (ScrollView) ntpContent.getParent();
@@ -968,14 +1425,9 @@ public class BraveNewTabPageLayout
 
         optinLayout.setVisibility(View.GONE);
         SharedPreferences sharedPreferences = ContextUtils.getAppSharedPreferences();
-        boolean isNewsOn =
-                sharedPreferences.getBoolean(BraveNewsPreferences.PREF_TURN_ON_NEWS, false);
-        boolean isShowOptin =
-                sharedPreferences.getBoolean(BraveNewsPreferences.PREF_SHOW_OPTIN, true);
-        boolean isShowNewsOn =
-                sharedPreferences.getBoolean(BraveNewsPreferences.PREF_SHOW_NEWS, false);
 
-        Log.d("bn", "layout optin isNewsOn:" + isNewsOn + " isShowNewsOn:" + isShowNewsOn);
+        Log.d("bn", "persistencetest layout optin isNewsOn:" + isNewsOn + " isShowNewsOn:" + isShowNewsOn + "newsItemsFeedCard:" +newsItemsFeedCard.size());
+
         if (!isNewsOn && !isShowOptin) {
             correctPosition();
             optinLayout.setVisibility(View.VISIBLE);
@@ -991,471 +1443,634 @@ public class BraveNewTabPageLayout
             parentLayout.removeView(optinLayout);
             feedSpinner.setVisibility(View.VISIBLE);
 
-            CopyOnWriteArrayList<NewsItem> newsItems = new CopyOnWriteArrayList<NewsItem>();
-            CopyOnWriteArrayList<FeedItemMetadata> braveNewsItems = new CopyOnWriteArrayList<FeedItemMetadata>();
+            // getFeed();
+
+            boolean isFeedLoaded = BraveActivity.getBraveActivity().isLoadedFeed();
+            CopyOnWriteArrayList<FeedItemsCard> existingNewsFeedObject  = BraveActivity.getBraveActivity().getNewsItemsFeedCards();
+            int prevScrollPosition = BraveActivity.getBraveActivity().getNewsFeedScrollPosition();
+
+            Log.d("bn", "persistencetest before isFeedLoaded:"+isFeedLoaded+" prevScrollPosition:"+prevScrollPosition+" existingNewsFeedObject:"+existingNewsFeedObject);
+  
+            if (!isFeedLoaded){
+                Log.d("bn", "persistencetest feed not loaded:");
+                getFeed();
+                // existingNewsFeedObject = newsItemsFeedCard;
+                // BraveActivity.getBraveActivity().setNewsItemsFeedCard(existingNewsFeedObject);
+            } else {
+                Log.d("bn", "persistencetest feed loaded:");
+                if (existingNewsFeedObject != null){
+                    newsItemsFeedCard = null;
+                    newsItemsFeedCard = existingNewsFeedObject;
+                }
+                Log.d("bn", "persistencetest feed loaded: newsItemsFeedCard: " + newsItemsFeedCard.size());
+                processFeed();
+                // Log.d("bn", "persistencetest feed loaded: after process feed: " + newsItemsFeedCard.size());
+                if (recyclerView != null) {
+                    Log.d("bn", "persistencetest feed loaded: recyclerView not before runnable");
+                    recyclerView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            int scrollPosition = prevScrollPosition + 1;
+                            if (prevScrollPosition <= 1) {
+                                scrollPosition = 2;
+                            }
+                            Log.d("bn", "persistencetest feed loaded: recyclerView not null runnable parentScrollView:"+parentScrollView);
+                //             Log.d("bn", "persistencetest feed loaded: runnable notify: " + newsItemsFeedCard.size());
+                //             adapterFeedCard.notifyDataSetChanged();
+                            // ((LinearLayoutManager) recyclerView.getLayoutManager()).scrollToPosition(prevScrollPosition);
+                            // recyclerView.smoothScrollToPosition(scrollPosition);
+                            if (parentScrollView != null){
+                                Log.d("bn", "persistencetest feed loaded: parentScrollView.scrollTo");
+                                // parentScrollView.scrollTo(0, 500);  
+                                // parentScrollView.fullScroll(ScrollView.FOCUS_UP);
+                                parentScrollView.postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        parentScrollView.fullScroll(ScrollView.FOCUS_UP);
+                                        recyclerView.smoothScrollToPosition(prevScrollPosition + 1);
+                                    }
+                                }, 300);
+                            } 
+                            // ((LinearLayoutManager) recyclerView.getLayoutManager()).scrollTo(prevScrollPosition);
+                        }
+                    });
+                }
+                //     Log.d("bn", "persistencetest feed loaded: after runnable notify: " + newsItemsFeedCard.size());
+            }
+
+
             final AtomicInteger index = new AtomicInteger(0);
             final AtomicInteger i = new AtomicInteger(0);
             // int i=0;
 
-            Runnable runnable = new Runnable() {
-                @Override
-                public void run() {
-                    // your async code goes here.
-                    try {
-                        i.incrementAndGet();
-                        Log.d("bn", "thread 5 - " +i.get()); 
-// Thread.sleep(20000);
-                        mBraveNewsController.getFeed((feed) -> {
-                            i.incrementAndGet();
-                            Log.d("bn", "thread 4 - " +i.get());
-                            // ExecutorService executor = Executors.newSingleThreadExecutor();
-                            // Handler handler = new Handler(Looper.getMainLooper());
 
-                            // executor.execute(() -> {
-                            //     //Background work here
-                            //     Log.d("bn", "executor background work");
+            // getFeedResponse( new RepositoryCallback<List<FeedItemsCard>>() {
+            //     @Override
+            //     public void onComplete(NewsFeedResponse<List<FeedItemsCard>> result) {
 
-                                Log.d("bn", "getfeed feed: " + feed.toString());
+            //         Log.d("bn", "executortest result : "+ result);
+            //         if (result instanceof NewsFeedResponse.ResponseSuccess) {
+            //             // Happy path
+            //             Log.d("bn", "executortest  success " +((NewsFeedResponse.ResponseSuccess<List<FeedItemsCard>>) result).data);
+            //             // Log.d("bn", "executortest  success " +((Result.Success<Integer>) result).data);
+            //         } else {
+            //             // Show error in UI
+            //             Log.d("bn", "executortest  Error");
+            //         }
+            //     }
+            // });
 
-                                FeedItemsCard featuredItemsCard = new FeedItemsCard();
-
-                                // process Featured item
-                                FeedItem featuredItem = feed.featuredItem;
-
-                                FeedItemMetadata featuredItemMetaData = new FeedItemMetadata();
-                                Article featuredArticle = featuredItem.getArticle();
-                                FeedItemMetadata featuredArticleData = featuredArticle.data;
-                                // featuredItemMetaData = featuredArticleData.data;
-                                // Article featuredItem = feed.featuredArticle;
-                                String hash = feed.hash;
-                                Log.d("bn", "getfeed feed: hash " + feed.hash);
-                                Log.d("bn", "getfeed feed: featured " + feed.featuredItem);
-                                FeedItemCard featuredItemCard = new FeedItemCard();
-                                List<FeedItemCard> featuredCardItems = new ArrayList<>();
-
-                                featuredItemsCard.setCardType(CardType.HEADLINE);
-
-                                featuredItemCard.setFeedItem(featuredItem);
-                                featuredCardItems.add(featuredItemCard);
-
-                                Url featuredImageUrl = getImage(featuredArticleData);
-
-                                // if (mBraveNewsController != null) {   
-                                mBraveNewsController.getImageData(featuredImageUrl, imageData -> {
-                                    Log.d("bn", "thread images processing - "+i.get());
-                                    // Log.d("bn", "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
-                                    if (imageData != null){
-                                        // Log.d("bn", "createfeed feed pages image imageData1: "+imageData);
-                                        // String imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
-                                        featuredItemCard.setImageByte(imageData);
-                                        // newsItemsFeedCard.add(feedItemCard);
-                                    }
-                                });        
-                                // }
-
-                                // //feedItemCard.setImageByte(imageData);
-
-                                featuredItemsCard.setFeedItems(featuredCardItems);
-                                newsItemsFeedCard.add(featuredItemsCard);
-
-                                // start page loop
-                                for (FeedPage page : feed.pages) {
-                                   if (index.get() < 5) 
-                                   { 
-                                   for (FeedPageItem cardData : page.items){
-                                        // Log.d("bn", "getfeed feed pages: " + cardData);
-                                        Log.d("bn", "createfeed feed pages type: " + cardData.cardType);
-                                        // Log.d("bn", "createfeed feed pages items: " + cardData.items);
-                                        Log.d("bn", "createfeed feed pages items size: " + cardData.items.length);
-                                        FeedItemsCard feedItemsCard = new FeedItemsCard();
-                                        
-                                        feedItemsCard.setCardType(cardData.cardType);
-                                        List<FeedItemCard> cardItems = new ArrayList<>();
-                                        for (FeedItem item : cardData.items){
-                                            
-                                                // Log.d("bn", "createfeed feed pages item: " + item);
-                                                // newsItemsFeed.add(item);
-
-                                                FeedItemMetadata itemMetaData = new FeedItemMetadata();
-                                                FeedItemCard feedItemCard = new FeedItemCard();
-                                                feedItemCard.setFeedItem(item);
-                                                // feedItemCard.setCardType(cardData.cardType);
-
-                                                cardItems.add(feedItemCard);
-                                                  
-                                                switch(item.which()){
-                                                    case FeedItem.Tag.Article:
-                                                        
-                                                        Article article = item.getArticle();
-                                                        FeedItemMetadata articleData = article.data;
-                                                        itemMetaData = article.data;
-
-                                                        // braveNewsItems.add(article.data);
-                                                       
-
-                                                        Log.d("bn", "getfeed feed pages type articleData: " + articleData.title);
-                                                        // Log.d("bn", "getfeed feed pages type articleData: " + articleData.categoryName);
-                                                        break;
-                                                    case FeedItem.Tag.PromotedArticle:
-                                                        PromotedArticle promotedArticle = item.getPromotedArticle();
-                                                        FeedItemMetadata promotedArticleData = promotedArticle.data;
-                                                        String creativeInstanceId = promotedArticle.creativeInstanceId;
-                                                        // braveNewsItems.add(item.getPromotedArticle());
-                                                        // braveNewsItems.add(promotedArticle.data);
-                                                        itemMetaData = promotedArticle.data;
-                                                        Log.d("bn", "getfeed feed pages item type PromotedArticle: " + promotedArticleData.title);
-                                                        // Log.d("bn", "getfeed feed pages item type PromotedArticle: " + promotedArticleData.categoryName);
-                                                        // Log.d("bn", "getfeed feed pages item type PromotedArticle creativeInstanceId: " + creativeInstanceId);
-                                                        break;                                            
-                                                    case FeedItem.Tag.Deal:
-                                                        Deal deal = item.getDeal();
-                                                        FeedItemMetadata dealData = deal.data;
-                                                        String offersCategory = deal.offersCategory;
-                                                        // braveNewsItems.add(item.getDeal());
-                                                        // braveNewsItems.add(deal.data);
-                                                        itemMetaData = deal.data;
-                                                        Log.d("bn", "getfeed feed pages item type Deal: " + dealData.title);
-                                                        Log.d("bn", "getfeed feed pages item type Deal: " + dealData.categoryName);
-                                                        Log.d("bn", "getfeed feed pages item type Deal: " + dealData.description);
-                                                        Log.d("bn", "getfeed feed pages item type Deal: " + dealData.publisherName);
-                                                        Log.d("bn", "getfeed feed pages item type Deal offersCategory: " + offersCategory); 
-                                                        break;
-                                                }
-
-                                                Url imageUrlTemp = null;
-                                                switch(itemMetaData.image.which()){
-                                                    
-                                                    case Image.Tag.PaddedImageUrl:
-                                                        imageUrlTemp = itemMetaData.image.getPaddedImageUrl();
-                                                        if (imageUrlTemp != null){
-                                                            // Log.d("bn", "createfeed feed pages item image padded: "+imageUrlTemp.url);
-                                                        }
-                                                        break;
-                                                    case Image.Tag.ImageUrl:
-                                                        imageUrlTemp = itemMetaData.image.getImageUrl();
-                                                        if (imageUrlTemp != null){
-                                                            // Log.d("bn", "createfeed feed pages item image: "+imageUrlTemp.url);
-                                                        }
-                                                        break;
-                                                }
-
-                                                final Url imageUrl = imageUrlTemp;
-
-                                                // ExecutorService executorImages = Executors.newSingleThreadExecutor();
-                                                // Handler handlerImages = new Handler(Looper.getMainLooper());
-
-                                                // executorImages.execute(() -> {
-                                                    //Background work here
-                                                        // if (mBraveNewsController != null) {
-                                                            // mBraveNewsController.getImageData(imageUrl, imageData -> {
-                                                            //     Log.d("bn", "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
-                                                            //     if (imageData != null){
-                                                            //         // Log.d("bn", "createfeed feed pages image imageData1: "+imageData);
-                                                            //         // String imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
-                                                            //         feedItemCard.setImageByte(imageData);
-                                                            //         // newsItemsFeedCard.add(feedItemCard);
-                                                            //     }
-                                                            // });
-                      
-                                                            
-                                                        // }
-                                                        
-                                                //     handlerImages.post(() -> {
-                                                //         //UI Thread work here
-                                                //     });
-                                                // });
-
-                                                        // Log.d("bn", "thread imagesbeforeGet - "+i.get());        
-                                                        // mBraveNewsController.getImageData(imageUrl, imageData -> {
-                                                        //     Log.d("bn", "thread images processing - "+i.get());
-                                                        //     Log.d("bn", "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
-                                                        //     if (imageData != null){
-                                                        //         // Log.d("bn", "createfeed feed pages image imageData1: "+imageData);
-                                                        //         // String imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
-                                                        //         feedItemCard.setImageByte(imageData);
-                                                        //         // newsItemsFeedCard.add(feedItemCard);
-                                                        //     }
-                                                        // });
-                                                        // Log.d("bn", "thread imagesafter - "+i.get());
-             
-                                                        // try {
-                                                        //     Thread.sleep(10000);
-
-                                                        //     // create message and pass any object here doesn't matter
-                                                        //     // for a simple example I have used a simple string
-                                                        //     String msg = "My Message!";
-                                                        //     doSomethingOnUi(msg);
-                                                        // } catch (InterruptedException e) {
-                                                        //     e.printStackTrace();
-                                                        // }
-                                                
-
-                                                
-                                                // cardItems.add(feedItemCard); 
-                                                // feedItemsCard.add(cardItems);
-
-
-                                                        // try {
-                                                            Log.d("bn", "thread imagesbeforeGet - "+i.get());  
-                                                            // 
-                                                            mBraveNewsController.getImageData(imageUrl, imageData -> {
-                                                                Log.d("bn", "thread images processing - "+i.get());
-                                                                // Log.d("bn", "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
-                                                                if (imageData != null){
-                                                                    // Log.d("bn", "createfeed feed pages image imageData1: "+imageData);
-                                                                    // String imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
-                                                                    feedItemCard.setImageByte(imageData);
-                                                                    // newsItemsFeedCard.add(feedItemCard);
-                                                                }
-                                                            });                                                        
-                                                            Log.d("bn", "thread imagesafter - "+i.get());
-
-
-                                                            // doSomethingOnUi(msg);
-                                                        // } catch (InterruptedException e) {
-                                                        //     e.printStackTrace();
-                                                        // }
-                                                //     }
-                                                // };
-                                                // executors.submit(runnable);
-
-
-                                                feedItemsCard.setFeedItems(cardItems);
-                                                    
-
-                                            }                            
-                                                newsItemsFeedCard.add(feedItemsCard);
-                                        }
-                                    }
-                                    index.getAndIncrement();    
-                                }//end page loop
-                        
-                            i.getAndIncrement();
-                            Log.d("bn", "thread 3 - "+i.get());
-                        });
-
-                        i.getAndIncrement();
-                        Log.d("bn", "thread 2 - "+i.get());
-                        Thread.sleep(10000);
-                        // handle response                 
-                        Handler uiThread = new Handler(Looper.getMainLooper());
-                        uiThread.post(new Runnable() {
+            
+            /*
+                        Runnable runnable = new Runnable() {
                             @Override
                             public void run() {
-                                i.getAndIncrement();
-                                Log.d("bn", " thread - 4 finish " +i.get());
-                                processFeed();
-                                // now update your UI here
-                                // cast response to whatever you specified earlier
-                            }
-                        });
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
+                                // your async code goes here.
+                                try {
+                                    i.incrementAndGet();
+                                    Log.d("bn", "thread 5 - " +i.get());
+                                    mBraveNewsController.getFeed((feed) -> {
+                                        i.incrementAndGet();
+                                        Log.d("bn", "thread 4 - " +i.get());
+                                        // ExecutorService executor =
+               Executors.newSingleThreadExecutor();
+                                        // Handler handler = new Handler(Looper.getMainLooper());
 
-                }
-            };
-            executors.submit(runnable);
+                                        // executor.execute(() -> {
+                                        //     //Background work here
+                                        //     Log.d("bn", "executor background work");
 
+                                            Log.d("bn", "getfeed feed: " + feed.toString());
 
-            /*
+                                            FeedItemsCard featuredItemsCard = new FeedItemsCard();
 
+                                            // process Featured item
+                                            FeedItem featuredItem = feed.featuredItem;
 
-            ExecutorService executor = Executors.newSingleThreadExecutor();
-            Handler handler = new Handler(Looper.getMainLooper());
+                                            FeedItemMetadata featuredItemMetaData = new
+               FeedItemMetadata(); Article featuredArticle = featuredItem.getArticle();
+                                            FeedItemMetadata featuredArticleData =
+               featuredArticle.data;
+                                            // featuredItemMetaData = featuredArticleData.data;
+                                            // Article featuredItem = feed.featuredArticle;
+                                            String hash = feed.hash;
+                                            Log.d("bn", "getfeed feed: hash " + feed.hash);
+                                            Log.d("bn", "getfeed feed: featured " +
+               feed.featuredItem); FeedItemCard featuredItemCard = new FeedItemCard();
+                                            List<FeedItemCard> featuredCardItems = new
+               ArrayList<>();
 
-            executor.execute(() -> {
-                //Background work here
-                Log.d("bn", "executor background work");
-                    if (mBraveNewsController != null) {
+                                            featuredItemsCard.setCardType(CardType.HEADLINE);
 
-                        Log.d("bn", "executor background work newsItemsFeed:"+newsItemsFeed);
-                    }
-                handler.post(() -> {
-                    //UI Thread work here
+                                            featuredItemCard.setFeedItem(featuredItem);
+                                            featuredCardItems.add(featuredItemCard);
 
-                });
-            });
+                                            Url featuredImageUrl = getImage(featuredArticleData);
 
-
-
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d("bravenews", "getting feed...");
-                    if (mBraveNewsController != null) {
-                        mBraveNewsController.getFeed((feed) -> {
-                            for (FeedPage page : feed.pages) {
-                               for (FeedPageItem cardData : page.items){
-                                    // Log.d("bn", "getfeed feed pages: " + cardData);
-                                    // Log.d("bn", "createfeed feed pages type: " + cardData.cardType);
-                                    // Log.d("bn", "createfeed feed pages items: " + cardData.items);
-                                    for (FeedItem item : cardData.items){
-                                        if (index.get() < 50) {
-
-
-                                        // Log.d("bn", "createfeed feed pages item: " + item);
-                                        newsItemsFeed.add(item);
-                                        FeedItemMetadata itemMetaData = new FeedItemMetadata();
-
-                                        // newsItemsFeedCard.add(item);
-                                        switch(item.which()){
-                                            case FeedItem.Tag.Article:
-                                                
-                                                Article article = item.getArticle();
-                                                FeedItemMetadata articleData = article.data;
-                                                itemMetaData = article.data;
-
-                                                braveNewsItems.add(article.data);
-                                               
-
-                                                // Log.d("bn", "getfeed feed pages item type articleData: " + articleData);
-                                                break;
-                                            case FeedItem.Tag.PromotedArticle:
-                                                PromotedArticle promotedArticle = item.getPromotedArticle();
-                                                FeedItemMetadata promotedArticleData = promotedArticle.data;
-                                                String creativeInstanceId = promotedArticle.creativeInstanceId;
-                                                // braveNewsItems.add(item.getPromotedArticle());
-                                                braveNewsItems.add(promotedArticle.data);
-                                                itemMetaData = promotedArticle.data;
-                                                // Log.d("bn", "getfeed feed pages item type PromotedArticle: " + promotedArticleData);
-                                                // Log.d("bn", "getfeed feed pages item type PromotedArticle creativeInstanceId: " + creativeInstanceId);
-                                                break;                                            
-                                            case FeedItem.Tag.Deal:
-                                                Deal deal = item.getDeal();
-                                                FeedItemMetadata dealData = deal.data;
-                                                String offersCategory = deal.offersCategory;
-                                                // braveNewsItems.add(item.getDeal());
-                                                braveNewsItems.add(deal.data);
-                                                itemMetaData = deal.data;
-                                                // Log.d("bn", "getfeed feed pages item type Deal: " + dealData);
-                                                // Log.d("bn", "getfeed feed pages item type Deal offersCategory: " + offersCategory); 
-                                                break;
-                                        }
-                                        ExecutorService executor = Executors.newSingleThreadExecutor();
-                                        Handler handler = new Handler(Looper.getMainLooper());
-
-                                        final FeedItemMetadata itemMeta = itemMetaData;
-                                        executor.execute(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                            //Background work here
-                                                Url imageUrl = null;
-                                                switch(itemMeta.image.which()){
-                                                    
-                                                    case Image.Tag.PaddedImageUrl:
-                                                        imageUrl = itemMeta.image.getPaddedImageUrl();
-                                                        if (imageUrl != null){
-                                                            Log.d("bn", "createfeed feed item image padded: "+imageUrl.url);
-                                                        }
-                                                        break;
-                                                    case Image.Tag.ImageUrl:
-                                                        imageUrl = itemMeta.image.getImageUrl();
-                                                        if (imageUrl != null){
-                                                            Log.d("bn", "createfeed feed item image: "+imageUrl.url);
-                                                        }
-                                                        break;
+                                            // if (mBraveNewsController != null) {
+                                            mBraveNewsController.getImageData(featuredImageUrl,
+               imageData -> { Log.d("bn", "thread images processing - "+i.get());
+                                                // Log.d("bn", "createfeed feed pages item getting
+               image data: "+imageData + " imageUrl.url:" +imageUrl.url); if (imageData != null){
+                                                    // Log.d("bn", "createfeed feed pages image
+               imageData1: "+imageData);
+                                                    // String imageString =
+               Base64.encodeToString(imageData, Base64.DEFAULT);
+                                                    featuredItemCard.setImageByte(imageData);
+                                                    // newsItemsFeedCard.add(feedItemCard);
                                                 }
-                                                mBraveNewsController.getImageData(imageUrl, imageData -> {
-                                                    Log.d("bn", "createfeed feed item item getting image data");
-                                                    if (imageData != null){
-                                                        Log.d("bn", "createfeed feed item image imageData1: "+imageData);
+                                            });
+                                            // }
+
+                                            // //feedItemCard.setImageByte(imageData);
+
+                                            featuredItemsCard.setFeedItems(featuredCardItems);
+                                            newsItemsFeedCard.add(featuredItemsCard);
+
+                                            // start page loop
+                                            for (FeedPage page : feed.pages) {
+                                               if (index.get() < 5)
+                                               {
+                                               for (FeedPageItem cardData : page.items){
+                                                    // Log.d("bn", "getfeed feed pages: " +
+               cardData); Log.d("bn", "createfeed feed pages type: " + cardData.cardType);
+                                                    // Log.d("bn", "createfeed feed pages items: " +
+               cardData.items); Log.d("bn", "createfeed feed pages items size: " +
+               cardData.items.length); FeedItemsCard feedItemsCard = new FeedItemsCard();
+
+                                                    feedItemsCard.setCardType(cardData.cardType);
+                                                    List<FeedItemCard> cardItems = new
+               ArrayList<>(); for (FeedItem item : cardData.items){
+
+                                                            // Log.d("bn", "createfeed feed pages
+               item: " + item);
+                                                            // newsItemsFeed.add(item);
+
+                                                            FeedItemMetadata itemMetaData = new
+               FeedItemMetadata(); FeedItemCard feedItemCard = new FeedItemCard();
+                                                            feedItemCard.setFeedItem(item);
+                                                            //
+               feedItemCard.setCardType(cardData.cardType);
+
+                                                            cardItems.add(feedItemCard);
+
+                                                            switch(item.which()){
+                                                                case FeedItem.Tag.Article:
+
+                                                                    Article article =
+               item.getArticle(); FeedItemMetadata articleData = article.data; itemMetaData =
+               article.data;
+
+                                                                    //
+               braveNewsItems.add(article.data);
+
+
+                                                                    Log.d("bn", "getfeed feed pages
+               type articleData: " + articleData.title);
+                                                                    // Log.d("bn", "getfeed feed
+               pages type articleData: " + articleData.categoryName); break; case
+               FeedItem.Tag.PromotedArticle: PromotedArticle promotedArticle =
+               item.getPromotedArticle(); FeedItemMetadata promotedArticleData =
+               promotedArticle.data; String creativeInstanceId = promotedArticle.creativeInstanceId;
+                                                                    //
+               braveNewsItems.add(item.getPromotedArticle());
+                                                                    //
+               braveNewsItems.add(promotedArticle.data); itemMetaData = promotedArticle.data;
+                                                                    Log.d("bn", "getfeed feed pages
+               item type PromotedArticle: " + promotedArticleData.title);
+                                                                    // Log.d("bn", "getfeed feed
+               pages item type PromotedArticle: " + promotedArticleData.categoryName);
+                                                                    // Log.d("bn", "getfeed feed
+               pages item type PromotedArticle creativeInstanceId: " + creativeInstanceId); break;
+                                                                case FeedItem.Tag.Deal:
+                                                                    Deal deal = item.getDeal();
+                                                                    FeedItemMetadata dealData =
+               deal.data; String offersCategory = deal.offersCategory;
+                                                                    //
+               braveNewsItems.add(item.getDeal());
+                                                                    //
+               braveNewsItems.add(deal.data); itemMetaData = deal.data; Log.d("bn", "getfeed feed
+               pages item type Deal: " + dealData.title); Log.d("bn", "getfeed feed pages item type
+               Deal: " + dealData.categoryName); Log.d("bn", "getfeed feed pages item type Deal: " +
+               dealData.description); Log.d("bn", "getfeed feed pages item type Deal: " +
+               dealData.publisherName); Log.d("bn", "getfeed feed pages item type Deal
+               offersCategory: " + offersCategory); break;
+                                                            }
+
+                                                            Url imageUrlTemp = null;
+                                                            switch(itemMetaData.image.which()){
+
+                                                                case Image.Tag.PaddedImageUrl:
+                                                                    imageUrlTemp =
+               itemMetaData.image.getPaddedImageUrl(); if (imageUrlTemp != null){
+                                                                        // Log.d("bn", "createfeed
+               feed pages item image padded: "+imageUrlTemp.url);
+                                                                    }
+                                                                    break;
+                                                                case Image.Tag.ImageUrl:
+                                                                    imageUrlTemp =
+               itemMetaData.image.getImageUrl(); if (imageUrlTemp != null){
+                                                                        // Log.d("bn", "createfeed
+               feed pages item image: "+imageUrlTemp.url);
+                                                                    }
+                                                                    break;
+                                                            }
+
+                                                            final Url imageUrl = imageUrlTemp;
+
+                                                            // ExecutorService executorImages =
+               Executors.newSingleThreadExecutor();
+                                                            // Handler handlerImages = new
+               Handler(Looper.getMainLooper());
+
+                                                            // executorImages.execute(() -> {
+                                                                //Background work here
+                                                                    // if (mBraveNewsController !=
+               null) {
+                                                                        //
+               mBraveNewsController.getImageData(imageUrl, imageData -> {
+                                                                        //     Log.d("bn",
+               "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:"
+               +imageUrl.url);
+                                                                        //     if (imageData !=
+               null){
+                                                                        //         // Log.d("bn",
+               "createfeed feed pages image imageData1: "+imageData);
+                                                                        //         // String
+               imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
+                                                                        //
+               feedItemCard.setImageByte(imageData);
+                                                                        //         //
+               newsItemsFeedCard.add(feedItemCard);
+                                                                        //     }
+                                                                        // });
+
+
+                                                                    // }
+
+                                                            //     handlerImages.post(() -> {
+                                                            //         //UI Thread work here
+                                                            //     });
+                                                            // });
+
+                                                                    // Log.d("bn", "thread
+               imagesbeforeGet - "+i.get());
+                                                                    //
+               mBraveNewsController.getImageData(imageUrl, imageData -> {
+                                                                    //     Log.d("bn", "thread
+               images processing - "+i.get());
+                                                                    //     Log.d("bn", "createfeed
+               feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
+                                                                    //     if (imageData != null){
+                                                                    //         // Log.d("bn",
+               "createfeed feed pages image imageData1: "+imageData);
+                                                                    //         // String imageString
+               = Base64.encodeToString(imageData, Base64.DEFAULT);
+                                                                    //
+               feedItemCard.setImageByte(imageData);
+                                                                    //         //
+               newsItemsFeedCard.add(feedItemCard);
+                                                                    //     }
+                                                                    // });
+                                                                    // Log.d("bn", "thread
+               imagesafter - "+i.get());
+
+                                                                    // try {
+                                                                    //     Thread.sleep(10000);
+
+                                                                    //     // create message and
+               pass any object here doesn't matter
+                                                                    //     // for a simple example I
+               have used a simple string
+                                                                    //     String msg = "My
+               Message!";
+                                                                    //     doSomethingOnUi(msg);
+                                                                    // } catch (InterruptedException
+               e) {
+                                                                    //     e.printStackTrace();
+                                                                    // }
+
+
+
+                                                            // cardItems.add(feedItemCard);
+                                                            // feedItemsCard.add(cardItems);
+
+
+                                                                    // try {
+                                                                        Log.d("bn", "thread
+               imagesbeforeGet - "+i.get());
+                                                                        //
+                                                                        mBraveNewsController.getImageData(imageUrl,
+               imageData -> { Log.d("bn", "thread images processing - "+i.get());
+                                                                            // Log.d("bn",
+               "createfeed feed pages item getting image data: "+imageData + " imageUrl.url:"
+               +imageUrl.url); if (imageData != null){
+                                                                                // Log.d("bn",
+               "createfeed feed pages image imageData1: "+imageData);
+                                                                                // String
+               imageString = Base64.encodeToString(imageData, Base64.DEFAULT);
+                                                                                feedItemCard.setImageByte(imageData);
+                                                                                //
+               newsItemsFeedCard.add(feedItemCard);
+                                                                            }
+                                                                        });
+                                                                        Log.d("bn", "thread
+               imagesafter - "+i.get());
+
+
+                                                                        // doSomethingOnUi(msg);
+                                                                    // } catch (InterruptedException
+               e) {
+                                                                    //     e.printStackTrace();
+                                                                    // }
+                                                            //     }
+                                                            // };
+                                                            // executors.submit(runnable);
+
+                                                            // Log.d("bn", "thread imagesbeforeGet -
+               "+i.get());
+                                                            //
+                                                            if (index.get() < 1) {
+                                                                //
+               mBraveNewsController.getImageData(imageUrl, imageData -> {
+                                                                //     // Log.d("bn", "thread images
+               processing - "+i.get());
+                                                                //     // Log.d("bn", "createfeed
+               feed pages item getting image data: "+imageData + " imageUrl.url:" +imageUrl.url);
+                                                                //     if (imageData != null){
+                                                                //
+               feedItemCard.setImageByte(imageData);
+                                                                //         //
+               newsItemsFeedCard.add(feedItemCard);
+                                                                //     }
+                                                                // });
+                                                            }
+                                                            Log.d("bn", "thread imagesafter -
+               "+i.get());
+
+
+                                                            feedItemsCard.setFeedItems(cardItems);
+
+
+                                                        }
+                                                            newsItemsFeedCard.add(feedItemsCard);
                                                     }
-                                                });
-                                                handler.post(() -> {
-                                                    //UI Thread work here
-                                                    Log.d("bn", "createfeed feed item item UI Thread work here");
-                                                });
-                                            }
-                                        });
-                                        
-                                        // itemMetaData.image.getImageUrl().url;
-                                        // Log.d("bn", "createfeed feed pages items which: " + item.which());
-                                        // switch (cardData.cardType){
-                                            // case CardType.DEALS:
-                                            //     Log.d("bn", "getfeed feed pages item type Deal: " + item.getDeal());
-                                            //     break;
-                                            // case CardType.PROMOTED_ARTICLE:
-                                            //     Log.d("bn", "getfeed feed pages item type PromotedArticle: " + item.getPromotedArticle());
-                                            // case CardType.HEADLINE:
-                                            // case CardType.HEADLINE_PAIRED:
-                                            // case CardType.CATEGORY_GROUP:
-                                            // case CardType.PUBLISHER_GROUP:
-                                                // Log.d("bn", "getfeed feed pages item type Article: " + item.getArticle());
+                                                }
+                                                index.getAndIncrement();
+                                            }//end page loop
 
-                                        // }
-                                        // Log.d("bn", "getfeed feed pages item: " + item.article);
-                                        // if (item.mArticle instanceof Article){
-                                        //     Log.d("bn", "getfeed feed pages item type Article: ");
-                                        // }                                        
-                                        // if (item.promotedArticle instanceof PromotedArticle){
-                                        //     Log.d("bn", "getfeed feed pages item type PromotedArticle: ");
-                                        // }                                        
-                                        // if (item.deal instanceof Deal){
-                                        //     Log.d("bn", "getfeed feed pages item type Deal: ");
-                                        // }
-                                    }
-                                    index.getAndIncrement();
-                                    }
-                                    // if ()
-                                    // for (FeedItem item : items){
-                                        // Log.d("bn", "getfeed feed pages: " + item);
-                                        // Log.d("bn", "getfeed feed pages: " + item.article);
-                                        // Log.d("bn", "getfeed feed pages: " + item.promoted_article);
-                                        // Log.d("bn", "getfeed feed pages: " + item.deal);
-                                    // }
-                               }
+                                        i.getAndIncrement();
+                                        Log.d("bn", "thread 3 - "+i.get());
+                                    });
+
+                                    i.getAndIncrement();
+                                    Log.d("bn", "thread 2 - "+i.get());
+                                    Thread.sleep(10000);
+                                    // handle response
+                                    Handler uiThread = new Handler(Looper.getMainLooper());
+                                    uiThread.post(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            i.getAndIncrement();
+                                            Log.d("bn", " thread - 4 finish " +i.get());
+                                            processFeed();
+                                            // now update your UI here
+                                            // cast response to whatever you specified earlier
+                                        }
+                                    });
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+
                             }
+                        };
+                        executors.submit(runnable);
 
-                            // Log.d("bn", "getfeed feed pages: " + feed.pages[0].articles[0].data);
-                            // Log.d("bn", "getfeed feed pages: " + feed.pages[0].articles[0].data.categoryName);
-                            // Log.d("bn", "getfeed feed pages: " + feed.pages[0].articles[0].category_name);
 
-                            // Log.d("bn", "getfeed feed featured_article: " + feed.featuredArticle);
-                            // Log.d("bn", "getfeed feed featured_article: " + feed.featured_article?);
-                            // Log.d("bn", "getfeed feed featured_article.data: " + feed.featured_article?.data);
-                            // Log.d("bn", "getfeed feed featured_article.data.category_name: " + feed.featured_article.data.category_name);
-                           
+
+                    /*
+
+
+                        ExecutorService executor = Executors.newSingleThreadExecutor();
+                        Handler handler = new Handler(Looper.getMainLooper());
+
+                        executor.execute(() -> {
+                            //Background work here
+                            Log.d("bn", "executor background work");
+                                if (mBraveNewsController != null) {
+
+                                    Log.d("bn", "executor background work
+               newsItemsFeed:"+newsItemsFeed);
+                                }
+                            handler.post(() -> {
+                                //UI Thread work here
+
+                            });
                         });
-                    } else {
-                        Log.d("bn", " getfeed mBraveNewsController is null ");
-                    }
-                    getFeed();
-                    new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            Log.d("BN", "optin click after");
-                            Log.d("BN", "optin click after braveNewsItems: "+braveNewsItems);
 
-                            feedSpinner.setVisibility(View.GONE);
-                            optinLayout.setVisibility(View.GONE);
 
-                            container.setVisibility(View.VISIBLE);
-                            recyclerView.setVisibility(View.VISIBLE);
 
-                            // nestedScrollView.setVisibility(View.VISIBLE);
-                            // preferences.setOptIn(true);
+                        new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                Log.d("bravenews", "getting feed...");
+                                if (mBraveNewsController != null) {
+                                    mBraveNewsController.getFeed((feed) -> {
+                                        for (FeedPage page : feed.pages) {
+                                           for (FeedPageItem cardData : page.items){
+                                                // Log.d("bn", "getfeed feed pages: " + cardData);
+                                                // Log.d("bn", "createfeed feed pages type: " +
+               cardData.cardType);
+                                                // Log.d("bn", "createfeed feed pages items: " +
+               cardData.items); for (FeedItem item : cardData.items){ if (index.get() < 50) {
 
-                            // adapter.notifyDataSetChanged();
-                            adapterFeed.notifyDataSetChanged();
 
-                            parentScrollView.scrollTo(0, 0);
-                            // parentScrollView.fullScroll(ScrollView.FOCUS_UP);
+                                                    // Log.d("bn", "createfeed feed pages item: " +
+               item); newsItemsFeed.add(item); FeedItemMetadata itemMetaData = new
+               FeedItemMetadata();
 
-                            isScrolled = true;
-                            Log.d("BN", "optin click after recycler y0:" + recyclerView.getY());
+                                                    // newsItemsFeedCard.add(item);
+                                                    switch(item.which()){
+                                                        case FeedItem.Tag.Article:
 
-                            if (recyclerView.getLayoutManager().findViewByPosition(0) != null) {
-                                Log.d("BN",
-                                        "optin click after y0:"
-                                                + recyclerView.getLayoutManager()
-                                                          .findViewByPosition(0)
-                                                          .getY());
+                                                            Article article = item.getArticle();
+                                                            FeedItemMetadata articleData =
+               article.data; itemMetaData = article.data;
+
+                                                            braveNewsItems.add(article.data);
+
+
+                                                            // Log.d("bn", "getfeed feed pages item
+               type articleData: " + articleData); break; case FeedItem.Tag.PromotedArticle:
+                                                            PromotedArticle promotedArticle =
+               item.getPromotedArticle(); FeedItemMetadata promotedArticleData =
+               promotedArticle.data; String creativeInstanceId = promotedArticle.creativeInstanceId;
+                                                            //
+               braveNewsItems.add(item.getPromotedArticle());
+                                                            braveNewsItems.add(promotedArticle.data);
+                                                            itemMetaData = promotedArticle.data;
+                                                            // Log.d("bn", "getfeed feed pages item
+               type PromotedArticle: " + promotedArticleData);
+                                                            // Log.d("bn", "getfeed feed pages item
+               type PromotedArticle creativeInstanceId: " + creativeInstanceId); break; case
+               FeedItem.Tag.Deal: Deal deal = item.getDeal(); FeedItemMetadata dealData = deal.data;
+                                                            String offersCategory =
+               deal.offersCategory;
+                                                            // braveNewsItems.add(item.getDeal());
+                                                            braveNewsItems.add(deal.data);
+                                                            itemMetaData = deal.data;
+                                                            // Log.d("bn", "getfeed feed pages item
+               type Deal: " + dealData);
+                                                            // Log.d("bn", "getfeed feed pages item
+               type Deal offersCategory: " + offersCategory); break;
+                                                    }
+                                                    ExecutorService executor =
+               Executors.newSingleThreadExecutor(); Handler handler = new
+               Handler(Looper.getMainLooper());
+
+                                                    final FeedItemMetadata itemMeta = itemMetaData;
+                                                    executor.execute(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                        //Background work here
+                                                            Url imageUrl = null;
+                                                            switch(itemMeta.image.which()){
+
+                                                                case Image.Tag.PaddedImageUrl:
+                                                                    imageUrl =
+               itemMeta.image.getPaddedImageUrl(); if (imageUrl != null){ Log.d("bn", "createfeed
+               feed item image padded: "+imageUrl.url);
+                                                                    }
+                                                                    break;
+                                                                case Image.Tag.ImageUrl:
+                                                                    imageUrl =
+               itemMeta.image.getImageUrl(); if (imageUrl != null){ Log.d("bn", "createfeed feed
+               item image: "+imageUrl.url);
+                                                                    }
+                                                                    break;
+                                                            }
+                                                            mBraveNewsController.getImageData(imageUrl,
+               imageData -> { Log.d("bn", "createfeed feed item item getting image data"); if
+               (imageData != null){ Log.d("bn", "createfeed feed item image imageData1:
+               "+imageData);
+                                                                }
+                                                            });
+                                                            handler.post(() -> {
+                                                                //UI Thread work here
+                                                                Log.d("bn", "createfeed feed item
+               item UI Thread work here");
+                                                            });
+                                                        }
+                                                    });
+
+                                                    // itemMetaData.image.getImageUrl().url;
+                                                    // Log.d("bn", "createfeed feed pages items
+               which: " + item.which());
+                                                    // switch (cardData.cardType){
+                                                        // case CardType.DEALS:
+                                                        //     Log.d("bn", "getfeed feed pages item
+               type Deal: " + item.getDeal());
+                                                        //     break;
+                                                        // case CardType.PROMOTED_ARTICLE:
+                                                        //     Log.d("bn", "getfeed feed pages item
+               type PromotedArticle: " + item.getPromotedArticle());
+                                                        // case CardType.HEADLINE:
+                                                        // case CardType.HEADLINE_PAIRED:
+                                                        // case CardType.CATEGORY_GROUP:
+                                                        // case CardType.PUBLISHER_GROUP:
+                                                            // Log.d("bn", "getfeed feed pages item
+               type Article: " + item.getArticle());
+
+                                                    // }
+                                                    // Log.d("bn", "getfeed feed pages item: " +
+               item.article);
+                                                    // if (item.mArticle instanceof Article){
+                                                    //     Log.d("bn", "getfeed feed pages item type
+               Article: ");
+                                                    // }
+                                                    // if (item.promotedArticle instanceof
+               PromotedArticle){
+                                                    //     Log.d("bn", "getfeed feed pages item type
+               PromotedArticle: ");
+                                                    // }
+                                                    // if (item.deal instanceof Deal){
+                                                    //     Log.d("bn", "getfeed feed pages item type
+               Deal: ");
+                                                    // }
+                                                }
+                                                index.getAndIncrement();
+                                                }
+                                                // if ()
+                                                // for (FeedItem item : items){
+                                                    // Log.d("bn", "getfeed feed pages: " + item);
+                                                    // Log.d("bn", "getfeed feed pages: " +
+               item.article);
+                                                    // Log.d("bn", "getfeed feed pages: " +
+               item.promoted_article);
+                                                    // Log.d("bn", "getfeed feed pages: " +
+               item.deal);
+                                                // }
+                                           }
+                                        }
+
+                                        // Log.d("bn", "getfeed feed pages: " +
+               feed.pages[0].articles[0].data);
+                                        // Log.d("bn", "getfeed feed pages: " +
+               feed.pages[0].articles[0].data.categoryName);
+                                        // Log.d("bn", "getfeed feed pages: " +
+               feed.pages[0].articles[0].category_name);
+
+                                        // Log.d("bn", "getfeed feed featured_article: " +
+               feed.featuredArticle);
+                                        // Log.d("bn", "getfeed feed featured_article: " +
+               feed.featured_article?);
+                                        // Log.d("bn", "getfeed feed featured_article.data: " +
+               feed.featured_article?.data);
+                                        // Log.d("bn", "getfeed feed
+               featured_article.data.category_name: " + feed.featured_article.data.category_name);
+
+                                    });
+                                } else {
+                                    Log.d("bn", " getfeed mBraveNewsController is null ");
+                                }
+                                getFeed();
+                                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        Log.d("BN", "optin click after");
+                                        Log.d("BN", "optin click after braveNewsItems:
+               "+braveNewsItems);
+
+                                        feedSpinner.setVisibility(View.GONE);
+                                        optinLayout.setVisibility(View.GONE);
+
+                                        container.setVisibility(View.VISIBLE);
+                                        recyclerView.setVisibility(View.VISIBLE);
+
+                                        // nestedScrollView.setVisibility(View.VISIBLE);
+                                        // preferences.setOptIn(true);
+
+                                        // adapter.notifyDataSetChanged();
+                                        adapterFeed.notifyDataSetChanged();
+
+                                        parentScrollView.scrollTo(0, 0);
+                                        // parentScrollView.fullScroll(ScrollView.FOCUS_UP);
+
+                                        isScrolled = true;
+                                        Log.d("BN", "optin click after recycler y0:" +
+               recyclerView.getY());
+
+                                        if (recyclerView.getLayoutManager().findViewByPosition(0) !=
+               null) { Log.d("BN", "optin click after y0:"
+                                                            + recyclerView.getLayoutManager()
+                                                                      .findViewByPosition(0)
+                                                                      .getY());
+                                        }
+                                    }
+                                }, 3000);
                             }
-                        }
-                    }, 3000);
-                }
-            }).start();
+                        }).start();
+
             */
         }
 
@@ -1464,47 +2079,71 @@ public class BraveNewTabPageLayout
                 new ViewTreeObserver.OnScrollChangedListener() {
                     @Override
                     public void onScrollChanged() {
-                        int scrollY = parentScrollView.getScrollY();
-
-                        if (recyclerView.getLayoutManager().findViewByPosition(0) != null) {
-                            if (isScrolled) {
-                                correctPosition();
+                        try {
+                            int scrollY = parentScrollView.getScrollY();
+                            if (recyclerView.getLayoutManager().findViewByPosition(0) != null) {
+                                if (isScrolled) {
+                                    Log.d("bn", "crashinvestigation parentScrollView onScrollChange");
+                                    correctPosition();
+                                }
                             }
-                        }
+                            Log.d("bn", "crashinvestigation parentScrollView after 1");
+                            isScrolled = false;
 
-                        isScrolled = false;
-
-                        float onScrollChangedValue = parentScrollView.getMaxScrollAmount();
-                        // Log.d("BN", "onScrollChangedValue view.scrollY():" + scrollY);
-                        // Log.d("BN", "onScrollChangedValue view.getMaxScrollAmount():" +
-                        // onScrollChangedValue);
-                        float value = (float) scrollY / parentScrollView.getMaxScrollAmount();
-                        if (value >= 1) {
-                            value = 1;
-                        }
-                        float alpha = (float) (1 - value);
-                        if (alpha < 1f) {
-                            imageCreditLayout.setAlpha(alpha);
-                        }
-
-                        // Log.d("bn",
-                        //         "parentScrollViewObserver is alive:"
-                        //                 + parentScrollViewObserver.isAlive());
-                        if (settingsBar != null && settingsBar.getVisibility() == View.VISIBLE) {
-                            if (value > 0.4 && settingsBar.getAlpha() <= 1f) {
-                                settingsBar.setAlpha((float) (value + 0.5));
-                            } else if (value < 0.4 && settingsBar.getAlpha() > 0f) {
-                                settingsBar.setAlpha((float) (value - 0.2));
+                            float onScrollChangedValue = parentScrollView.getMaxScrollAmount();
+                            // Log.d("BN", "onScrollChangedValue view.scrollY():" + scrollY);
+                            // Log.d("BN", "onScrollChangedValue view.getMaxScrollAmount():" +
+                            // onScrollChangedValue);
+                            float value = (float) scrollY / parentScrollView.getMaxScrollAmount();
+                            if (value >= 1) {
+                                value = 1;
                             }
-                            if (settingsBar.getAlpha() >= 1) {
-                                settingsBarIsClickable = true;
-                            } else {
-                                settingsBarIsClickable = false;
-                                // settingsBar.setVisibility(View.GONE);
+                            float alpha = (float) (1 - value);
+                            if (alpha < 1f) {
+                                imageCreditLayout.setAlpha(alpha);
                             }
-                            Log.d("BN",
-                                    "settings bar alpha: " + settingsBar.getAlpha()
-                                            + "isClickable:" + settingsBarIsClickable);
+                            // Log.d("bn", "crashinvestigation parentScrollView /after 2");
+
+                            // Log.d("bn",
+                            //         "parentScrollViewObserver is alive:"
+                            //                 + parentScrollViewObserver.isAlive());
+                            if (settingsBar != null
+                                    && settingsBar.getVisibility() == View.VISIBLE) {
+                                if (value > 0.4 && settingsBar.getAlpha() <= 1f) {
+                                    settingsBar.setAlpha((float) (value + 0.5));
+                                } else if (value < 0.4 && settingsBar.getAlpha() > 0f) {
+                                    settingsBar.setAlpha((float) (value - 0.2));
+                                }
+                                if (settingsBar.getAlpha() >= 1) {
+                                    settingsBarIsClickable = true;
+                                    LinearLayout.LayoutParams imageCreditLayoutParams =
+                                        (LinearLayout.LayoutParams) imageCreditLayout.getLayoutParams();
+                                    Log.d("bn", "imageCreditLayoutposition parentviewscroll reached top height" +imageCreditLayoutParams.height );
+                                    Log.d("bn", "imageCreditLayoutposition imageCreditLayout top:" + imageCreditLayout.getTop() + " y:" +imageCreditLayout.getY() );
+                                    Log.d("bn", "imageCreditLayoutposition settingsBar top:" + settingsBar.getTop() + " y:" +settingsBar.getY() );
+                                    Log.d("bn", "imageCreditLayoutposition recyclerView top:" + recyclerView.getTop() + " y:" +recyclerView.getY() );
+
+                                    // recyclerView.setY(settingsBar.getY());
+                                    // imageCreditLayout.setVisibility(View.INVISIBLE);
+                                    // if (imageCreditLayoutParams.height > 1) {
+                                        // Log.d("bn", "reached top setting small height");
+                                        // imageCreditLayoutParams.height = 1;
+                                        // imageCreditLayout.setLayoutParams(imageCreditLayoutParams);
+                                    // }
+                                } else {
+                                    settingsBarIsClickable = false;
+                                    Log.d("bn", "reached scrolled down");
+                                    // settingsBar.setVisibility(View.GONE);
+                                    // imageCreditLayout.setVisibility(View.VISIBLE);
+                                }
+                                Log.d("BN",
+                                        "settings bar alpha: " + settingsBar.getAlpha()
+                                                + "isClickable:" + settingsBarIsClickable);
+                            }
+                            // Log.d("bn", "crashinvestigation parentSc//rollView after 3");
+                        } catch (Exception e) {
+                            Log.d("bn",
+                                    "Exception crashinvestigation parentScrollViewObserver e:" + e);
                         }
                     }
                 });
@@ -1513,60 +2152,163 @@ public class BraveNewTabPageLayout
                 new ViewTreeObserver.OnGlobalLayoutListener() {
                     @Override
                     public void onGlobalLayout() {
-                        // Log.d("BN",
-                        //         "settings bar on onGlobalLayout: " + settingsBar
-                        //                 + " isScrolled:" + isScrolled);
+                        try {
+                            // Log.d("BN",
+                            //         "settings bar on onGlobalLayout: " + settingsBar
+                            //                 + " isScrolled:" + isScrolled);
 
-                        if (settingsBar != null) {
-                            if (!isScrolled) {
-                                settingsBar.setAlpha(0f);
+                            if (settingsBar != null) {
+                                if (!isScrolled) {
+                                    settingsBar.setAlpha(0f);
+                                }
+
+                                // Log.d("BN",
+                                //         "settings bar on onGlobalLayout: " +
+                                //         settingsBar.getAlpha());
+                                settingsBar.setOnClickListener(new View.OnClickListener() {
+                                    @Override
+                                    public void onClick(View v) {
+                                        // Log.d("bn",
+                                        //         "clicked on settings bar 1:" +
+                                        //         settingsBar.getAlpha()
+                                        //                 + " isClickable:" +
+                                        //                 settingsBarIsClickable);
+                                    }
+                                });
+                                ImageView newsSettingsButton = (ImageView) settingsBar.findViewById(
+                                        R.id.news_settings_button);
+                                ViewTreeObserver.OnGlobalLayoutListener listener = this;
+                                // Log.d("bn",
+                                //         "parentScrollViewObserver is alive before:"
+                                //                 + parentScrollViewObserver.isAlive());
+
+                                newsSettingsButton.setOnClickListener(new View.OnClickListener() {
+                                    @Override
+                                    public void onClick(View v) {
+                                        if (settingsBarIsClickable) {
+                                            SettingsLauncher settingsLauncher =
+                                                    new SettingsLauncherImpl();
+                                            settingsLauncher.launchSettingsActivity(
+                                                    getContext(), BraveNewsPreferences.class);
+                                            parentScrollView.getViewTreeObserver()
+                                                    .removeOnGlobalLayoutListener(listener);
+                                        }
+                                    }
+                                });
+                                // Log.d("bn",
+                                //         "parentScrollViewObserver is alive after:"
+                                //                 + parentScrollViewObserver.isAlive());
+                                // }
+                            } else {
+                                // Log.d("BN", "settings bar on onGlobalLayout is null: " +
+                                // settingsBar);
                             }
 
-                            // Log.d("BN",
-                            //         "settings bar on onGlobalLayout: " + settingsBar.getAlpha());
-                            settingsBar.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    // Log.d("bn",
-                                    //         "clicked on settings bar 1:" + settingsBar.getAlpha()
-                                    //                 + " isClickable:" + settingsBarIsClickable);
-                                }
-                            });
-                            ImageView newsSettingsButton =
-                                    (ImageView) settingsBar.findViewById(R.id.news_settings_button);
-                            ViewTreeObserver.OnGlobalLayoutListener listener = this;
-                            // Log.d("bn",
-                            //         "parentScrollViewObserver is alive before:"
-                            //                 + parentScrollViewObserver.isAlive());
-
-                            newsSettingsButton.setOnClickListener(new View.OnClickListener() {
-                                @Override
-                                public void onClick(View v) {
-                                    if (settingsBarIsClickable) {
-                                        SettingsLauncher settingsLauncher =
-                                                new SettingsLauncherImpl();
-                                        settingsLauncher.launchSettingsActivity(
-                                                getContext(), BraveNewsPreferences.class);
-                                        parentScrollView.getViewTreeObserver()
-                                                .removeOnGlobalLayoutListener(listener);
-                                    }
-                                }
-                            });
-                            // Log.d("bn",
-                            //         "parentScrollViewObserver is alive after:"
-                            //                 + parentScrollViewObserver.isAlive());
-                            // }
-                        } else {
-                            Log.d("BN", "settings bar on onGlobalLayout is null: " + settingsBar);
+                        } catch (Exception e) {
+                            Log.d("bn",
+                                    "Exception crashinvestigation addOnGlobalLayoutListener e: "
+                                            + e);
                         }
                     }
                 });
+
+        // recyclerView.getViewTreeObserver().addOnGlobalLayoutListener(new
+        // ViewTreeObserver.OnGlobalLayoutListener() {
+        //      @Override
+        //      public void onGlobalLayout() {
+        //          Log.d("bn", "newsEvents recyclerView.getViewTreeObserver().addOnGlobalLayout:"
+        //          );
+        //      }
+        //  });
 
         recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
+
                 int offset = recyclerView.computeVerticalScrollOffset();
+                LinearLayoutManager linearLayoutManager =
+                        (LinearLayoutManager) recyclerView.getLayoutManager();
+                RecyclerView.LayoutManager layoutManager = recyclerView.getLayoutManager();
+
+                // int firstVisibleItemPosition =
+                // linearLayoutManager.findFirstVisibleItemPosition();
+                int firstCompletelyVisibleItemPosition = linearLayoutManager.findFirstCompletelyVisibleItemPosition(); 
+                // int totalItemCount
+                // = linearLayoutManager.getItemCount(); int visibleItemCount =
+                // linearLayoutManager.getChildCount();
+
+                int viewedNewsCardsCount = SharedPreferencesManager.getInstance().readInt(
+                        BravePreferenceKeys.BRAVE_NEWS_CARDS_VIEWED);
+
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) {
+                    endCardViewTime = System.currentTimeMillis();
+                    long timeDiff = endCardViewTime - startCardViewTime;
+                    Log.d("bn",
+                            "newsEvents timeDiff:" + timeDiff + "uuid:" + uuid + "cardType:"
+                                    + cardType + "creativeInstanceId:" + creativeInstanceId);
+                    // if viewed for more than 100 ms send the event
+                    if (timeDiff > 100) {
+                        viewedNewsCardsCount++;
+                        // Promotion card viewed events
+                        if (!uuid.equals("") && !creativeInstanceId.equals("")
+                                && cardType.equals("promo")) {
+                            // logFeedItem(visibleCard, "!!!! sent card " + i + " :" );
+                            if (visibleCard != null) {
+                                if (! newsItemsFeedCard.get(itemPosition).isViewStatSent()) {
+                                    Log.d("bn",
+                                            "newsEvents !!!! sent onPromotedItemView uuid:" + uuid
+                                                    + " creativeInstanceId:" + creativeInstanceId);
+                                    mBraveNewsController.onPromotedItemView(
+                                            uuid, creativeInstanceId);
+                                     newsItemsFeedCard.get(itemPosition).setViewStatSent(true);
+                                }
+                            }
+                        }
+
+
+                    SharedPreferencesManager.getInstance().writeInt(
+                            BravePreferenceKeys.BRAVE_NEWS_CARDS_VIEWED, viewedNewsCardsCount);
+                        Log.d("bn", "viewedNewsCardsCount SCROLL_STATE_DRAGGING : "+ viewedNewsCardsCount);
+                        if (viewedNewsCardsCount % 4 == 0 && viewedNewsCardsCount > 0) {
+                            mBraveNewsController.onSessionCardViewsCountChanged(
+                                    (short) viewedNewsCardsCount);
+                        }
+                    }
+                }
+
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    startCardViewTime = System.currentTimeMillis();
+                    int firstVisibleItemPosition =
+                            linearLayoutManager.findFirstVisibleItemPosition();
+                    int lastVisibleItemPosition = linearLayoutManager.findLastVisibleItemPosition();
+                    for (int viewPosition = firstVisibleItemPosition;
+                            viewPosition <= lastVisibleItemPosition; viewPosition++) {
+                        View itemView = layoutManager.findViewByPosition(viewPosition);
+                        int visiblePercentage = (int) getVisibleHeightPercentage(itemView);
+                        Log.d("bn", "onScrolled SCROLL_STATE_IDLE offset:" + offset);
+                        if (visiblePercentage >= MINIMUM_VISIBLE_HEIGHT_THRESHOLD) {
+                            visibleCard = newsItemsFeedCard.get(viewPosition);
+
+                            // get params for view PROMOTED_ARTICLE
+                            if (visibleCard.getCardType() == CardType.PROMOTED_ARTICLE) {
+                                itemPosition = viewPosition;
+                                creativeInstanceId = braveNewsUtils.getPromotionIdItem(visibleCard);
+                                Log.d("bn",
+                                        "newsEvents visiblePercentage" + visiblePercentage
+                                                + " creativeInstanceId:" + creativeInstanceId);
+                                uuid = visibleCard.getUuid();
+                                cardType = "promo";
+                                //
+                            }
+                        }
+                    }
+
+                    Log.d("BN", "onScrolled SCROLL_STATE_IDLE: firstCompletelyVisibleItemPosition:" + firstCompletelyVisibleItemPosition);
+                    
+                }
+                // Log.d("bn", "crashinvestigation recyclerView onScrollStateChanged");
+                // mBraveNewsController.onInteractionSessionStarted();
 
                 // Log.d("BN", "onScrollStateChanged:" + newState + " offset:" + offset);
             }
@@ -1574,18 +2316,81 @@ public class BraveNewTabPageLayout
             @Override
             public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
-                int offset = recyclerView.computeVerticalScrollOffset();
-                // Log.d("BN", "onScrolled dx:" + dx + " dy:" + dy + " offset:" + offset);
-                parentScrollView.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        // Log.d("BN",
-                        //         "onScrolled scroll to:" + offset + " positionL:"
-                        //                 + parentScrollView.getVerticalScrollbarPosition());
+                try {
+                    Log.d("bn", "crashinvestigation onScrolled");
+                    int offset = recyclerView.computeVerticalScrollOffset();
+                    LinearLayoutManager linearLayoutManager =
+                            (LinearLayoutManager) recyclerView.getLayoutManager();
 
-                        parentScrollView.scrollBy(0, offset + 50);
+                    Log.d("BN", "onScrolled dx:" + dx + " dy:" + dy + " offset:" + offset);
+                    // Log.d("bn", "crashinvestigation onScrolled 1");
+                    int firstVisibleItemPosition =
+                            linearLayoutManager.findFirstVisibleItemPosition();
+                    int visibleItemCount =
+                            linearLayoutManager.getChildCount();
+                    // @TODO alex implement view DISPLAY_AD event
+                    // if
+                    // (newsItemsFeedCard.get(findFirstCompletelyVisibleItemPosition).getCardType()
+                    // == CardType.DISPLAY_AD ){
+                    //     FeedItemsCard visiblePromotionCard =
+                    //     newsItemsFeedCard.get(findFirstCompletelyVisibleItemPosition); String
+                    //     creativeInstanceId = getPromotionIdItem(visiblePromotionCard); String
+                    //     uuid = UUID.randomUUID().toString();
+
+                    //     mBraveNewsController.onPromotedItemView(uuid, creativeInstanceId);
+                    // }
+
+                    SharedPreferencesManager.getInstance().writeInt(
+                            BravePreferenceKeys.BRAVE_NEWS_CARDS_VIEWED, viewedNewsCardsCount);
+
+                    // Log.d("BN", "onScrolled linearLayoutManager1 visibleItemCount:" +
+                    // visibleItemCount + " totalItemCount:" + totalItemCount + "
+                    // firstVisibleItemPosition:" + firstVisibleItemPosition + "
+                    // findFirstCompletelyVisibleItemPosition:"+findFirstCompletelyVisibleItemPosition);
+                    // for (int i=findFirstCompletelyVisibleItemPosition; i<=visibleItemCount; i
+                    // ++){
+                    //     FeedItemsCard visibleCard = newsItemsFeedCard.get(i);
+                    //     logFeedItem(visibleCard, "scrolled visible card " + i + " :" );
+                    // }
+
+                    int currentlyLoaded = visibleItemCount + firstVisibleItemPosition;
+                    int page = (int) Math.floor(currentlyLoaded / ITEMS_PER_PAGE);
+
+                    int thrashold = 6; //(page*ITEMS_PER_PAGE) - 5;
+                    // Log.d("BN", "loadMoreItems currentlyLoaded:" + currentlyLoaded + " page:" +
+                    // page + " thrashold:" + thrashold);
+
+                    if (firstVisibleItemPosition + thrashold == (page + 1) * ITEMS_PER_PAGE) {
+                        // page++;
+                        // Log.d("BN", "loadMoreItems page:" + page);
+                        // loadMoreItems(page);
                     }
-                });
+
+                    parentScrollView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            // Log.d("BN",
+                            //         "onScrolled scroll to:" + offset + " positionL:"
+                            //                 + parentScrollView.getVerticalScrollbarPosition());
+                            try {
+                                parentScrollView.scrollBy(0, offset + 20);
+                                Log.d("bn", "imageCreditLayoutposition top:" + imageCreditLayout.getTop() + " y:" +imageCreditLayout.getY() );
+                                // Log.d("bn", "imageCreditLayoutposition top:" + imageCreditLayout.getTop() + " y:" +imageCreditLayout.getY() );
+                                // imageCreditLayout.scrollBy(0, offset - 50);
+
+                            } catch (Exception e) {
+                                Log.d("bn",
+                                        "Exception crashinvestigation recyclerView addOnScrollListener e:"
+                                                + e);
+                            }
+                            // Log.d("bn", "crashinvestigation onScrolled 2");
+                        }
+                    });
+                    // Log.d("bn", "crashinvestigation onScrolled 3");
+
+                } catch (Exception e) {
+                    Log.d("bn", "crashinvestigation Exception onScrolled:" + e);
+                }
             }
         });
 
@@ -1613,7 +2418,8 @@ public class BraveNewTabPageLayout
             public void onClick(View v) {
                 Log.d("BN", "optin_learnmorex");
                 Intent browserIntent =
-                        new Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"));
+                        new Intent(Intent.ACTION_VIEW, Uri.parse("http://www.brave.com"));
+                browserIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 mActivity.startActivity(browserIntent);
             }
         });
@@ -1634,6 +2440,8 @@ public class BraveNewTabPageLayout
                 sharedPreferencesEditor.putBoolean(BraveNewsPreferences.PREF_SHOW_OPTIN, false);
                 sharedPreferencesEditor.apply();
 
+                getFeed();
+/*
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -1688,35 +2496,164 @@ public class BraveNewTabPageLayout
                         }, 1000);
                     }
                 }).start();
+                */
             }
         });
     }
 
-    private void getFeed() {
-        BraveNewsUtils utils = new BraveNewsUtils(mActivity);
-        newsItems = utils.parseJson(newsItems);
-        Log.d("bravenews", "end parse");
+    // private void analyzeAndAddViewData(int firstVisibleItemPosition, int lastVisibleItemPosition)
+    // {
+
+    //     for (int viewPosition = firstVisibleItemPosition; viewPosition <=
+    //     lastVisibleItemPosition; viewPosition++) {
+
+    //         Log.i("View being considered", String.valueOf(viewPosition));
+
+    //         // Get the view from its position.
+    //         View itemView = recyclerView.getLayoutManager().findViewByPosition(viewPosition);
+
+    //         // Check if the visibility of the view is more than or equal
+    //         // to the threshold provided. If it falls under the desired limit,
+    //         // add it to the tracking data.
+    //         if (
+    //           getVisibleHeightPercentage(itemView) >=
+    //             minimumVisibleHeightThreshold) {
+    //             viewsViewed.add(viewPosition);
+    //         }
+    //     }
+    // }
+
+    protected boolean handleBackPressed() {
+        Log.d("bn", "backmanager handleBackPressed to BraveActivity");
+        return true;
     }
 
+    private double getVisibleHeightPercentage(View view) {
+        Rect itemRect = new Rect();
+        double viewVisibleHeightPercentage = 0;
+        if (view != null) {
+            view.getLocalVisibleRect(itemRect);
+
+            // Find the height of the item.
+            double visibleHeight = itemRect.height();
+            double height = view.getMeasuredHeight();
+
+            Log.i("Visible Height", String.valueOf(visibleHeight));
+            Log.i("Measured Height", String.valueOf(height));
+
+            viewVisibleHeightPercentage = ((visibleHeight / height) * 100);
+
+            Log.i("Percentage visible", String.valueOf(viewVisibleHeightPercentage));
+        }
+
+        return viewVisibleHeightPercentage;
+    }
+
+    private void loadMoreItems(int page) {
+        int startIndex = page * ITEMS_PER_PAGE;
+        int endIndex = startIndex + ITEMS_PER_PAGE;
+        Log.d("bn", "loadMoreItems indexing page:"+page);
+        Log.d("bn", "loadMoreItems indexing startIndex:"+startIndex);
+        Log.d("bn", "loadMoreItems indexing endIndex:"+endIndex);
+        // newsRecyclerItems
+        // for (FeedItemsCard feedItemsCard : newsItemsFeedCard){
+
+        Log.d("BN", "loadMoreItems indexing process before: newsRecyclerItems!!: "+newsRecyclerItems.size());
+        // for (FeedItemsCard feedItemsCard : newsRecyclerItems){
+        //     logFeedItem(feedItemsCard, "loadMoreItems indexing process before: " );
+        // }
+        for (int i = startIndex; i < endIndex; i ++){    
+            Log.d("bn", "loadMoreItems indexing:"+i);
+            FeedItemsCard feedItemsCard = newsItemsFeedCard.get(i);
+            // if (feedItemsCard.getFeedItems() != null){
+                // if (startIndex < endIndex){  
+                    // Log.d("BN", "loadMoreItems indexing cardtype: "+feedItemsCard.getCardType());    
+                    
+                    if (feedItemsCard.getCardType() != CardType.DISPLAY_AD){     
+                        for (FeedItemCard itemCard : feedItemsCard.getFeedItems()){
+                            FeedItem item = itemCard.getFeedItem();
+
+                            FeedItemMetadata itemMetaData = new FeedItemMetadata();
+                            switch(item.which()){
+                                case FeedItem.Tag.Article:
+                                    Article article = item.getArticle();
+                                    itemMetaData = article.data;
+                                    break;
+                                case FeedItem.Tag.PromotedArticle:
+                                    PromotedArticle promotedArticle = item.getPromotedArticle();
+                                    itemMetaData = promotedArticle.data;
+                                    break;                                            
+                                case FeedItem.Tag.Deal:
+                                    Deal deal = item.getDeal();
+                                    itemMetaData = deal.data;
+                                    break;
+                            }
+                            Url itemImageUrl = getImage(itemMetaData);
+                            mBraveNewsController.getImageData(itemImageUrl, imageData -> {
+                                if (imageData != null){
+                                    itemCard.setImageByte(imageData);
+                                }
+                            });
+                            // newsRecyclerItems.setFeedItems(feedItemsCard.getFeedItems());
+                            
+                        }
+                    }              
+                    
+                    // newsRecyclerItems.add(feedItemsCard);
+                    // final int addIndex = i;
+                    // recyclerView.post(new Runnable() {
+                    //     public void run() {
+                    //         adapterFeedCard.notifyItemInserted(addIndex);
+                    //     }
+                    // });
+
+                // }
+            // } 
+            // startIndex ++;
+        }
+        
+        Log.d("BN", "loadMoreItems indexing process after: newsRecyclerItems!!: "+newsRecyclerItems.size());
+        int newsRecyclerIndex = 0;
+        for (FeedItemsCard feedItemsCard : newsRecyclerItems){
+            Log.d("BN", "loadMoreItems indexing process after: newsRecyclerIndex"+newsRecyclerIndex);
+            if (newsRecyclerIndex < 50) {
+                logFeedItem(feedItemsCard, "loadMoreItems indexing process after: ");
+            }
+            newsRecyclerIndex ++;
+        }
+
+        // recyclerView.post(new Runnable() {
+        //     public void run() {
+        //         adapterFeedCard.notifyDataSetChanged();
+        //     }
+        // });
+    }
+
+    // private void getFeed() {
+    //     BraveNewsUtils utils = new BraveNewsUtils(mActivity);
+    //     newsItems = utils.parseJson(newsItems);
+    //     Log.d("bravenews", "end parse");
+    // }
+
+
     private void processFeed(){
-        Log.d("bn", "executor background work ui thread");
         // Log.d("BN", "processFeed click after");
         // Log.d("BN", "processFeed click after newsItemsFeed: "+newsItemsFeed);
         // Log.d("BN", "processFeed click after newsItemsFeedCard: "+newsItemsFeedCard);
         Log.d("BN", "processFeed click after newsItemsFeedCard: "+newsItemsFeedCard.size());
 
-
+        int feedIndex = 0;
         for (FeedItemsCard feedItemsCard : newsItemsFeedCard){
-            Log.d("BN", "processFeed click after cardtype: "+feedItemsCard.getCardType());
+            // Log.d("BN", "processFeed click after cardtype: "+feedItemsCard.getCardType());
             if (feedItemsCard.getFeedItems() != null){
-                logFeedItem(feedItemsCard, "processFeed click after" );
+                // logFeedItem(feedItemsCard, "processFeed click after " + feedIndex + " : ");
                 // for (FeedItemCard feedItemCard : feedItemsCard){
 
                 // }
-
+                feedIndex++;
 
             } else {
-                Log.d("BN", "processFeed click after EMPTY!!: ");
+                // Log.d("BN", "processFeed click after EMPTY!!: ");
             }
         }
 
@@ -1726,26 +2663,30 @@ public class BraveNewTabPageLayout
         container.setVisibility(View.VISIBLE);
         recyclerView.setVisibility(View.VISIBLE);
 
-        // nestedScrollView.setVisibility(View.VISIBLE);
-        // preferences.setOptIn(true);
 
         // adapter.notifyDataSetChanged();
         // adapterFeed.notifyDataSetChanged();
         adapterFeedCard.notifyDataSetChanged();
 
-        parentScrollView.scrollTo(0, 0);
-        // parentScrollView.fullScroll(ScrollView.FOCUS_UP);
+        try {
+            parentScrollView.scrollTo(0, 0);
+        } catch (Exception e) {
+            Log.d("bn", "Exception crashinvestigation processfeed e:" + e);
+        }
 
         isScrolled = true;
-        Log.d("BN", "optin click after recycler y0:" + recyclerView.getY());
+        // Log.d("BN", "optin click after recycler y0:" + recyclerView.getY());
 
-        if (recyclerView.getLayoutManager().findViewByPosition(0) != null) {
-            Log.d("BN",
-                    "optin click after y0:"
-                            + recyclerView.getLayoutManager()
-                                      .findViewByPosition(0)
-                                      .getY());
-        }
+        // Brave News interaction started
+        mBraveNewsController.onInteractionSessionStarted();
+
+        // if (recyclerView.getLayoutManager().findViewByPosition(0) != null) {
+        //     Log.d("BN",
+        //             "optin click after y0:"
+        //                     + recyclerView.getLayoutManager()
+        //                               .findViewByPosition(0)
+        //                               .getY());
+        // }
     }
 
     @Override
@@ -1855,7 +2796,8 @@ public class BraveNewTabPageLayout
         bgImageView = (ImageView) findViewById(R.id.bg_image_view);
         // ntpLayout = (BraveNewTabPageLayout) findViewById(R.id.ntp_content);
         // bgImageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        Log.d("BN", "setting bgImageView:" + ntpImage);
+        Log.d("BN", "setting bgImageView:" + ntpImage);       
+        // Log.d("BN", "setting bgImageView:" + ntpImage);
 
         ViewTreeObserver observer = bgImageView.getViewTreeObserver();
         observer.addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -2006,7 +2948,7 @@ public class BraveNewTabPageLayout
                 Log.d("bn", "compositorViewchildren ntplayout nextchild before add:" + nextChild);
             }
 
-            // @TODO section for settings bar. TO solve getActivityTab() issues
+            // @TODO alex section for settings bar. TO solve getActivityTab() issues
             try {
                 if (BraveActivity.getBraveActivity() != null 
                         && BraveActivity.getBraveActivity().getActivityTab() != null) {
@@ -2018,12 +2960,13 @@ public class BraveNewTabPageLayout
                             Log.d("bn", "fetched settings bar :" + R.id.news_settings_bar);
                             Log.d("bn",
                                     "fetched settings bar :" + R.layout.brave_news_settings_bar_layout);
+                            settingsBar.setVisibility(View.VISIBLE);
                             settingsBar.setAlpha(0f);
                         }
                     }
                 }
             } catch (Exception e) {
-                Log.e("bn", "fetched settings bar: " + e.getMessage());
+                Log.e("bn", "crashinvestigation exception fetched settings bar: " + e.getMessage());
             }
         }
 
@@ -2329,18 +3272,18 @@ public class BraveNewTabPageLayout
 
     @Override
     public void onCloseClick(View view) {
-        Log.d("bravenews", "close click");
+        Log.d("bn", "close click");
     }
 
     @Override
     public void onOptInClick(View view) {
-        Log.d("bravenews", "optin click");
+        Log.d("bn", "optin click");
     }
 
     @Override
-    public void onItemClick(View view, int position) {
-        Log.d("bravenews",
-                "You clicked " + adapter.getItem(position) + " on row number " + position);
+    public void onCardClick(View view, int position) {
+        Log.d("bn","cardclicklistener position" + adapter.getItem(position) + " on row number " + position);
+        BraveActivity.getBraveActivity().setNewsFeedScrollPosition(position);
     }
 
 
@@ -2357,6 +3300,10 @@ public class BraveNewTabPageLayout
 
         mBraveNewsController =
                 BraveNewsControllerFactory.getInstance().getBraveNewsController(this);
+    }
+
+    interface RepositoryCallback<T> {
+        void onComplete(NewsFeedResponse<T> result);
     }
 
 }

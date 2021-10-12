@@ -25,4 +25,14 @@ public final class BravePreferenceKeys {
             "org.chromium.chrome.browser.Brave_Tab_Groups_Enabled";
     public static final String BRAVE_DISABLE_SHARING_HUB =
             "org.chromium.chrome.browser.Brave_Disable_Sharing_Hub";
+    public static final String BRAVE_NEWS_CARDS_VISITED = "brave_news_cards_visited";
+    public static final String BRAVE_NEWS_CARDS_VIEWED = "brave_news_cards_viewed";
+    public static final String BRAVE_NEWS_PROMOTION_CARDS_VISITED =
+            "brave_news_promotion_cards_visited";
+    public static final String BRAVE_NEWS_PROMOTION_CARDS_VIEWED =
+            "brave_news_promotion_cards_viewed";
+    public static final String BRAVE_NEWS_DISPLAYAD_CARDS_VISITED =
+            "brave_news_displayad_cards_visited";
+    public static final String BRAVE_NEWS_DISPLAYAD_CARDS_VIEWED =
+            "brave_news_displayad_cards_viewed";
 }

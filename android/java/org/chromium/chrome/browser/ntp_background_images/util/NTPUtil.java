@@ -65,7 +65,8 @@ import org.chromium.chrome.browser.util.PackageUtils;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.DeviceFormFactor;
-
+import org.chromium.chrome.browser.brave_news.models.FeedItemCard;
+import org.chromium.chrome.browser.brave_news.models.FeedItemsCard;
 import org.chromium.brave_news.mojom.FeedItem;
 import org.chromium.brave_news.mojom.FeedItemMetadata;
 import org.chromium.brave_news.mojom.PromotedArticle;
@@ -78,6 +79,7 @@ import java.lang.ref.SoftReference;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Arrays;
 
 public class NTPUtil {
     private static final int BOTTOM_TOOLBAR_HEIGHT = 56;
@@ -89,38 +91,47 @@ public class NTPUtil {
     public static void turnOnAds() {
         BraveAdsNativeHelper.nativeSetAdsEnabled(Profile.getLastUsedRegularProfile());
         BraveRewardsNativeWorker.getInstance().SetAutoContributeEnabled(true);
-    }
+    } 
 
+    public static void showItemInfo(FeedItemsCard items, String id) {
 
-    public static void showItemInfo(FeedItem feedItem, String id) {
-        switch(feedItem.which()){
-            case FeedItem.Tag.Article:
+        if (items.getFeedItems() != null) {          
+            for (FeedItemCard itemCard : items.getFeedItems()){
+
+                FeedItem feedItem = itemCard.getFeedItem();
                 
-                Article article = feedItem.getArticle();
-                FeedItemMetadata articleData = article.data;
-                
-                Log.d("bn", id+" articleData: " + articleData.title);
-                break;
-            case FeedItem.Tag.PromotedArticle:
-                PromotedArticle promotedArticle = feedItem.getPromotedArticle();
-                FeedItemMetadata promotedArticleData = promotedArticle.data;
-                String creativeInstanceId = promotedArticle.creativeInstanceId;
-                // braveNewsItems.add(item.getPromotedArticle());
+                // Log.d("bn", id + " getImageByte: " + Arrays.toString(itemCard.getImageByte()));
+                FeedItemMetadata itemMetaData = new FeedItemMetadata();
+                switch(feedItem.which()){
+                    case FeedItem.Tag.Article:
+                        
+                        Article article = feedItem.getArticle();
+                        FeedItemMetadata articleData = article.data;
+                        
+                        Log.d("bn", id+" articleData: " + articleData.title);
+                        break;
+                    case FeedItem.Tag.PromotedArticle:
+                        PromotedArticle promotedArticle = feedItem.getPromotedArticle();
+                        FeedItemMetadata promotedArticleData = promotedArticle.data;
+                        String creativeInstanceId = promotedArticle.creativeInstanceId;
+                        // braveNewsItems.add(item.getPromotedArticle());
 
-                Log.d("bn", id+" PromotedArticle: " + promotedArticleData.title);
-                // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type PromotedArticle creativeInstanceId: " + creativeInstanceId);
-                break;                                            
-            case FeedItem.Tag.Deal:
-                Deal deal = feedItem.getDeal();
-                FeedItemMetadata dealData = deal.data;
-                String offersCategory = deal.offersCategory;
+                        Log.d("bn", id+" PromotedArticle: " + promotedArticleData.title);
+                        // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type PromotedArticle creativeInstanceId: " + creativeInstanceId);
+                        break;                                            
+                    case FeedItem.Tag.Deal:
+                        Deal deal = feedItem.getDeal();
+                        FeedItemMetadata dealData = deal.data;
+                        String offersCategory = deal.offersCategory;
 
-                // braveNewsItems.add(item.getDeal());
-                // braveNewsItems.add(deal.data);
-                Log.d("bn", id+" Deal: " + dealData.title);
-                // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type Deal offersCategory: " + offersCategory); 
-                break;
-              // textView.setText(itemData.title);  
+                        // braveNewsItems.add(item.getDeal());
+                        // braveNewsItems.add(deal.data);
+                        Log.d("bn", id+" Deal: " + dealData.title);
+                        // Log.d("bn", id+"getfeed feed pages showFeedItemInfo type Deal offersCategory: " + offersCategory); 
+                        break;
+                      // textView.setText(itemData.title);  
+                }
+            }
         }
     }
 
@@ -133,7 +144,7 @@ public class NTPUtil {
         if (isShowOptin) {
             isCompensate = true;
         }
-        Log.d("bn", "compensation isCompensate:" + isCompensate);
+        // Log.d("bn", "compensation isCompensate:" + isCompensate);
         if (BraveActivity.getBraveActivity() != null) {
             BraveActivity activity = BraveActivity.getBraveActivity();
 
@@ -150,7 +161,7 @@ public class NTPUtil {
             if (ntpImage instanceof BackgroundImage) {
                 if (!isTablet) {
                     Log.d("bn",
-                            "correctImageCreditLayoutTopPosition phone sponsored image dpHeight:"
+                            "correctImageCreditLayoutTopPosition phone background image dpHeight:"
                                     + dpHeight);
                     // imageCreditCorrection = isLandscape ? (int) (dpHeight - 250) : (int)
                     // (dpHeight + 150);
@@ -201,7 +212,7 @@ public class NTPUtil {
         CompositorViewHolder compositorView = view.findViewById(R.id.compositor_view_holder);
         ViewGroup imageCreditLayout = view.findViewById(R.id.image_credit_layout);
         ViewGroup optinLayout = view.findViewById(R.id.optin_layout_id);
-        RecyclerView newsRecycler = (RecyclerView) view.findViewById(R.id.newsRecycler);
+        // RecyclerView newsRecycler = (RecyclerView) view.findViewById(R.id.newsRecycler);
         ViewGroup mainLayout = view.findViewById(R.id.ntp_main_layout);
 
         ImageView sponsoredLogo = (ImageView)view.findViewById(R.id.sponsored_logo);
@@ -263,9 +274,9 @@ public class NTPUtil {
         //     }
         // }
 
-        int topMargin = 100;// correctImageCreditLayoutTopPosition(ntpImage);
+        int topMargin = correctImageCreditLayoutTopPosition(ntpImage);
 
-        imageCreditLayoutParams.setMargins(0, topMargin, 0, 0);
+        imageCreditLayoutParams.setMargins(0, topMargin, 0, 50);
         // imageCreditLayoutParams.setMargins(0, displayMetrics.heightPixels, 0, 0);
         imageCreditLayout.setLayoutParams(imageCreditLayoutParams);
 

@@ -170,6 +170,7 @@ void BraveNewsController::GetDisplayAd(GetDisplayAdCallback callback) {
   // some time later.
   if (!ads_service_) {
     VLOG(1) << "GetDisplayAd: no ads service";
+    ALOG("GetDisplayAd: no ads service");
     std::move(callback).Run(nullptr);
   }
   auto on_ad_received = base::BindOnce(
@@ -177,10 +178,12 @@ void BraveNewsController::GetDisplayAd(GetDisplayAdCallback callback) {
       const std::string& dimensions, const base::DictionaryValue& ad_data) {
       if (!success) {
         VLOG(1) << "GetDisplayAd: no ad";
+        ALOG("GetDisplayAd: no ad");
         std::move(callback).Run(nullptr);
         return;
       }
       VLOG(1) << "GetDisplayAd: GOT ad";
+      ALOG("GetDisplayAd: GOT ad");
       // Convert to our mojom entity.
       // TODO(petemill): brave_ads seems to use mojom, perhaps we can receive
       // and send to callback the actual typed mojom struct from brave_ads?
@@ -213,6 +216,7 @@ void BraveNewsController::OnInteractionSessionStarted() {
       std::lower_bound(kSessionCountBuckets, std::end(kSessionCountBuckets),
                       total_session_count);
   int answer = it_count - kSessionCountBuckets;
+  ALOG("OnInteractionSessionStarted history %d.", answer);
   UMA_HISTOGRAM_EXACT_LINEAR("Brave.Today.WeeklySessionCount", answer,
                              base::size(kSessionCountBuckets) + 1);
 }
@@ -230,6 +234,7 @@ void BraveNewsController::OnSessionCardVisitsCountChanged(
       std::lower_bound(kBuckets, std::end(kBuckets),
                       total);
   int answer = it_count - kBuckets;
+  ALOG("newsEvents OnSessionCardVisitsCountChanged history %d.", answer);
   UMA_HISTOGRAM_EXACT_LINEAR("Brave.Today.WeeklyMaxCardVisitsCount", answer,
                              base::size(kBuckets) + 1);
 }
@@ -237,6 +242,7 @@ void BraveNewsController::OnSessionCardVisitsCountChanged(
 void BraveNewsController::OnPromotedItemView(const std::string &item_id,
     const std::string &creative_instance_id) {
   if (!item_id.empty() && !creative_instance_id.empty()) {
+    ALOG("newsEvents OnPromotedItemView sent");
     ads_service_->OnPromotedContentAdEvent(
         item_id, creative_instance_id,
         ads::mojom::PromotedContentAdEventType::kViewed);
@@ -265,6 +271,7 @@ void BraveNewsController::OnSessionCardViewsCountChanged(
       std::lower_bound(kBuckets, std::end(kBuckets),
                       total);
   int answer = it_count - kBuckets;
+  ALOG("newsEvents OnSessionCardViewsCountChanged sent %d", answer);
   UMA_HISTOGRAM_EXACT_LINEAR("Brave.Today.WeeklyMaxCardViewsCount", answer,
                              base::size(kBuckets) + 1);
 }

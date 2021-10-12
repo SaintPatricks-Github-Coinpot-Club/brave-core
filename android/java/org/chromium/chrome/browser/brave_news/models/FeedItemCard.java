@@ -8,6 +8,7 @@ package org.chromium.chrome.browser.brave_news.models;
 
 import org.chromium.brave_news.mojom.FeedItem;
 import org.chromium.brave_news.mojom.CardType;
+import java.util.Arrays;
 
 
 public class FeedItemCard {
@@ -49,7 +50,7 @@ public class FeedItemCard {
         return "FeedItemCard{" +
                 "feedItem=" + feedItem +
                 ", cardType=" + cardType +
-                ", imageByte='" + imageByte + '\'' +
+                ", imageByte='" + Arrays.toString(imageByte) + '\'' +
                 '}';
     }
 }

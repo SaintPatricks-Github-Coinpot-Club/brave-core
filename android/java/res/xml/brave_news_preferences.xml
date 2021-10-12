@@ -19,19 +19,11 @@
         android:summaryOn="@string/news_turn_on_text"
         android:summaryOff="@string/news_turn_on_text" />
 
-    <PreferenceCategory
+<!--     <PreferenceCategory
         android:key="your_sources_section"
         android:dependency="kNewTabPageShowToday"
-        android:title="@string/news_your_sources_section"/>
+        android:title="@string/news_your_sources_section"/> -->
 
-   <org.chromium.components.browser_ui.settings.ChromeBasePreference
-        android:fragment="org.chromium.chrome.browser.settings.BraveAddNewsSources"
-        android:key="add_source_news"
-        android:id="@android:id/edit"
-        android:persistent="false"
-        android:dependency="kNewTabPageShowToday"
-        android:summary="@string/news_add_source"
-        android:title="@string/news_add_source"/>
 
     <PreferenceCategory
         android:key="default_sources_section"

@@ -47,6 +47,7 @@ import org.chromium.mojo.system.MojoException;
 import java.util.Map;
 
 import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,11 +63,11 @@ public class BraveNewsPreferences
     private ChromeSwitchPreference turnOnNews;
     private ChromeSwitchPreference showNews;
     private PreferenceCategory yourSources;
-    private ChromeBasePreference addSource;
+    // private ChromeBasePreference addSource;
     private EditText mEditText;
     private PreferenceScreen mainScreen;
     private PreferenceManager preferenceManager;
-    private HashMap <String, List<Publisher>> categsPublishers;
+    private TreeMap <String, List<Publisher>> categsPublishers;
 
     private final HashMap<String, Preference> mRemovedPreferences = new HashMap<>();
     private BraveNewsController mBraveNewsController; 
@@ -84,29 +85,30 @@ public class BraveNewsPreferences
         InitBraveNewsController();
         turnOnNews = (ChromeSwitchPreference) findPreference(PREF_TURN_ON_NEWS);
         showNews = (ChromeSwitchPreference) findPreference(PREF_SHOW_NEWS);
-        yourSources = (PreferenceCategory) findPreference(PREF_SOURCES_SECTION);
-        addSource = (ChromeBasePreference) findPreference(PREF_ADD_SOURCES);
+        // yourSources = (PreferenceCategory) findPreference(PREF_SOURCES_SECTION);
+        // addSource = (ChromeBasePreference) findPreference(PREF_ADD_SOURCES);
         settingsFragment = this;
 
         turnOnNews.setOnPreferenceChangeListener(this);
         showNews.setOnPreferenceChangeListener(this);
-        addSource.setOnPreferenceChangeListener(this);
+        // addSource.setOnPreferenceChangeListener(this);
 
-        categsPublishers = new HashMap<>();
+        categsPublishers = new TreeMap<>();
         mBraveNewsController.getPublishers((publishers) -> {
             Log.d("bn", "getfeed publishers: " + publishers);
+            List<Publisher> allPublishers = new ArrayList<>();
             for (Map.Entry<String,Publisher> entry : publishers.entrySet()) {
                 String key = entry.getKey();
                 Publisher publisher = entry.getValue();
                 categsPublishers.computeIfAbsent(publisher.categoryName, k ->new ArrayList<>()).add(publisher);
             }
-
+            categsPublishers.put("All Sources", allPublishers);
             addCategs(categsPublishers);
         });
     }
 
 
-    private void addCategs(HashMap <String, List<Publisher>> publisherCategories){
+    private void addCategs(TreeMap <String, List<Publisher>> publisherCategories){
 
         for(Map.Entry<String,List<Publisher>> map : publisherCategories.entrySet()){
             String category = map.getKey();
@@ -119,6 +121,7 @@ public class BraveNewsPreferences
             Bundle prefExtras = source.getExtras();
             prefExtras.putString("category", category);
             source.setFragment("org.chromium.chrome.browser.settings.BraveNewsCategorySources");
+            mainScreen.addPreference(source);
 
             // source.setOnPreferenceChangeListener(this);
             // source.setOnPreferenceClickListener(new Preference.OnPreferenceClickListener() {
@@ -158,7 +161,6 @@ public class BraveNewsPreferences
             //         return false;
             //     }
             // });
-            mainScreen.addPreference(source);
         }
     }
 
@@ -198,8 +200,8 @@ public class BraveNewsPreferences
         if (!isNewsOn) {
             turnOnNews.setChecked(false);
             showNews.setVisible(false);
-            yourSources.setVisible(false);
-            addSource.setVisible(false);
+            // yourSources.setVisible(false);
+            // addSource.setVisible(false);
         } else {
             turnOnNews.setChecked(true);
             showNews.setVisible(true);
@@ -209,8 +211,8 @@ public class BraveNewsPreferences
                 showNews.setChecked(false);
             }
 
-            yourSources.setVisible(true);
-            addSource.setVisible(true);
+            // yourSources.setVisible(true);
+            // addSource.setVisible(true);
         }
     }
 
@@ -236,12 +238,12 @@ public class BraveNewsPreferences
                 showNews.setVisible(true);
                 showNews.setChecked(true);
                 sharedPreferencesEditor.putBoolean(PREF_SHOW_NEWS, true);
-                yourSources.setVisible(true);
-                addSource.setVisible(true);
+                // yourSources.setVisible(true);
+                // addSource.setVisible(true);
             } else {
                 showNews.setVisible(false);
-                yourSources.setVisible(false);
-                addSource.setVisible(false);
+                // yourSources.setVisible(false);
+                // addSource.setVisible(false);
             }
         } else if (PREF_SHOW_NEWS.equals(key)) {
             sharedPreferencesEditor.putBoolean(PREF_SHOW_NEWS, (boolean) newValue);

@@ -227,9 +227,9 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
         return mNewsItems.size();
     }
 
-    public void setClickListener(BraveNewTabPageLayout recyclerMain) {
-        this.mClickListener = recyclerMain;
-    }
+    // public void setClickListener(BraveNewTabPageLayout recyclerMain) {
+    //     this.mClickListener = recyclerMain;
+    // }
 
     public class ViewHolderWidget extends RecyclerView.ViewHolder {
         ViewHolderWidget(View itemView) {
@@ -237,7 +237,7 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
         }
     }
 
-    public class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+    public class ViewHolder extends RecyclerView.ViewHolder {//implements View.OnClickListener {
         LinearLayout layoutRight;
         LinearLayout layoutLeft;
         TextView testTextView;
@@ -297,7 +297,7 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
             rowTop = new TableRow(mActivity);
             topText = new TextView(mActivity);
 
-            itemView.setOnClickListener(this);
+            // itemView.setOnClickListener(this);
             linearLayout = itemView.findViewById(R.id.card_layout);
 
             linearLayoutParams = new LinearLayout.LayoutParams(
@@ -305,10 +305,10 @@ public class BraveNewsAdapter extends RecyclerView.Adapter<BraveNewsAdapter.View
             linearLayoutParams.setMargins(0, 40, 0, 40);
         }
 
-        @Override
-        public void onClick(View view) {
-            if (mClickListener != null) mClickListener.onItemClick(view, getAdapterPosition());
-        }
+        // @Override
+        // public void onClick(View view) {
+        //     if (mClickListener != null) mClickListener.onItemClick(view, getAdapterPosition());
+        // }
     }
 
     public NewsItem getItem(int id) {

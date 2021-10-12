@@ -5,20 +5,24 @@
 
 package org.chromium.chrome.browser.brave_news.models;
 
-
-import org.chromium.brave_news.mojom.FeedItem;
 import org.chromium.brave_news.mojom.CardType;
+import org.chromium.brave_news.mojom.DisplayAd;
+import org.chromium.brave_news.mojom.FeedItem;
+
 import java.util.Arrays;
 import java.util.List;
-
 
 public class FeedItemsCard {
 
     private List<FeedItemCard> feedItems;
     private int cardType;
     private byte[] imageByte;
+    private String uuid;
+    private boolean viewStatSent;
+    private DisplayAd displayAd;
 
     public FeedItemsCard() {
+        this.viewStatSent = false;
     }
 
 
@@ -44,6 +48,30 @@ public class FeedItemsCard {
 
     public void setImageByte(byte[] imageByte) {
         this.imageByte = imageByte;
+    }
+
+    public String getUuid() {
+        return uuid;
+    }
+
+    public void setUuid(String uuid) {
+        this.uuid = uuid;
+    }
+
+    public boolean isViewStatSent() {
+        return viewStatSent;
+    }
+
+    public void setViewStatSent(boolean viewStatSent) {
+        this.viewStatSent = viewStatSent;
+    }
+
+    public DisplayAd getDisplayAd() {
+        return displayAd;
+    }
+
+    public void setDisplayAd(DisplayAd displayAd) {
+        this.displayAd = displayAd;
     }
 
     @Override

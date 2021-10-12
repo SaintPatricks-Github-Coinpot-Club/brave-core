@@ -5,8 +5,8 @@
 
 import("//brave/browser/brave_ads/android/java_sources.gni")
 import("//brave/components/brave_referrals/buildflags/buildflags.gni")
-import("//brave/components/brave_wallet/common/buildflags/buildflags.gni")
 import("//brave/components/brave_today/common/buildflags/buildflags.gni")
+import("//brave/components/brave_wallet/common/buildflags/buildflags.gni")
 import("//brave/components/permissions/android/java_sources.gni")
 import("//brave/components/safetynet/java_sources.gni")
 import("//components/feed/features.gni")
@@ -47,12 +47,14 @@ brave_java_sources = [
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsAdapter.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsAdapterFeed.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsAdapterFeedCard.java",
+  "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsHelper.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsUtils.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/CardBuilder.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/CardBuilderFeedCard.java",
-  "../../brave/android/java/org/chromium/chrome/browser/brave_news/models/NewsItem.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/models/FeedItemCard.java",
+  "../../brave/android/java/org/chromium/chrome/browser/brave_news/models/NewsFeedResponse.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/models/FeedItemsCard.java",
+  "../../brave/android/java/org/chromium/chrome/browser/brave_news/models/NewsItem.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_news/models/PublisherCategory.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_stats/BraveStatsBottomSheetDialogFragment.java",
   "../../brave/android/java/org/chromium/chrome/browser/brave_stats/BraveStatsUtil.java",
@@ -162,9 +164,8 @@ brave_java_sources = [
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveLicensePreference.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveLicensePreferences.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveMainPreferencesBase.java",
-  "../../brave/android/java/org/chromium/chrome/browser/settings/BraveNewsPreferences.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveNewsCategorySources.java",
-  "../../brave/android/java/org/chromium/chrome/browser/settings/SearchPreference.java",
+  "../../brave/android/java/org/chromium/chrome/browser/settings/BraveNewsPreferences.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BravePreferenceDialogFragment.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BravePreferenceFragment.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveRewardsPreferences.java",
@@ -181,12 +182,12 @@ brave_java_sources = [
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveWebrtcPolicyPreference.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/BraveWebrtcPolicyPreferencesFragment.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/SearchEngineTabModelSelectorObserver.java",
+  "../../brave/android/java/org/chromium/chrome/browser/settings/SearchPreference.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/VpnCalloutPreference.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/developer/BraveQAPreferences.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/developer/BraveRewardsDebugPreferences.java",
   "../../brave/android/java/org/chromium/chrome/browser/settings/themes/BraveRadioButtonGroupCustomHomepageThemePreference.java",
   "../../brave/android/java/org/chromium/chrome/browser/share/BraveShareDelegateImpl.java",
-
   "../../brave/android/java/org/chromium/chrome/browser/shields/BraveShieldsHandler.java",
   "../../brave/android/java/org/chromium/chrome/browser/shields/BraveShieldsMenuObserver.java",
   "../../brave/android/java/org/chromium/chrome/browser/shields/BraveShieldsUtils.java",
@@ -269,8 +270,6 @@ brave_java_sources = [
   "../../brave/android/java/org/chromium/chrome/browser/widget/crypto/binance/ConvertAsset.java",
   "../../brave/android/java/org/chromium/chrome/browser/widget/crypto/binance/CryptoWidgetBottomSheetDialogFragment.java",
   "../../brave/android/java/org/chromium/chrome/browser/widget/crypto/binance/CryptoWidgetTabAdapter.java",
-  
-
 ]
 
 brave_java_sources += brave_ads_java_sources
@@ -327,9 +326,7 @@ if (brave_wallet_enabled) {
 }
 
 if (brave_news_enabled) {
-  brave_java_sources += [
-    "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsControllerFactory.java",
-  ]
+  brave_java_sources += [ "../../brave/android/java/org/chromium/chrome/browser/brave_news/BraveNewsControllerFactory.java" ]
 }
 
 brave_components_browser_ui_site_settings_android_java = [

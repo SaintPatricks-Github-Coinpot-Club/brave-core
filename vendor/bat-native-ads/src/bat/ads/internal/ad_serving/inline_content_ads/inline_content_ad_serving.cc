@@ -53,14 +53,14 @@ void AdServing::MaybeServeAd(const std::string& dimensions,
     return;
   }
 
-  frequency_capping::PermissionRules permission_rules;
-  if (!permission_rules.HasPermission()) {
-    BLOG(1,
-         "Inline content ad not served: Not allowed due to permission rules");
-    NotifyFailedToServeInlineContentAd();
-    callback(/* success */ false, dimensions, inline_content_ad);
-    return;
-  }
+  // frequency_capping::PermissionRules permission_rules;
+  // if (!permission_rules.HasPermission()) {
+  //   BLOG(1,
+  //        "Inline content ad not served: Not allowed due to permission rules");
+  //   NotifyFailedToServeInlineContentAd();
+  //   callback(/* success */ false, dimensions, inline_content_ad);
+  //   return;
+  // }
 
   // TODO(https://github.com/brave/brave-browser/issues/17542): Refactor Brave
   // Ads serving

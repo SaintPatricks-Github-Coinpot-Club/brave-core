@@ -25,12 +25,12 @@
         android:order="2"
         android:icon="@drawable/ic_rewards"
         android:title="@string/brave_ui_brave_rewards"/>
-    <!-- <org.chromium.components.browser_ui.settings.ChromeBasePreference
-        android:fragment="org.chromium.chrome.browser.settings.BraveRewardsPreferences"
+     <org.chromium.components.browser_ui.settings.ChromeBasePreference
+        android:fragment="org.chromium.chrome.browser.settings.BraveNewsPreferences"
         android:key="brave_today"
-        android:icon="@drawable/btn_bat"
+        android:icon="@drawable/ic_news"
         android:order="3"
-        android:title="@string/brave_today"/> -->
+        android:title="@string/brave_news_title"/>
     <org.chromium.components.browser_ui.settings.ChromeBasePreference
         android:fragment="org.chromium.chrome.browser.settings.BraveVpnPreferences"
         android:key="brave_vpn"
