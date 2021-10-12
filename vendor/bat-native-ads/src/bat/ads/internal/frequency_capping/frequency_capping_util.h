@@ -17,7 +17,14 @@ class TimeDelta;
 
 namespace ads {
 
-std::deque<base::Time> GetHistoryForAdEvents(const AdEventList& ad_events);
+class AdType;
+
+bool DoesAdTypeSupportFrequencyCapping(const AdType& type);
+
+bool DoesAdEventsRespectCapForRollingTimeConstraint(
+    const AdEventList& ad_events,
+    const base::TimeDelta& time_constraint,
+    const uint64_t cap);
 
 bool DoesHistoryRespectCapForRollingTimeConstraint(
     const std::deque<base::Time>& history,

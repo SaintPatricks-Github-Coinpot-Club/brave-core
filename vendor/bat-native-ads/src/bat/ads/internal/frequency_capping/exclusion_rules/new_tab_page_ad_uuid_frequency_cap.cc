@@ -21,13 +21,16 @@ NewTabPageAdUuidFrequencyCap::NewTabPageAdUuidFrequencyCap(
 
 NewTabPageAdUuidFrequencyCap::~NewTabPageAdUuidFrequencyCap() = default;
 
+std::string NewTabPageAdUuidFrequencyCap::GetUuid(const AdInfo& ad) const {
+  return ad.uuid;
+}
+
 bool NewTabPageAdUuidFrequencyCap::ShouldExclude(const AdInfo& ad) {
   const AdEventList filtered_ad_events = FilterAdEvents(ad_events_, ad);
 
   if (!DoesRespectCap(filtered_ad_events)) {
     last_message_ = base::StringPrintf(
-        "uuid %s has exceeded the "
-        "frequency capping for new tab page ad",
+        "uuid %s has exceeded the frequency capping for new tab page ad",
         ad.uuid.c_str());
     return true;
   }

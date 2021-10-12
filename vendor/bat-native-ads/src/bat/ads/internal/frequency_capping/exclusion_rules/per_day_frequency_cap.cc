@@ -18,6 +18,11 @@ PerDayFrequencyCap::PerDayFrequencyCap(const AdEventList& ad_events)
 
 PerDayFrequencyCap::~PerDayFrequencyCap() = default;
 
+std::string PerDayFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool PerDayFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
@@ -43,13 +48,11 @@ bool PerDayFrequencyCap::DoesRespectCap(const AdEventList& ad_events,
     return true;
   }
 
-  const std::deque<base::Time> history = GetHistoryForAdEvents(ad_events);
-
   const base::TimeDelta time_constraint = base::TimeDelta::FromSeconds(
       base::Time::kSecondsPerHour * base::Time::kHoursPerDay);
 
-  return DoesHistoryRespectCapForRollingTimeConstraint(history, time_constraint,
-                                                       creative_ad.per_day);
+  return DoesAdEventsRespectCapForRollingTimeConstraint(
+      ad_events, time_constraint, creative_ad.per_day);
 }
 
 AdEventList PerDayFrequencyCap::FilterAdEvents(
@@ -60,8 +63,7 @@ AdEventList PerDayFrequencyCap::FilterAdEvents(
   const auto iter = std::remove_if(
       filtered_ad_events.begin(), filtered_ad_events.end(),
       [&creative_ad](const AdEventInfo& ad_event) {
-        return (ad_event.type != AdType::kAdNotification &&
-                ad_event.type != AdType::kInlineContentAd) ||
+        return !DoesAdTypeSupportFrequencyCapping(ad_event.type) ||
                ad_event.creative_set_id != creative_ad.creative_set_id ||
                ad_event.confirmation_type != ConfirmationType::kServed;
       });

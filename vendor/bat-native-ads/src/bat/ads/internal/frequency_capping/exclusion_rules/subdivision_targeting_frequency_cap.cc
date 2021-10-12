@@ -24,20 +24,10 @@ bool DoesAdSupportSubdivisionTargetingCode(
   const std::string country_code =
       locale::GetCountryCode(subdivision_targeting_code);
 
-  const auto iter =
-      std::find_if(creative_ad.geo_targets.begin(),
-                   creative_ad.geo_targets.end(),
-                   [&subdivision_targeting_code,
-                    &country_code](const std::string& geo_target) {
-                     return geo_target == subdivision_targeting_code ||
-                            geo_target == country_code;
-                   });
-
-  if (iter == creative_ad.geo_targets.end()) {
-    return false;
-  }
-
-  return true;
+  return creative_ad.geo_targets.find(subdivision_targeting_code) !=
+             creative_ad.geo_targets.end() ||
+         creative_ad.geo_targets.find(country_code) !=
+             creative_ad.geo_targets.end();
 }
 
 bool DoesAdTargetSubdivision(const CreativeAdInfo& creative_ad) {
@@ -66,6 +56,11 @@ SubdivisionTargetingFrequencyCap::SubdivisionTargetingFrequencyCap(
 }
 
 SubdivisionTargetingFrequencyCap::~SubdivisionTargetingFrequencyCap() = default;
+
+std::string SubdivisionTargetingFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
 
 bool SubdivisionTargetingFrequencyCap::ShouldExclude(
     const CreativeAdInfo& creative_ad) {

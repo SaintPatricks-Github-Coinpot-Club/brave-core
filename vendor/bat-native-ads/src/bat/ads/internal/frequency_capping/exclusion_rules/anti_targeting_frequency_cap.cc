@@ -40,6 +40,11 @@ AntiTargetingFrequencyCap::AntiTargetingFrequencyCap(
 
 AntiTargetingFrequencyCap::~AntiTargetingFrequencyCap() = default;
 
+std::string AntiTargetingFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool AntiTargetingFrequencyCap::ShouldExclude(
     const CreativeAdInfo& creative_ad) {
   if (!DoesRespectCap(creative_ad)) {

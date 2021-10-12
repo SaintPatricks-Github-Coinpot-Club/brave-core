@@ -30,6 +30,11 @@ SplitTestFrequencyCap::SplitTestFrequencyCap() = default;
 
 SplitTestFrequencyCap::~SplitTestFrequencyCap() = default;
 
+std::string SplitTestFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool SplitTestFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   if (!DoesRespectCap(creative_ad)) {
     last_message_ = base::StringPrintf(

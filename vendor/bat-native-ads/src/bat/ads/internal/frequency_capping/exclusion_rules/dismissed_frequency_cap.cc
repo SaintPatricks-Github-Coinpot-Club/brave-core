@@ -16,14 +16,18 @@ DismissedFrequencyCap::DismissedFrequencyCap(const AdEventList& ad_events)
 
 DismissedFrequencyCap::~DismissedFrequencyCap() = default;
 
+std::string DismissedFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.campaign_id;
+}
+
 bool DismissedFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
 
   if (!DoesRespectCap(filtered_ad_events)) {
     last_message_ = base::StringPrintf(
-        "campaignId %s has exceeded the "
-        "frequency capping for dismissed",
+        "campaignId %s has exceeded the frequency capping for dismissed",
         creative_ad.campaign_id.c_str());
     return true;
   }
