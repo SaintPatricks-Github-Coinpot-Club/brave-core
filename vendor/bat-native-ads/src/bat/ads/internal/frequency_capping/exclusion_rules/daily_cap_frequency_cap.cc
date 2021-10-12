@@ -18,14 +18,19 @@ DailyCapFrequencyCap::DailyCapFrequencyCap(const AdEventList& ad_events)
 
 DailyCapFrequencyCap::~DailyCapFrequencyCap() = default;
 
+std::string DailyCapFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.campaign_id;
+}
+
 bool DailyCapFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
 
   if (!DoesRespectCap(filtered_ad_events, creative_ad)) {
-    last_message_ = base::StringPrintf(
-        "campaignId %s has exceeded the frequency capping for dailyCap",
-        creative_ad.campaign_id.c_str());
+    last_message_ =
+        base::StringPrintf("campaignId %s has exceeded the frequency cap",
+                           creative_ad.campaign_id.c_str());
 
     return true;
   }
@@ -39,13 +44,11 @@ std::string DailyCapFrequencyCap::GetLastMessage() const {
 
 bool DailyCapFrequencyCap::DoesRespectCap(const AdEventList& ad_events,
                                           const CreativeAdInfo& creative_ad) {
-  const std::deque<base::Time> history = GetHistoryForAdEvents(ad_events);
-
   const base::TimeDelta time_constraint = base::TimeDelta::FromSeconds(
       base::Time::kSecondsPerHour * base::Time::kHoursPerDay);
 
-  return DoesHistoryRespectCapForRollingTimeConstraint(history, time_constraint,
-                                                       creative_ad.daily_cap);
+  return DoesAdEventsRespectCapForRollingTimeConstraint(
+      ad_events, time_constraint, creative_ad.daily_cap);
 }
 
 AdEventList DailyCapFrequencyCap::FilterAdEvents(
@@ -56,8 +59,7 @@ AdEventList DailyCapFrequencyCap::FilterAdEvents(
   const auto iter = std::remove_if(
       filtered_ad_events.begin(), filtered_ad_events.end(),
       [&creative_ad](const AdEventInfo& ad_event) {
-        return (ad_event.type != AdType::kAdNotification &&
-                ad_event.type != AdType::kInlineContentAd) ||
+        return !DoesAdTypeSupportFrequencyCapping(ad_event.type) ||
                ad_event.campaign_id != creative_ad.campaign_id ||
                ad_event.confirmation_type != ConfirmationType::kServed;
       });

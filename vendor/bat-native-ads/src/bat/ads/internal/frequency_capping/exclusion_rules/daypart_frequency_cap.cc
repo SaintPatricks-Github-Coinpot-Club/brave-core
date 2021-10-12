@@ -33,11 +33,16 @@ DaypartFrequencyCap::DaypartFrequencyCap() = default;
 
 DaypartFrequencyCap::~DaypartFrequencyCap() = default;
 
+std::string DaypartFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool DaypartFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   if (!DoesRespectCap(creative_ad)) {
-    last_message_ = base::StringPrintf(
-        "creativeSetId %s excluded as not within a scheduled time slot",
-        creative_ad.creative_set_id.c_str());
+    last_message_ =
+        base::StringPrintf("creativeSetId %s has exceeded the frequency cap",
+                           creative_ad.creative_set_id.c_str());
 
     return true;
   }

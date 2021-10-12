@@ -23,14 +23,20 @@ TransferredFrequencyCap::TransferredFrequencyCap(const AdEventList& ad_events)
 
 TransferredFrequencyCap::~TransferredFrequencyCap() = default;
 
+std::string TransferredFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.campaign_id;
+}
+
 bool TransferredFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
 
   if (!DoesRespectCap(filtered_ad_events)) {
-    last_message_ = base::StringPrintf(
-        "campaignId %s has exceeded the frequency capping for transferred",
-        creative_ad.campaign_id.c_str());
+    last_message_ =
+        base::StringPrintf("campaignId %s has exceeded the frequency cap",
+                           creative_ad.campaign_id.c_str());
+
     return true;
   }
 
@@ -42,13 +48,11 @@ std::string TransferredFrequencyCap::GetLastMessage() const {
 }
 
 bool TransferredFrequencyCap::DoesRespectCap(const AdEventList& ad_events) {
-  const std::deque<base::Time> history = GetHistoryForAdEvents(ad_events);
-
   const base::TimeDelta time_constraint =
       features::frequency_capping::ExcludeAdIfTransferredWithinTimeWindow();
 
-  return DoesHistoryRespectCapForRollingTimeConstraint(
-      history, time_constraint, kTransferredFrequencyCap);
+  return DoesAdEventsRespectCapForRollingTimeConstraint(
+      ad_events, time_constraint, kTransferredFrequencyCap);
 }
 
 AdEventList TransferredFrequencyCap::FilterAdEvents(
@@ -59,8 +63,7 @@ AdEventList TransferredFrequencyCap::FilterAdEvents(
   const auto iter = std::remove_if(
       filtered_ad_events.begin(), filtered_ad_events.end(),
       [&creative_ad](const AdEventInfo& ad_event) {
-        return (ad_event.type != AdType::kAdNotification &&
-                ad_event.type != AdType::kInlineContentAd) ||
+        return !DoesAdTypeSupportFrequencyCapping(ad_event.type) ||
                ad_event.campaign_id != creative_ad.campaign_id ||
                ad_event.confirmation_type != ConfirmationType::kTransferred;
       });

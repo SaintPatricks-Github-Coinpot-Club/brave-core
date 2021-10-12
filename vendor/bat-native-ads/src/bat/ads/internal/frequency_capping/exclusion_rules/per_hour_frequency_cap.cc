@@ -24,13 +24,18 @@ PerHourFrequencyCap::PerHourFrequencyCap(const AdEventList& ad_events)
 
 PerHourFrequencyCap::~PerHourFrequencyCap() = default;
 
+std::string PerHourFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_instance_id;
+}
+
 bool PerHourFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
 
   if (!DoesRespectCap(filtered_ad_events)) {
     last_message_ = base::StringPrintf(
-        "creativeInstanceId %s has exceeded the frequency capping for perHour",
+        "creativeInstanceId %s has exceeded the frequency cap",
         creative_ad.creative_instance_id.c_str());
 
     return true;
@@ -44,13 +49,11 @@ std::string PerHourFrequencyCap::GetLastMessage() const {
 }
 
 bool PerHourFrequencyCap::DoesRespectCap(const AdEventList& ad_events) {
-  const std::deque<base::Time> history = GetHistoryForAdEvents(ad_events);
-
   const base::TimeDelta time_constraint =
       base::TimeDelta::FromSeconds(base::Time::kSecondsPerHour);
 
-  return DoesHistoryRespectCapForRollingTimeConstraint(history, time_constraint,
-                                                       kPerHourFrequencyCap);
+  return DoesAdEventsRespectCapForRollingTimeConstraint(
+      ad_events, time_constraint, kPerHourFrequencyCap);
 }
 
 AdEventList PerHourFrequencyCap::FilterAdEvents(
@@ -61,8 +64,7 @@ AdEventList PerHourFrequencyCap::FilterAdEvents(
   const auto iter = std::remove_if(
       filtered_ad_events.begin(), filtered_ad_events.end(),
       [&creative_ad](const AdEventInfo& ad_event) {
-        return (ad_event.type != AdType::kAdNotification &&
-                ad_event.type != AdType::kInlineContentAd) ||
+        return !DoesAdTypeSupportFrequencyCapping(ad_event.type) ||
                ad_event.creative_instance_id !=
                    creative_ad.creative_instance_id ||
                ad_event.confirmation_type != ConfirmationType::kServed;

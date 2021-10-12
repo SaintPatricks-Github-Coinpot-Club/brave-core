@@ -6,6 +6,7 @@
 #include "bat/ads/internal/frequency_capping/exclusion_rules/total_max_frequency_cap.h"
 
 #include "base/strings/stringprintf.h"
+#include "bat/ads/internal/frequency_capping/frequency_capping_util.h"
 
 namespace ads {
 
@@ -14,14 +15,19 @@ TotalMaxFrequencyCap::TotalMaxFrequencyCap(const AdEventList& ad_events)
 
 TotalMaxFrequencyCap::~TotalMaxFrequencyCap() = default;
 
+std::string TotalMaxFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool TotalMaxFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
 
   if (!DoesRespectCap(filtered_ad_events, creative_ad)) {
-    last_message_ = base::StringPrintf(
-        "creativeSetId %s has exceeded the frequency capping for totalMax",
-        creative_ad.creative_set_id.c_str());
+    last_message_ =
+        base::StringPrintf("creativeSetId %s has exceeded the frequency cap",
+                           creative_ad.creative_set_id.c_str());
 
     return true;
   }
@@ -50,8 +56,7 @@ AdEventList TotalMaxFrequencyCap::FilterAdEvents(
   const auto iter = std::remove_if(
       filtered_ad_events.begin(), filtered_ad_events.end(),
       [&creative_ad](const AdEventInfo& ad_event) {
-        return (ad_event.type != AdType::kAdNotification &&
-                ad_event.type != AdType::kInlineContentAd) ||
+        return !DoesAdTypeSupportFrequencyCapping(ad_event.type) ||
                ad_event.creative_set_id != creative_ad.creative_set_id ||
                ad_event.confirmation_type != ConfirmationType::kServed;
       });

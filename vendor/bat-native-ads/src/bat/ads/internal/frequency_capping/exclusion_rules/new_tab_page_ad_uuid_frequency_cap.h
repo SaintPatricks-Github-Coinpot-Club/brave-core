@@ -23,6 +23,8 @@ class NewTabPageAdUuidFrequencyCap final : public ExclusionRule<AdInfo> {
   NewTabPageAdUuidFrequencyCap& operator=(const NewTabPageAdUuidFrequencyCap&) =
       delete;
 
+  std::string GetUuid(const AdInfo& ad) const override;
+
   bool ShouldExclude(const AdInfo& ad) override;
 
   std::string GetLastMessage() const override;

@@ -15,6 +15,11 @@ DislikeFrequencyCap::DislikeFrequencyCap() = default;
 
 DislikeFrequencyCap::~DislikeFrequencyCap() = default;
 
+std::string DislikeFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool DislikeFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   if (!DoesRespectCap(creative_ad)) {
     last_message_ =

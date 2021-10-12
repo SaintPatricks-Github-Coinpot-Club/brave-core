@@ -527,7 +527,7 @@ CreativeNewTabPageAdInfo CreativeNewTabPageAds::GetFromRecord(
   creative_new_tab_page_ad.total_max = ColumnInt(record, 12);
   creative_new_tab_page_ad.value = ColumnDouble(record, 13);
   creative_new_tab_page_ad.segment = ColumnString(record, 14);
-  creative_new_tab_page_ad.geo_targets.push_back(ColumnString(record, 15));
+  creative_new_tab_page_ad.geo_targets.insert(ColumnString(record, 15));
   creative_new_tab_page_ad.target_url = ColumnString(record, 16);
   creative_new_tab_page_ad.company_name = ColumnString(record, 17);
   creative_new_tab_page_ad.alt = ColumnString(record, 18);

@@ -24,6 +24,8 @@ class PromotedContentAdUuidFrequencyCap final : public ExclusionRule<AdInfo> {
   PromotedContentAdUuidFrequencyCap& operator=(
       const PromotedContentAdUuidFrequencyCap&) = delete;
 
+  std::string GetUuid(const AdInfo& ad) const override;
+
   bool ShouldExclude(const AdInfo& ad) override;
 
   std::string GetLastMessage() const override;

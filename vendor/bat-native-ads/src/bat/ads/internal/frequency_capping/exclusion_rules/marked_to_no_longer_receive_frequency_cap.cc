@@ -16,13 +16,17 @@ MarkedToNoLongerReceiveFrequencyCap::MarkedToNoLongerReceiveFrequencyCap() =
 MarkedToNoLongerReceiveFrequencyCap::~MarkedToNoLongerReceiveFrequencyCap() =
     default;
 
+std::string MarkedToNoLongerReceiveFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool MarkedToNoLongerReceiveFrequencyCap::ShouldExclude(
     const CreativeAdInfo& creative_ad) {
   if (!DoesRespectCap(creative_ad)) {
-    last_message_ = base::StringPrintf(
-        "creativeSetId %s excluded due to being marked to no longer receive "
-        "ads",
-        creative_ad.creative_set_id.c_str());
+    last_message_ =
+        base::StringPrintf("creativeSetId %s has exceeded the frequency cap",
+                           creative_ad.creative_set_id.c_str());
 
     return true;
   }

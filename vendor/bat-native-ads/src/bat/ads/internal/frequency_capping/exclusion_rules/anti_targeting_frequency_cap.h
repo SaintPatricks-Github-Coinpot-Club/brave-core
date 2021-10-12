@@ -28,6 +28,8 @@ class AntiTargetingFrequencyCap final : public ExclusionRule<CreativeAdInfo> {
   AntiTargetingFrequencyCap& operator=(const AntiTargetingFrequencyCap&) =
       delete;
 
+  std::string GetUuid(const CreativeAdInfo& creative_ad) const override;
+
   bool ShouldExclude(const CreativeAdInfo& creative_ad) override;
 
   std::string GetLastMessage() const override;

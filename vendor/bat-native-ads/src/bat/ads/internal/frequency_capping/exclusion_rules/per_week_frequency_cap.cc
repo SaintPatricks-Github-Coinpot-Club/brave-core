@@ -19,14 +19,19 @@ PerWeekFrequencyCap::PerWeekFrequencyCap(const AdEventList& ad_events)
 
 PerWeekFrequencyCap::~PerWeekFrequencyCap() = default;
 
+std::string PerWeekFrequencyCap::GetUuid(
+    const CreativeAdInfo& creative_ad) const {
+  return creative_ad.creative_set_id;
+}
+
 bool PerWeekFrequencyCap::ShouldExclude(const CreativeAdInfo& creative_ad) {
   const AdEventList filtered_ad_events =
       FilterAdEvents(ad_events_, creative_ad);
 
   if (!DoesRespectCap(filtered_ad_events, creative_ad)) {
-    last_message_ = base::StringPrintf(
-        "creativeSetId %s has exceeded the frequency capping for perWeek",
-        creative_ad.creative_set_id.c_str());
+    last_message_ =
+        base::StringPrintf("creativeSetId %s has exceeded the frequency cap",
+                           creative_ad.creative_set_id.c_str());
 
     return true;
   }
@@ -44,13 +49,11 @@ bool PerWeekFrequencyCap::DoesRespectCap(const AdEventList& ad_events,
     return true;
   }
 
-  const std::deque<base::Time> history = GetHistoryForAdEvents(ad_events);
-
   const base::TimeDelta time_constraint = base::TimeDelta::FromSeconds(
       7 * (base::Time::kSecondsPerHour * base::Time::kHoursPerDay));
 
-  return DoesHistoryRespectCapForRollingTimeConstraint(history, time_constraint,
-                                                       creative_ad.per_week);
+  return DoesAdEventsRespectCapForRollingTimeConstraint(
+      ad_events, time_constraint, creative_ad.per_week);
 }
 
 AdEventList PerWeekFrequencyCap::FilterAdEvents(
@@ -61,8 +64,7 @@ AdEventList PerWeekFrequencyCap::FilterAdEvents(
   const auto iter = std::remove_if(
       filtered_ad_events.begin(), filtered_ad_events.end(),
       [&creative_ad](const AdEventInfo& ad_event) {
-        return (ad_event.type != AdType::kAdNotification &&
-                ad_event.type != AdType::kInlineContentAd) ||
+        return !DoesAdTypeSupportFrequencyCapping(ad_event.type) ||
                ad_event.creative_set_id != creative_ad.creative_set_id ||
                ad_event.confirmation_type != ConfirmationType::kServed;
       });

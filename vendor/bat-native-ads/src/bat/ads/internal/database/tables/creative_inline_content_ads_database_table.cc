@@ -682,7 +682,7 @@ CreativeInlineContentAdInfo CreativeInlineContentAds::GetFromRecord(
   creative_inline_content_ad.value = ColumnDouble(record, 13);
   creative_inline_content_ad.split_test_group = ColumnString(record, 14);
   creative_inline_content_ad.segment = ColumnString(record, 15);
-  creative_inline_content_ad.geo_targets.push_back(ColumnString(record, 16));
+  creative_inline_content_ad.geo_targets.insert(ColumnString(record, 16));
   creative_inline_content_ad.target_url = ColumnString(record, 17);
   creative_inline_content_ad.title = ColumnString(record, 18);
   creative_inline_content_ad.description = ColumnString(record, 19);
