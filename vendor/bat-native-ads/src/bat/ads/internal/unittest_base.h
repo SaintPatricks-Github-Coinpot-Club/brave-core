@@ -21,6 +21,7 @@
 #include "bat/ads/internal/database/database_initialize.h"
 #include "bat/ads/internal/platform/platform_helper_mock.h"
 #include "bat/ads/internal/tab_manager/tab_manager.h"
+#include "bat/ads/internal/time_profiler.h"
 #include "bat/ads/internal/user_activity/user_activity.h"
 #include "brave/components/l10n/browser/locale_helper_mock.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -104,6 +105,7 @@ class UnitTestBase : public testing::Test {
   bool integration_test_ = false;
 
   std::unique_ptr<AdsClientHelper> ads_client_helper_;
+  std::unique_ptr<TimeProfiler> time_profiler_;
   std::unique_ptr<Client> client_;
   std::unique_ptr<AdRewards> ad_rewards_;
   std::unique_ptr<AdNotifications> ad_notifications_;

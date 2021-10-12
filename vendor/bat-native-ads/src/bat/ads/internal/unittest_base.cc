@@ -195,6 +195,8 @@ void UnitTestBase::Initialize() {
   ads_client_helper_ =
       std::make_unique<AdsClientHelper>(ads_client_mock_.get());
 
+  time_profiler_ = std::make_unique<TimeProfiler>();
+
   client_ = std::make_unique<Client>();
   client_->Initialize([](const bool success) { ASSERT_TRUE(success); });
 
