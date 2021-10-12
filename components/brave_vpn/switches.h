@@ -16,6 +16,7 @@ constexpr char kBraveVPNTestCredentials[] = "brave-vpn-test-credentials";
 constexpr char kBraveVPNSimulation[] = "brave-vpn-simulate";
 // Use "prod", "staging" or "dev"
 constexpr char kBraveVPNAccountHost[] = "brave-vpn-account-host";
+constexpr char kBraveVPNPaymentsEnv[] = "brave-vpn-payments-env";
 
 }  // namespace switches
 

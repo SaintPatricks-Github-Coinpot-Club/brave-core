@@ -22,6 +22,26 @@ namespace {
 
 const NSString* kBraveVPNKey = @"BraveVPNKey";
 
+std::string NEVPNStatusToString(NEVPNStatus status) {
+  switch (status) {
+    case NEVPNStatusInvalid:
+      return "NEVPNStatusInvalid";
+    case NEVPNStatusDisconnected:
+      return "NEVPNStatusDisconnected";
+    case NEVPNStatusConnecting:
+      return "NEVPNStatusConnecting";
+    case NEVPNStatusConnected:
+      return "NEVPNStatusConnected";
+    case NEVPNStatusReasserting:
+      return "NEVPNStatusReasserting";
+    case NEVPNStatusDisconnecting:
+      return "NEVPNStatusDisconnecting";
+    default:
+      NOTREACHED();
+  }
+  return std::string();
+}
+
 NSData* GetPasswordRefForAccount() {
   NSString* bundle_id = [[NSBundle mainBundle] bundleIdentifier];
   CFTypeRef copy_result = NULL;
@@ -264,7 +284,7 @@ void BraveVPNOSConnectionAPIMac::CheckConnection(const std::string& name) {
     }
 
     NEVPNStatus current_status = [[vpn_manager connection] status];
-    VLOG(2) << "CheckConnection: " << current_status;
+    VLOG(2) << "CheckConnection: " << NEVPNStatusToString(current_status);
     switch (current_status) {
       case NEVPNStatusConnected:
         for (Observer& obs : observers_)

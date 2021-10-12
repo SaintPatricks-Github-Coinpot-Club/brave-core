@@ -17,6 +17,8 @@
 #include "brave/components/brave_vpn/brave_vpn_data_types.h"
 #include "brave/components/brave_vpn/brave_vpn_os_connection_api.h"
 #include "brave/components/brave_vpn/brave_vpn_service.h"
+#include "brave/components/brave_vpn/brave_vpn_service_state_machine.h"
+#include "components/prefs/pref_change_registrar.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
 #include "mojo/public/cpp/bindings/remote_set.h"
@@ -43,20 +45,14 @@ class BraveVpnServiceDesktop
   BraveVpnServiceDesktop(const BraveVpnServiceDesktop&) = delete;
   BraveVpnServiceDesktop& operator=(const BraveVpnServiceDesktop&) = delete;
 
+  void ToggleConnection();
   void RemoveVPNConnnection();
 
-  bool is_connected() const {
-    return connection_state_ == ConnectionState::CONNECTED;
+  bool is_connected() const { return state_machine_.is_connected(); }
+  bool is_purchased_user() const { return state_machine_.is_purchased_state(); }
+  ConnectionState connection_state() const {
+    return state_machine_.connection_state();
   }
-
-  bool is_purchased_user() const {
-    return purchased_state_ == PurchasedState::PURCHASED;
-  }
-
-  ConnectionState connection_state() const { return connection_state_; }
-
-  void CheckPurchasedStatus();
-  void ToggleConnection();
 
   void BindInterface(
       mojo::PendingReceiver<brave_vpn::mojom::ServiceHandler> receiver);
@@ -96,6 +92,10 @@ class BraveVpnServiceDesktop
 
   brave_vpn::BraveVPNConnectionInfo GetConnectionInfo();
   void LoadCachedRegionData();
+  void LoadPurchasedState();
+  void LoadSelectedRegion();
+  void CheckConnectionStateIfNeeded();
+
   void FetchRegionData();
   void OnFetchRegionList(const std::string& region_list, bool success);
   bool ParseAndCacheRegionList(base::Value region_value);
@@ -114,22 +114,32 @@ class BraveVpnServiceDesktop
   std::string GetCurrentTimeZone();
   void SetPurchasedState(PurchasedState state);
 
+  void OnSkusVPNCredentialUpdated();
+  void OnGetSubscriberCredential(const std::string& subscriber_credential,
+                                 bool success);
+  void OnGetProfileCredentials(const std::string& profile_credential,
+                               bool success);
+
   void set_test_timezone(const std::string& timezone) {
     test_timezone_ = timezone;
   }
 
+  BraveVPNServiceStateMachine state_machine_;
   PrefService* prefs_ = nullptr;
+  PrefChangeRegistrar pref_change_registrar_;
+  std::string skus_credential_;
   base::flat_map<std::string, std::vector<brave_vpn::Hostname>> hostnames_;
   std::vector<brave_vpn::mojom::Region> regions_;
   brave_vpn::mojom::Region device_region_;
-  ConnectionState connection_state_ = ConnectionState::DISCONNECTED;
-  PurchasedState purchased_state_ = PurchasedState::NOT_PURCHASED;
+  brave_vpn::mojom::Region selected_region_;
   base::ScopedObservation<brave_vpn::BraveVPNOSConnectionAPI,
                           brave_vpn::BraveVPNOSConnectionAPI::Observer>
       observed_{this};
   mojo::ReceiverSet<brave_vpn::mojom::ServiceHandler> receivers_;
   mojo::RemoteSet<brave_vpn::mojom::ServiceObserver> observers_;
   base::RepeatingTimer region_data_update_timer_;
+
+  // Only for testing.
   std::string test_timezone_;
 };
 

@@ -214,6 +214,8 @@ void BraveBrowserCommandController::UpdateCommandForBraveVPN() {
 
   if (auto* vpn_service =
           BraveVpnServiceFactory::GetForProfile(browser_->profile())) {
+    // TODO(simonhong): Revisit here. This post-purchased app menu could be used
+    // after user select region and vpn entry is created.
     // Only show vpn sub menu for purchased user.
     UpdateCommandEnabled(IDC_BRAVE_VPN_MENU, vpn_service->is_purchased_user());
     UpdateCommandEnabled(IDC_TOGGLE_BRAVE_VPN,

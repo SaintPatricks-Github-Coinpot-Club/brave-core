@@ -40,6 +40,8 @@ static_library("brave_vpn") {
       "brave_vpn_service_desktop.h",
       "brave_vpn_service_observer.cc",
       "brave_vpn_service_observer.h",
+      "brave_vpn_service_state_machine.cc",
+      "brave_vpn_service_state_machine.h",
       "brave_vpn_utils.cc",
       "brave_vpn_utils.h",
       "features.cc",
@@ -72,6 +74,7 @@ static_library("brave_vpn") {
     deps += [
       ":brave_vpn_internal",
       ":mojom",
+      "//brave/components/skus/browser",
       "//components/prefs",
       "//third_party/icu",
     ]
