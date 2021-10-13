@@ -13,6 +13,9 @@
 #include "bat/ads/internal/privacy/tokens/token_generator_mock.h"
 #include "bat/ads/internal/privacy/unblinded_tokens/unblinded_tokens.h"
 #include "bat/ads/internal/privacy/unblinded_tokens/unblinded_tokens_unittest_util.h"
+#include "bat/ads/internal/tokens/issuers/issuers_info.h"
+#include "bat/ads/internal/tokens/issuers/issuers_unittest_util.h"
+#include "bat/ads/internal/tokens/issuers/issuers_util.h"
 #include "bat/ads/internal/tokens/refill_unblinded_tokens/refill_unblinded_tokens_delegate_mock.h"
 #include "bat/ads/internal/unittest_base.h"
 #include "bat/ads/internal/unittest_util.h"
@@ -56,19 +59,6 @@ class BatAdsRefillUnblindedTokensTest : public UnitTestBase {
     return wallet.Get();
   }
 
-  CatalogIssuersInfo GetValidCatalogIssuers() {
-    CatalogIssuersInfo catalog_issuers;
-    catalog_issuers.public_key = "crDVI1R6xHQZ4D9cQu4muVM5MaaM1QcOT4It8Y/CYlw=";
-
-    CatalogIssuerInfo catalog_issuer;
-    catalog_issuer.name = "1.23BAT";
-    catalog_issuer.public_key = "JiwFR2EU/Adf1lgox+xqOVPuc6a/rxdy/LguFG5eaXg=";
-
-    catalog_issuers.issuers = {catalog_issuer};
-
-    return catalog_issuers;
-  }
-
   std::vector<Token> GetTokens() {
     const std::vector<std::string>
         tokens_base64 =
@@ -87,14 +77,14 @@ class BatAdsRefillUnblindedTokensTest : public UnitTestBase {
   URLEndpoints GetValidUrlRequestEndPoints() {
     return {
         {// Request signed tokens
-         R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+         R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
          {{net::HTTP_CREATED, R"(
               {
                 "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
               }
             )"}}},
         {// Get signed tokens
-         R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+         R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
          {{net::HTTP_OK, R"(
               {
                 "batchProof": "BnqmsPk3PsQXVhcCE8YALSE8O+LVqOWabzCuyCTSgQjwAb3iAKrqDV3/zWKdU5TRoqzr32pyPyaS3xFI2iVmAw==",
@@ -179,8 +169,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, RefillUnblindedTokens) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -217,8 +206,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, RefillUnblindedTokensCaptchaRequired) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -255,21 +243,24 @@ TEST_F(BatAdsRefillUnblindedTokensTest, RefillUnblindedTokensCaptchaRequired) {
 }
 #endif
 
-TEST_F(BatAdsRefillUnblindedTokensTest, CatalogIssuersPublicKeyMismatch) {
+TEST_F(BatAdsRefillUnblindedTokensTest, IssuersPublicKeyMismatch) {
   // Arrange
   const URLEndpoints endpoints = GetValidUrlRequestEndPoints();
+
   MockUrlRequest(ads_client_mock_, endpoints);
 
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers;
-  catalog_issuers.public_key = "VihGXGoiQ5Fjxe4SrskIVMcmERa1LoAgvhFxxfLmNEI=";
-  CatalogIssuerInfo catalog_issuer;
-  catalog_issuer.name = "1.23BAT";
-  catalog_issuer.public_key = "JiwFR2EU/Adf1lgox+xqOVPuc6a/rxdy/LguFG5eaXg=";
-  catalog_issuers.issuers = {catalog_issuer};
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  const IssuersInfo issuers =
+      BuildIssuers(7200000,
+                   {"JsvJluEN35bJBgJWTdW/8dAgPrrTM1I1pXga+o7cllo=",
+                    "hKjGQd7WAXs0lcdf+SCHCTKsBLWtKaEubwlK4YA1NkA="},
+                   {"JiwFR2EU/Adf1lgox+xqOVPuc6a/rxdy/LguFG5eaXg=",
+                    "XgxwreIbLMu0IIFVk4TKEce6RduNVXngDmU3uixly0M=",
+                    "bPE1QE65mkIgytffeu7STOfly+x10BXCGuk5pVlOHQU="});
+
+  SetIssuers(issuers);
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -297,7 +288,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, CatalogIssuersPublicKeyMismatch) {
   EXPECT_EQ(0, get_unblinded_tokens()->Count());
 }
 
-TEST_F(BatAdsRefillUnblindedTokensTest, InvalidCatalogIssuers) {
+TEST_F(BatAdsRefillUnblindedTokensTest, InvalidIssuersFormat) {
   // Arrange
 
   // Act
@@ -356,14 +347,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest,
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_INTERNAL_SERVER_ERROR, ""}, {net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_OK, R"(
             {
               "batchProof": "BnqmsPk3PsQXVhcCE8YALSE8O+LVqOWabzCuyCTSgQjwAb3iAKrqDV3/zWKdU5TRoqzr32pyPyaS3xFI2iVmAw==",
@@ -428,8 +419,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest,
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   InSequence seq;
@@ -466,7 +456,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest,
 TEST_F(BatAdsRefillUnblindedTokensTest, RequestSignedTokensMissingNonce) {
   // Arrange
   const URLEndpoints endpoints = {
-      {R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+      {R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, ""}}}};
 
   MockUrlRequest(ads_client_mock_, endpoints);
@@ -474,8 +464,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, RequestSignedTokensMissingNonce) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -508,7 +497,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest,
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
@@ -520,7 +509,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest,
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_INTERNAL_SERVER_ERROR, ""}, {net::HTTP_OK, R"(
             {
               "batchProof": "BnqmsPk3PsQXVhcCE8YALSE8O+LVqOWabzCuyCTSgQjwAb3iAKrqDV3/zWKdU5TRoqzr32pyPyaS3xFI2iVmAw==",
@@ -585,8 +574,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest,
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   InSequence seq;
@@ -622,14 +610,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensInvalidResponse) {
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_OK, "invalid_json"}}}};
 
   MockUrlRequest(ads_client_mock_, endpoints);
@@ -637,8 +625,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensInvalidResponse) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -670,14 +657,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensMissingPublicKey) {
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_OK, R"(
             {
               "batchProof": "BnqmsPk3PsQXVhcCE8YALSE8O+LVqOWabzCuyCTSgQjwAb3iAKrqDV3/zWKdU5TRoqzr32pyPyaS3xFI2iVmAw==",
@@ -741,8 +728,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensMissingPublicKey) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -774,14 +760,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensMissingBatchProofDleq) {
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_OK, R"(
             {
               "signedTokens": [
@@ -845,8 +831,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensMissingBatchProofDleq) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -878,14 +863,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensMissingSignedTokens) {
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_OK, R"(
             {
               "batchProof": "BnqmsPk3PsQXVhcCE8YALSE8O+LVqOWabzCuyCTSgQjwAb3iAKrqDV3/zWKdU5TRoqzr32pyPyaS3xFI2iVmAw==",
@@ -898,8 +883,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetSignedTokensMissingSignedTokens) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -931,14 +915,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetInvalidSignedTokens) {
   // Arrange
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "2f0e2891-e7a5-4262-835b-550b13e58e5c"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=2f0e2891-e7a5-4262-835b-550b13e58e5c)",
        {{net::HTTP_OK, R"(
             {
               "batchProof": "BnqmsPk3PsQXVhcCE8YALSE8O+LVqOWabzCuyCTSgQjwAb3iAKrqDV3/zWKdU5TRoqzr32pyPyaS3xFI2iVmAw==",
@@ -1003,8 +987,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, GetInvalidSignedTokens) {
   const std::vector<Token> tokens = GetTokens();
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -1044,8 +1027,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, VerifyAndUnblindInvalidTokens) {
 
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
@@ -1079,6 +1061,8 @@ TEST_F(BatAdsRefillUnblindedTokensTest, DoNotRefillIfAboveTheMinimumThreshold) {
       privacy::GetUnblindedTokens(50);
   get_unblinded_tokens()->SetTokens(unblinded_tokens);
 
+  BuildAndSetIssuers();
+
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,
               OnDidRefillUnblindedTokens())
@@ -1111,14 +1095,14 @@ TEST_F(BatAdsRefillUnblindedTokensTest, RefillIfBelowTheMinimumThreshold) {
 
   const URLEndpoints endpoints = {
       {// Request signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7)",
        {{net::HTTP_CREATED, R"(
             {
               "nonce": "abcb67a5-0a73-43ec-bbf9-51288ba76bb7"
             }
           )"}}},
       {// Get signed tokens
-       R"(/v1/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=abcb67a5-0a73-43ec-bbf9-51288ba76bb7)",
+       R"(/v2/confirmation/token/27a39b2f-9b2e-4eb0-bbb2-2f84447496e7?nonce=abcb67a5-0a73-43ec-bbf9-51288ba76bb7)",
        {{net::HTTP_OK, R"(
             {
               "batchProof": "WQ3ijykF8smhAs+boORkMqgBN0gtn5Bd9bm47rAWtA60kJZtR/JfCSmTsMGjO110pDkaklRrnjYj5CrEH9DbDA==",
@@ -1202,8 +1186,7 @@ TEST_F(BatAdsRefillUnblindedTokensTest, RefillIfBelowTheMinimumThreshold) {
 
   ON_CALL(*token_generator_mock_, Generate(_)).WillByDefault(Return(tokens));
 
-  CatalogIssuersInfo catalog_issuers = GetValidCatalogIssuers();
-  ConfirmationsState::Get()->SetCatalogIssuers(catalog_issuers);
+  BuildAndSetIssuers();
 
   // Act
   EXPECT_CALL(*refill_unblinded_tokens_delegate_mock_,

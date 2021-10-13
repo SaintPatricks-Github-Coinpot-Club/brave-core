@@ -273,6 +273,8 @@ void MockDefaultPrefs(const std::unique_ptr<AdsClientMock>& mock) {
   mock->SetInt64Pref(prefs::kCatalogPing, 7200000);
   mock->SetDoublePref(prefs::kCatalogLastUpdated, DistantPast().ToDoubleT());
 
+  mock->SetInt64Pref(prefs::kIssuerPing, 0);
+
   mock->SetDoublePref(prefs::kUnreconciledTransactions, 0.0);
 
   mock->SetBooleanPref(prefs::kHasMigratedConversionState, true);

@@ -6,6 +6,7 @@
 #include "bat/ads/internal/account/confirmations/confirmations_unittest_util.h"
 
 #include "base/guid.h"
+#include "bat/ads/ad_type.h"
 #include "bat/ads/confirmation_type.h"
 #include "bat/ads/internal/account/confirmations/confirmation_info.h"
 #include "bat/ads/internal/unittest_time_util.h"
@@ -14,20 +15,23 @@ namespace ads {
 
 ConfirmationInfo BuildConfirmation(const std::string& id,
                                    const std::string& creative_instance_id,
-                                   const ConfirmationType& type) {
+                                   const ConfirmationType& type,
+                                   const AdType& ad_type) {
   ConfirmationInfo confirmation;
   confirmation.id = id;
   confirmation.creative_instance_id = creative_instance_id;
   confirmation.type = type;
+  confirmation.ad_type = ad_type;
   confirmation.created_at = Now();
 
   return confirmation;
 }
 
 ConfirmationInfo BuildConfirmation(const std::string& creative_instance_id,
-                                   const ConfirmationType& type) {
+                                   const ConfirmationType& type,
+                                   const AdType& ad_type) {
   const std::string id = base::GenerateGUID();
-  return BuildConfirmation(id, creative_instance_id, type);
+  return BuildConfirmation(id, creative_instance_id, type, ad_type);
 }
 
 }  // namespace ads
