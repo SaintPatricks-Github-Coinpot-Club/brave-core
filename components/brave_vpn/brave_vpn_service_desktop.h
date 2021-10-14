@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "base/containers/flat_map.h"
 #include "base/scoped_observation.h"
 #include "base/timer/timer.h"
 #include "brave/components/brave_vpn/brave_vpn.mojom.h"
@@ -17,7 +16,6 @@
 #include "brave/components/brave_vpn/brave_vpn_data_types.h"
 #include "brave/components/brave_vpn/brave_vpn_os_connection_api.h"
 #include "brave/components/brave_vpn/brave_vpn_service.h"
-#include "brave/components/brave_vpn/brave_vpn_service_state_machine.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
@@ -48,11 +46,13 @@ class BraveVpnServiceDesktop
   void ToggleConnection();
   void RemoveVPNConnnection();
 
-  bool is_connected() const { return state_machine_.is_connected(); }
-  bool is_purchased_user() const { return state_machine_.is_purchased_state(); }
-  ConnectionState connection_state() const {
-    return state_machine_.connection_state();
+  bool is_connected() const {
+    return connection_state_ == ConnectionState::CONNECTED;
   }
+  bool is_purchased_user() const {
+    return purchased_state_ == PurchasedState::PURCHASED;
+  }
+  ConnectionState connection_state() const { return connection_state_; }
 
   void BindInterface(
       mojo::PendingReceiver<brave_vpn::mojom::ServiceHandler> receiver);
@@ -83,6 +83,7 @@ class BraveVpnServiceDesktop
 
   // brave_vpn::BraveVPNOSConnectionAPI::Observer overrides:
   void OnCreated(const std::string& name) override;
+  void OnCreateFailed(const std::string& name) override;
   void OnRemoved(const std::string& name) override;
   void OnConnected(const std::string& name) override;
   void OnIsConnecting(const std::string& name) override;
@@ -95,6 +96,7 @@ class BraveVpnServiceDesktop
   void LoadPurchasedState();
   void LoadSelectedRegion();
   void CheckConnectionStateIfNeeded();
+  void UpdateAndNotifyConnectionStateChange(ConnectionState state);
 
   void FetchRegionData();
   void OnFetchRegionList(const std::string& region_list, bool success);
@@ -113,6 +115,9 @@ class BraveVpnServiceDesktop
 
   std::string GetCurrentTimeZone();
   void SetPurchasedState(PurchasedState state);
+  void ScheduleFetchRegionDataIfNeeded();
+  brave_vpn::Hostname PickBestHostname(
+      const std::vector<brave_vpn::Hostname>& hostnames);
 
   void OnSkusVPNCredentialUpdated();
   void OnGetSubscriberCredential(const std::string& subscriber_credential,
@@ -124,14 +129,19 @@ class BraveVpnServiceDesktop
     test_timezone_ = timezone;
   }
 
-  BraveVPNServiceStateMachine state_machine_;
   PrefService* prefs_ = nullptr;
   PrefChangeRegistrar pref_change_registrar_;
   std::string skus_credential_;
-  base::flat_map<std::string, std::vector<brave_vpn::Hostname>> hostnames_;
   std::vector<brave_vpn::mojom::Region> regions_;
   brave_vpn::mojom::Region device_region_;
   brave_vpn::mojom::Region selected_region_;
+  brave_vpn::Hostname hostname_;
+  brave_vpn::BraveVPNConnectionInfo connection_info_;
+  bool cancel_connecting_ = false;
+  bool asked_connecting_to_os_ = false;
+  PurchasedState purchased_state_ = PurchasedState::NOT_PURCHASED;
+  ConnectionState connection_state_ = ConnectionState::DISCONNECTED;
+  bool needs_connect_ = false;
   base::ScopedObservation<brave_vpn::BraveVPNOSConnectionAPI,
                           brave_vpn::BraveVPNOSConnectionAPI::Observer>
       observed_{this};

@@ -158,8 +158,11 @@ void BraveVPNOSConnectionAPIWin::OnCheckConnection(
 
 void BraveVPNOSConnectionAPIWin::OnCreated(const std::string& name,
                                            bool success) {
-  if (!success)
+  if (!success) {
+    for (Observer& obs : observers_)
+      obs.OnCreateFailed(name);
     return;
+  }
 
   for (Observer& obs : observers_)
     obs.OnCreated(name);

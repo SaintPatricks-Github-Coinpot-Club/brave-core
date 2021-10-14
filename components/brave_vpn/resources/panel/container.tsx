@@ -80,9 +80,10 @@ function Main () {
       onConnectionStateChanged: (state: ConnectionState) => {
         if (state === ConnectionState.CONNECT_FAILED) {
           setHasError(true)
-          setOn(false)
         }
 
+        setOn(state == ConnectionState.CONNECTED ||
+              state === ConnectionState.CONNECTING);
         setStatus(state)
       },
       onPurchasedStateChanged: () => {/**/}

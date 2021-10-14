@@ -41,7 +41,6 @@ function initialize () {
   render(<App />, document.getElementById('mountPoint'),
   () => {
     apiProxy.getInstance().showUI()
-    apiProxy.getInstance().createVPNConnection()
   })
 }
 

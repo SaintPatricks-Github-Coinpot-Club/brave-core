@@ -192,6 +192,9 @@ void BraveVPNOSConnectionAPIMac::CreateVPNConnection(
       if (error) {
         LOG(ERROR) << "Create - saveToPrefs error: "
                    << base::SysNSStringToUTF8([error localizedDescription]);
+        for (Observer& obs : observers_)
+          obs.OnCreateFailed(std::string());
+
         return;
       }
       VLOG(2) << "Create - saveToPrefs success";
