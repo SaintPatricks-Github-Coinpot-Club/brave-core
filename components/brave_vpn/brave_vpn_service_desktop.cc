@@ -54,25 +54,6 @@ std::string GetBraveVPNPaymentsEnv() {
   return cmd->GetSwitchValueASCII(brave_vpn::switches::kBraveVPNPaymentsEnv);
 }
 
-bool GetVPNCredentialsFromSwitch(brave_vpn::BraveVPNConnectionInfo* info) {
-  DCHECK(info);
-  auto* cmd = base::CommandLine::ForCurrentProcess();
-  if (!cmd->HasSwitch(brave_vpn::switches::kBraveVPNTestCredentials))
-    return false;
-
-  std::string value =
-      cmd->GetSwitchValueASCII(brave_vpn::switches::kBraveVPNTestCredentials);
-  std::vector<std::string> tokens = base::SplitString(
-      value, ":", base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-  if (tokens.size() == 4) {
-    info->SetConnectionInfo(tokens[0], tokens[1], tokens[2], tokens[3]);
-    return true;
-  }
-
-  LOG(ERROR) << __func__ << ": Invalid credentials";
-  return false;
-}
-
 brave_vpn::BraveVPNOSConnectionAPI* GetBraveVPNConnectionAPI() {
   auto* cmd = base::CommandLine::ForCurrentProcess();
   if (cmd->HasSwitch(brave_vpn::switches::kBraveVPNSimulation))
@@ -304,10 +285,6 @@ void BraveVpnServiceDesktop::AddObserver(
 }
 
 brave_vpn::BraveVPNConnectionInfo BraveVpnServiceDesktop::GetConnectionInfo() {
-  brave_vpn::BraveVPNConnectionInfo info;
-  if (GetVPNCredentialsFromSwitch(&info))
-    return info;
-
   return connection_info_;
 }
 
@@ -363,13 +340,6 @@ void BraveVpnServiceDesktop::LoadCachedRegionData() {
 }
 
 void BraveVpnServiceDesktop::LoadPurchasedState() {
-  // TODO(simonhong): Remove this switch when we can use testable monthly pass.
-  brave_vpn::BraveVPNConnectionInfo info;
-  if (GetVPNCredentialsFromSwitch(&info)) {
-    SetPurchasedState(PurchasedState::PURCHASED);
-    return;
-  }
-
   const std::string credential =
       prefs_->GetString(brave_rewards::prefs::kSkusVPNCredential);
   skus_credential_ = credential;
