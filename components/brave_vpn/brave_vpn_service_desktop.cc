@@ -33,6 +33,25 @@ constexpr char kRegionContinentKey[] = "continent";
 constexpr char kRegionNameKey[] = "name";
 constexpr char kRegionNamePrettyKey[] = "name-pretty";
 
+std::string GetStringFor(ConnectionState state) {
+  switch (state) {
+    case ConnectionState::CONNECTED:
+      return "Connected";
+    case ConnectionState::CONNECTING:
+      return "Connecting";
+    case ConnectionState::DISCONNECTED:
+      return "Disconnected";
+    case ConnectionState::DISCONNECTING:
+      return "Disconnecting";
+    case ConnectionState::CONNECT_FAILED:
+      return "Connect failed";
+    default:
+      NOTREACHED();
+  }
+
+  return std::string();
+}
+
 bool IsValidRegion(const brave_vpn::mojom::Region& region) {
   if (region.continent.empty() || region.name.empty() ||
       region.name_pretty.empty())
@@ -114,6 +133,7 @@ void BraveVpnServiceDesktop::Shutdown() {
 }
 
 void BraveVpnServiceDesktop::OnCreated(const std::string& name) {
+  VLOG(2) << __func__;
   if (cancel_connecting_) {
     cancel_connecting_ = false;
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
@@ -133,14 +153,13 @@ void BraveVpnServiceDesktop::OnCreateFailed(const std::string& name) {
 }
 
 void BraveVpnServiceDesktop::OnRemoved(const std::string& name) {
+  VLOG(2) << __func__;
   for (const auto& obs : observers_)
     obs->OnConnectionRemoved();
 }
 
 void BraveVpnServiceDesktop::UpdateAndNotifyConnectionStateChange(
     ConnectionState state) {
-  VLOG(2) << __func__ << " : current: " << static_cast<int>(connection_state_)
-          << " : new: " << static_cast<int>(state);
   if (connection_state_ == state)
     return;
 
@@ -152,9 +171,20 @@ void BraveVpnServiceDesktop::UpdateAndNotifyConnectionStateChange(
   // noti again. So, ignore second one.
   if (connection_state_ == ConnectionState::CONNECTING &&
       state == ConnectionState::DISCONNECTED) {
-    // Ignore this state changing.
+    VLOG(2) << __func__ << ": Ignore disconnected state while connecting";
     return;
   }
+
+  // On Windows, we could get disconnected state after connect failed.
+  // To make connect failed state as a last state, ignore disconnected state.
+  if (connection_state_ == ConnectionState::CONNECT_FAILED &&
+      state == ConnectionState::DISCONNECTED) {
+    VLOG(2) << __func__ << ": Ignore disconnected state after connect failed";
+    return;
+  }
+
+  VLOG(2) << __func__ << " : changing from " << GetStringFor(connection_state_)
+          << " to " << GetStringFor(state);
 
   connection_state_ = state;
   for (const auto& obs : observers_)
@@ -176,11 +206,21 @@ void BraveVpnServiceDesktop::OnConnected(const std::string& name) {
 
 void BraveVpnServiceDesktop::OnIsConnecting(const std::string& name) {
   VLOG(2) << __func__;
+
+  if (cancel_connecting_) {
+    cancel_connecting_ = false;
+    Disconnect();
+    return;
+  }
+
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
 }
 
 void BraveVpnServiceDesktop::OnConnectFailed(const std::string& name) {
   VLOG(2) << __func__;
+
+  cancel_connecting_ = false;
+  asked_connecting_to_os_ = false;
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECT_FAILED);
 }
 
@@ -212,19 +252,15 @@ void BraveVpnServiceDesktop::CreateVPNConnection() {
 
 void BraveVpnServiceDesktop::RemoveVPNConnnection() {
   VLOG(2) << __func__;
-  GetBraveVPNConnectionAPI()->RemoveVPNConnection(
-      GetConnectionInfo().connection_name());
+  GetBraveVPNConnectionAPI()->RemoveVPNConnection(kBraveVPNEntryName);
 }
 
 void BraveVpnServiceDesktop::Connect() {
-  if (connection_state_ == ConnectionState::DISCONNECTING) {
+  if (connection_state_ == ConnectionState::DISCONNECTING ||
+      connection_state_ == ConnectionState::CONNECTING) {
     VLOG(2) << __func__
-            << " : prevent connecting while disconnecting is in-progress";
-    return;
-  }
-
-  if (connection_state_ == ConnectionState::CONNECTING) {
-    VLOG(2) << __func__ << " : connecting in progress";
+            << ": Current state: " << GetStringFor(connection_state_)
+            << " : prevent connecting while previous operation is in-progress";
     return;
   }
 
@@ -245,7 +281,8 @@ void BraveVpnServiceDesktop::Connect() {
   std::string target_region_name = device_region_.name;
   if (IsValidRegion(selected_region_)) {
     target_region_name = selected_region_.name;
-    VLOG(2) << __func__ << " : start connecting with valid selected_region: " << target_region_name;
+    VLOG(2) << __func__ << " : start connecting with valid selected_region: "
+            << target_region_name;
   }
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
   FetchHostnamesForRegion(target_region_name);
@@ -261,7 +298,6 @@ void BraveVpnServiceDesktop::Disconnect() {
       !asked_connecting_to_os_) {
     VLOG(2) << __func__ << " : cancel connecting";
     cancel_connecting_ = true;
-    asked_connecting_to_os_ = false;
     // Start disconnecting.
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTING);
     return;
@@ -573,6 +609,15 @@ void BraveVpnServiceDesktop::GetSelectedRegion(
 
 void BraveVpnServiceDesktop::SetSelectedRegion(
     brave_vpn::mojom::RegionPtr region_ptr) {
+  if (connection_state_ == ConnectionState::DISCONNECTING ||
+      connection_state_ == ConnectionState::CONNECTING) {
+    VLOG(2) << __func__
+            << ": Current state: " << GetStringFor(connection_state_)
+            << " : prevent changing selected region while previous operation "
+               "is in-progress";
+    return;
+  }
+
   VLOG(2) << __func__ << " : " << region_ptr->name_pretty;
   DictionaryPrefUpdate update(prefs_,
                               brave_vpn::prefs::kBraveVPNSelectedRegion);

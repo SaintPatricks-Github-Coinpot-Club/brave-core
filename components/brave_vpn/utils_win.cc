@@ -26,6 +26,7 @@ HANDLE g_disconnecting_event_handle = NULL;
 
 void WINAPI RasDialFunc(UINT, RASCONNSTATE rasconnstate, DWORD error) {
   if (error) {
+    SetEvent(g_connect_failed_event_handle);
     internal::PrintRasError(error);
     return;
   }
@@ -198,11 +199,13 @@ bool DisconnectEntry(const std::wstring& entry_name) {
 
     // If successful, print the names of the active connections.
     if (ERROR_SUCCESS == dw_ret) {
-      VLOG(2) << __func__ << " : The following RAS connections are currently active:" << dw_connections;
+      VLOG(2) << __func__
+              << " : The following RAS connections are currently active:"
+              << dw_connections;
       for (DWORD i = 0; i < dw_connections; i++) {
         std::wstring name(lp_ras_conn[i].szEntryName);
         std::wstring type(lp_ras_conn[i].szDeviceType);
-        VLOG(2) << __func__ << name << " : " << type;
+        VLOG(2) << __func__ << " : " << name << ", " << type;
         if (name.compare(entry_name) == 0 && type.compare(L"VPN") == 0) {
           VLOG(2) << __func__ << " : Disconnect... " << entry_name;
           SetEvent(g_disconnecting_event_handle);
