@@ -82,8 +82,8 @@ function Main () {
           setHasError(true)
         }
 
-        setOn(state == ConnectionState.CONNECTED ||
-              state === ConnectionState.CONNECTING);
+        setOn(state === ConnectionState.CONNECTED ||
+              state === ConnectionState.CONNECTING)
         setStatus(state)
       },
       onPurchasedStateChanged: () => {/**/}

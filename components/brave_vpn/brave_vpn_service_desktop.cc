@@ -135,8 +135,8 @@ void BraveVpnServiceDesktop::Shutdown() {
 void BraveVpnServiceDesktop::OnCreated(const std::string& name) {
   VLOG(2) << __func__;
   if (cancel_connecting_) {
-    cancel_connecting_ = false;
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
+    cancel_connecting_ = false;
     return;
   }
 
@@ -169,8 +169,10 @@ void BraveVpnServiceDesktop::UpdateAndNotifyConnectionStateChange(
   // region. To do that we monitor |DISCONNECTED| state and start
   // connect when we get that state. But, Windows sends disconnected state
   // noti again. So, ignore second one.
+  // On exception - we allow from connecting to disconnected in canceling
+  // scenario.
   if (connection_state_ == ConnectionState::CONNECTING &&
-      state == ConnectionState::DISCONNECTED) {
+      state == ConnectionState::DISCONNECTED && !cancel_connecting_) {
     VLOG(2) << __func__ << ": Ignore disconnected state while connecting";
     return;
   }
@@ -194,10 +196,15 @@ void BraveVpnServiceDesktop::UpdateAndNotifyConnectionStateChange(
 void BraveVpnServiceDesktop::OnConnected(const std::string& name) {
   VLOG(2) << __func__;
 
+  DCHECK(asked_connecting_to_os_);
+  DCHECK(connection_state_ == ConnectionState::CONNECTING);
   asked_connecting_to_os_ = false;
+
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTED);
 
   if (cancel_connecting_) {
+    // As connect is done, we don't need more for cancelling.
+    // Just start normal Disconenct() process.
     cancel_connecting_ = false;
     Disconnect();
     return;
@@ -207,7 +214,10 @@ void BraveVpnServiceDesktop::OnConnected(const std::string& name) {
 void BraveVpnServiceDesktop::OnIsConnecting(const std::string& name) {
   VLOG(2) << __func__;
 
+  DCHECK(asked_connecting_to_os_);
   if (cancel_connecting_) {
+    // This callback is called from OSConnectionAPI.
+    // This is called after service asks connect to OSConnectionAPI.
     cancel_connecting_ = false;
     Disconnect();
     return;
@@ -241,8 +251,8 @@ void BraveVpnServiceDesktop::OnIsDisconnecting(const std::string& name) {
 
 void BraveVpnServiceDesktop::CreateVPNConnection() {
   if (cancel_connecting_) {
-    cancel_connecting_ = false;
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
+    cancel_connecting_ = false;
     return;
   }
 
@@ -296,7 +306,7 @@ void BraveVpnServiceDesktop::Disconnect() {
 
   if (connection_state_ == ConnectionState::CONNECTING &&
       !asked_connecting_to_os_) {
-    VLOG(2) << __func__ << " : cancel connecting";
+    VLOG(2) << __func__ << " : cancel connecting in os connect is not started";
     cancel_connecting_ = true;
     // Start disconnecting.
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTING);
@@ -304,6 +314,9 @@ void BraveVpnServiceDesktop::Disconnect() {
   }
 
   VLOG(2) << __func__ << " : start disconnecting!";
+  // Clear as disconnecting starts.
+  asked_connecting_to_os_ = false;
+  cancel_connecting_ = false;
   UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTING);
   GetBraveVPNConnectionAPI()->Disconnect(kBraveVPNEntryName);
 }
@@ -376,19 +389,25 @@ void BraveVpnServiceDesktop::LoadCachedRegionData() {
 }
 
 void BraveVpnServiceDesktop::LoadPurchasedState() {
-  const std::string credential =
-      prefs_->GetString(brave_rewards::prefs::kSkusVPNCredential);
-  skus_credential_ = credential;
   auto* cmd = base::CommandLine::ForCurrentProcess();
   if (cmd->HasSwitch(brave_vpn::switches::kBraveVPNTestMonthlyPass)) {
     skus_credential_ =
         cmd->GetSwitchValueASCII(brave_vpn::switches::kBraveVPNTestMonthlyPass);
+    SetPurchasedState(PurchasedState::PURCHASED);
+    return;
   }
 
+  const std::string credential =
+      prefs_->GetString(brave_rewards::prefs::kSkusVPNCredential);
+  if (skus_credential_ == credential)
+    return;
+
+  skus_credential_ = credential;
+
   if (!skus_credential_.empty()) {
-    SetPurchasedState(PurchasedState::PURCHASED);
     VLOG(2) << __func__ << " : "
             << "Loaded cached skus credentials";
+    SetPurchasedState(PurchasedState::PURCHASED);
   }
 }
 
@@ -640,6 +659,9 @@ void BraveVpnServiceDesktop::GetProductUrls(GetProductUrlsCallback callback) {
 }
 
 void BraveVpnServiceDesktop::FetchHostnamesForRegion(const std::string& name) {
+  // Hostname will be replaced with latest one.
+  hostname_.reset();
+
   // Unretained is safe here becasue this class owns request helper.
   GetHostnamesForRegion(
       base::BindOnce(&BraveVpnServiceDesktop::OnFetchHostnames,
@@ -651,8 +673,8 @@ void BraveVpnServiceDesktop::OnFetchHostnames(const std::string& region,
                                               const std::string& hostnames,
                                               bool success) {
   if (cancel_connecting_) {
-    cancel_connecting_ = false;
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
+    cancel_connecting_ = false;
     return;
   }
 
@@ -714,15 +736,15 @@ void BraveVpnServiceDesktop::ParseAndCacheHostnames(
   }
 
   hostname_ = PickBestHostname(hostnames);
-  if (hostname_.hostname.empty()) {
+  if (hostname_->hostname.empty()) {
     VLOG(2) << __func__ << " : got empty hostnames list for " << region;
     UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECT_FAILED);
     return;
   }
 
-  VLOG(2) << __func__ << " : Picked " << hostname_.hostname << ", "
-          << hostname_.display_name << ", " << hostname_.is_offline << ", "
-          << hostname_.capacity_score;
+  VLOG(2) << __func__ << " : Picked " << hostname_->hostname << ", "
+          << hostname_->display_name << ", " << hostname_->is_offline << ", "
+          << hostname_->capacity_score;
 
   if (skus_credential_.empty()) {
     VLOG(2) << __func__ << " : skus_credential is empty";
@@ -751,21 +773,15 @@ void BraveVpnServiceDesktop::SetPurchasedState(PurchasedState state) {
 }
 
 void BraveVpnServiceDesktop::OnSkusVPNCredentialUpdated() {
-  const std::string credential =
-      prefs_->GetString(brave_rewards::prefs::kSkusVPNCredential);
-  if (skus_credential_ == credential)
-    return;
-
-  skus_credential_ = credential;
-  SetPurchasedState(PurchasedState::PURCHASED);
+  LoadPurchasedState();
 }
 
 void BraveVpnServiceDesktop::OnGetSubscriberCredential(
     const std::string& subscriber_credential,
     bool success) {
   if (cancel_connecting_) {
-    cancel_connecting_ = false;
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
+    cancel_connecting_ = false;
     return;
   }
 
@@ -780,15 +796,15 @@ void BraveVpnServiceDesktop::OnGetSubscriberCredential(
   GetProfileCredentials(
       base::BindOnce(&BraveVpnServiceDesktop::OnGetProfileCredentials,
                      base::Unretained(this)),
-      subscriber_credential, hostname_.hostname);
+      subscriber_credential, hostname_->hostname);
 }
 
 void BraveVpnServiceDesktop::OnGetProfileCredentials(
     const std::string& profile_credential,
     bool success) {
   if (cancel_connecting_) {
-    cancel_connecting_ = false;
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
+    cancel_connecting_ = false;
     return;
   }
 
@@ -813,7 +829,7 @@ void BraveVpnServiceDesktop::OnGetProfileCredentials(
       return;
     }
 
-    connection_info_.SetConnectionInfo(kBraveVPNEntryName, hostname_.hostname,
+    connection_info_.SetConnectionInfo(kBraveVPNEntryName, hostname_->hostname,
                                        *username, *password);
     // Let's create os vpn entry with |connection_info_|.
     CreateVPNConnection();
@@ -824,7 +840,7 @@ void BraveVpnServiceDesktop::OnGetProfileCredentials(
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECT_FAILED);
 }
 
-brave_vpn::Hostname BraveVpnServiceDesktop::PickBestHostname(
+std::unique_ptr<brave_vpn::Hostname> BraveVpnServiceDesktop::PickBestHostname(
     const std::vector<brave_vpn::Hostname>& hostnames) {
   std::vector<brave_vpn::Hostname> filtered_hostnames;
   std::copy_if(
@@ -838,8 +854,8 @@ brave_vpn::Hostname BraveVpnServiceDesktop::PickBestHostname(
             });
 
   if (filtered_hostnames.empty())
-    return brave_vpn::Hostname();
+    return std::make_unique<brave_vpn::Hostname>();
 
   // Pick highest capacity score.
-  return filtered_hostnames[0];
+  return std::make_unique<brave_vpn::Hostname>(filtered_hostnames[0]);
 }

@@ -74,9 +74,12 @@ class BraveVpnServiceDesktop
  private:
   friend class BraveAppMenuBrowserTest;
   friend class BraveBrowserCommandControllerTest;
-  FRIEND_TEST_ALL_PREFIXES(BraveVPNTest, RegionDataTest);
-  FRIEND_TEST_ALL_PREFIXES(BraveVPNTest, HostnamesTest);
-  FRIEND_TEST_ALL_PREFIXES(BraveVPNTest, LoadRegionDataFromPrefsTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, RegionDataTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, HostnamesTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, CancelConnectingTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, LoadPurchasedStateTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, LoadRegionDataFromPrefsTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, NeedsConnectTest);
 
   // BraveVpnService overrides:
   void Shutdown() override;
@@ -116,7 +119,7 @@ class BraveVpnServiceDesktop
   std::string GetCurrentTimeZone();
   void SetPurchasedState(PurchasedState state);
   void ScheduleFetchRegionDataIfNeeded();
-  brave_vpn::Hostname PickBestHostname(
+  std::unique_ptr<brave_vpn::Hostname> PickBestHostname(
       const std::vector<brave_vpn::Hostname>& hostnames);
 
   void OnSkusVPNCredentialUpdated();
@@ -135,7 +138,7 @@ class BraveVpnServiceDesktop
   std::vector<brave_vpn::mojom::Region> regions_;
   brave_vpn::mojom::Region device_region_;
   brave_vpn::mojom::Region selected_region_;
-  brave_vpn::Hostname hostname_;
+  std::unique_ptr<brave_vpn::Hostname> hostname_;
   brave_vpn::BraveVPNConnectionInfo connection_info_;
   bool cancel_connecting_ = false;
   bool asked_connecting_to_os_ = false;
