@@ -79,6 +79,7 @@ class BraveVpnServiceDesktop
   FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, RegionDataTest);
   FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, HostnamesTest);
   FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, CancelConnectingTest);
+  FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, ConnectionInfoTest);
   FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, LoadPurchasedStateTest);
   FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, LoadRegionDataFromPrefsTest);
   FRIEND_TEST_ALL_PREFIXES(BraveVPNServiceTest, NeedsConnectTest);

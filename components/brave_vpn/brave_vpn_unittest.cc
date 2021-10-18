@@ -183,6 +183,15 @@ class BraveVPNServiceTest : public testing::Test {
       ])";
   }
 
+  std::string GetProfileCredentialData() {
+    return R"(
+        {
+          "eap-username": "brave-user",
+          "eap-password": "brave-pwd"
+        }
+      )";
+  }
+
   base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_;
   sync_preferences::TestingPrefServiceSyncable pref_service_;
@@ -286,6 +295,25 @@ TEST_F(BraveVPNServiceTest, CancelConnectingTest) {
   service_->OnGetProfileCredentials("", true);
   EXPECT_FALSE(service_->cancel_connecting_);
   EXPECT_EQ(ConnectionState::DISCONNECTED, service_->connection_state_);
+}
+
+TEST_F(BraveVPNServiceTest, ConnectionInfoTest) {
+  // Check valid connection info is set when valid hostname and profile
+  // credential are fetched.
+  service_->connection_state_ = ConnectionState::CONNECTING;
+  pref_service_.SetString(brave_rewards::prefs::kSkusVPNCredential, "abcdefg");
+  service_->OnFetchHostnames("region-a", GetHostnamesData(), true);
+  EXPECT_EQ(ConnectionState::CONNECTING, service_->connection_state_);
+
+  service_->OnGetProfileCredentials(GetProfileCredentialData(), true);
+  EXPECT_EQ(ConnectionState::CONNECTING, service_->connection_state_);
+  EXPECT_TRUE(service_->connection_info_.IsValid());
+
+  // Check cached connection info is cleared when user set new selected region.
+  service_->connection_state_ = ConnectionState::DISCONNECTED;
+  brave_vpn::mojom::Region region;
+  service_->SetSelectedRegion(region.Clone());
+  EXPECT_FALSE(service_->connection_info_.IsValid());
 }
 
 TEST_F(BraveVPNServiceTest, NeedsConnectTest) {

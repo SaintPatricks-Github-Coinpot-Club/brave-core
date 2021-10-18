@@ -294,6 +294,15 @@ void BraveVpnServiceDesktop::Connect() {
   }
 
   VLOG(2) << __func__ << " : start connecting!";
+  UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
+
+  if (connection_info_.IsValid()) {
+    VLOG(2) << __func__
+            << " : direct connect as we already have valid connection info.";
+    GetBraveVPNConnectionAPI()->Connect(GetConnectionInfo().connection_name());
+    return;
+  }
+
   // If user doesn't select region explicitely, use default device region.
   std::string target_region_name = device_region_.name;
   if (IsValidRegion(selected_region_)) {
@@ -302,7 +311,6 @@ void BraveVpnServiceDesktop::Connect() {
             << target_region_name;
   }
 
-  UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
   FetchHostnamesForRegion(target_region_name);
 }
 
@@ -672,6 +680,8 @@ void BraveVpnServiceDesktop::SetSelectedRegion(
   selected_region_.continent = region_ptr->continent;
   selected_region_.name = region_ptr->name;
   selected_region_.name_pretty = region_ptr->name_pretty;
+
+  connection_info_.Reset();
 }
 
 void BraveVpnServiceDesktop::GetProductUrls(GetProductUrlsCallback callback) {
