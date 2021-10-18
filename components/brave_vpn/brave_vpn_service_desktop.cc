@@ -6,7 +6,6 @@
 #include "brave/components/brave_vpn/brave_vpn_service_desktop.h"
 
 #include <algorithm>
-#include <memory>
 #include <utility>
 
 #include "base/bind.h"
@@ -97,7 +96,10 @@ BraveVpnServiceDesktop::BraveVpnServiceDesktop(
   LoadPurchasedState();
   LoadSelectedRegion();
 
-  CheckConnectionStateIfNeeded();
+  // If already in purchased state, there is a high probability that
+  // the user has previously connected. So, try connection checking.
+  if (is_purchased_user())
+    GetBraveVPNConnectionAPI()->CheckConnection(kBraveVPNEntryName);
 
   pref_change_registrar_.Init(prefs_);
   pref_change_registrar_.Add(
@@ -132,7 +134,7 @@ void BraveVpnServiceDesktop::Shutdown() {
   pref_change_registrar_.RemoveAll();
 }
 
-void BraveVpnServiceDesktop::OnCreated(const std::string& name) {
+void BraveVpnServiceDesktop::OnCreated() {
   VLOG(2) << __func__;
   if (cancel_connecting_) {
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
@@ -143,16 +145,16 @@ void BraveVpnServiceDesktop::OnCreated(const std::string& name) {
   for (const auto& obs : observers_)
     obs->OnConnectionCreated();
 
-  asked_connecting_to_os_ = true;
+  // It's time to ask connecting to os after vpn entry is created.
   GetBraveVPNConnectionAPI()->Connect(GetConnectionInfo().connection_name());
 }
 
-void BraveVpnServiceDesktop::OnCreateFailed(const std::string& name) {
+void BraveVpnServiceDesktop::OnCreateFailed() {
   VLOG(2) << __func__;
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECT_FAILED);
 }
 
-void BraveVpnServiceDesktop::OnRemoved(const std::string& name) {
+void BraveVpnServiceDesktop::OnRemoved() {
   VLOG(2) << __func__;
   for (const auto& obs : observers_)
     obs->OnConnectionRemoved();
@@ -193,49 +195,37 @@ void BraveVpnServiceDesktop::UpdateAndNotifyConnectionStateChange(
     obs->OnConnectionStateChanged(connection_state_);
 }
 
-void BraveVpnServiceDesktop::OnConnected(const std::string& name) {
+void BraveVpnServiceDesktop::OnConnected() {
   VLOG(2) << __func__;
-
-  DCHECK(asked_connecting_to_os_);
-  DCHECK(connection_state_ == ConnectionState::CONNECTING);
-  asked_connecting_to_os_ = false;
-
-  UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTED);
 
   if (cancel_connecting_) {
     // As connect is done, we don't need more for cancelling.
     // Just start normal Disconenct() process.
     cancel_connecting_ = false;
-    Disconnect();
+    GetBraveVPNConnectionAPI()->Disconnect(kBraveVPNEntryName);
     return;
   }
+
+  UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTED);
 }
 
-void BraveVpnServiceDesktop::OnIsConnecting(const std::string& name) {
+void BraveVpnServiceDesktop::OnIsConnecting() {
   VLOG(2) << __func__;
 
-  DCHECK(asked_connecting_to_os_);
-  if (cancel_connecting_) {
-    // This callback is called from OSConnectionAPI.
-    // This is called after service asks connect to OSConnectionAPI.
-    cancel_connecting_ = false;
-    Disconnect();
-    return;
-  }
-
-  UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
+  if (!cancel_connecting_)
+    UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
 }
 
-void BraveVpnServiceDesktop::OnConnectFailed(const std::string& name) {
+void BraveVpnServiceDesktop::OnConnectFailed() {
   VLOG(2) << __func__;
 
   cancel_connecting_ = false;
-  asked_connecting_to_os_ = false;
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECT_FAILED);
 }
 
-void BraveVpnServiceDesktop::OnDisconnected(const std::string& name) {
+void BraveVpnServiceDesktop::OnDisconnected() {
   VLOG(2) << __func__;
+
   UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
 
   if (needs_connect_) {
@@ -244,7 +234,7 @@ void BraveVpnServiceDesktop::OnDisconnected(const std::string& name) {
   }
 }
 
-void BraveVpnServiceDesktop::OnIsDisconnecting(const std::string& name) {
+void BraveVpnServiceDesktop::OnIsDisconnecting() {
   VLOG(2) << __func__;
   UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTING);
 }
@@ -274,9 +264,7 @@ void BraveVpnServiceDesktop::Connect() {
     return;
   }
 
-  // Reset connect related states.
-  cancel_connecting_ = false;
-  asked_connecting_to_os_ = false;
+  DCHECK(!cancel_connecting_);
 
   // User can ask connect again when user want to change region.
   if (connection_state_ == ConnectionState::CONNECTED) {
@@ -294,31 +282,32 @@ void BraveVpnServiceDesktop::Connect() {
     VLOG(2) << __func__ << " : start connecting with valid selected_region: "
             << target_region_name;
   }
+
   UpdateAndNotifyConnectionStateChange(ConnectionState::CONNECTING);
   FetchHostnamesForRegion(target_region_name);
 }
 
 void BraveVpnServiceDesktop::Disconnect() {
+  if (connection_state_ == ConnectionState::DISCONNECTED) {
+    VLOG(2) << __func__ << " : already disconnected";
+    return;
+  }
+
   if (connection_state_ == ConnectionState::DISCONNECTING) {
     VLOG(2) << __func__ << " : disconnecting in progress";
     return;
   }
 
-  if (connection_state_ == ConnectionState::CONNECTING &&
-      !asked_connecting_to_os_) {
-    VLOG(2) << __func__ << " : cancel connecting in os connect is not started";
-    cancel_connecting_ = true;
-    // Start disconnecting.
+  if (connection_state_ != ConnectionState::CONNECTING) {
+    VLOG(2) << __func__ << " : start disconnecting!";
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTING);
+    GetBraveVPNConnectionAPI()->Disconnect(kBraveVPNEntryName);
     return;
   }
 
-  VLOG(2) << __func__ << " : start disconnecting!";
-  // Clear as disconnecting starts.
-  asked_connecting_to_os_ = false;
-  cancel_connecting_ = false;
+  cancel_connecting_ = true;
+  VLOG(2) << __func__ << " : Start cancelling connect request";
   UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTING);
-  GetBraveVPNConnectionAPI()->Disconnect(kBraveVPNEntryName);
 }
 
 void BraveVpnServiceDesktop::ToggleConnection() {
@@ -429,13 +418,6 @@ void BraveVpnServiceDesktop::LoadSelectedRegion() {
               << "Loaded selected region";
     }
   }
-}
-
-void BraveVpnServiceDesktop::CheckConnectionStateIfNeeded() {
-  // If already in purchased state, there is a high probability that
-  // the user has previously connected. So, try connection checking.
-  if (is_purchased_user())
-    GetBraveVPNConnectionAPI()->CheckConnection(kBraveVPNEntryName);
 }
 
 void BraveVpnServiceDesktop::OnFetchRegionList(const std::string& region_list,
@@ -659,6 +641,7 @@ void BraveVpnServiceDesktop::GetProductUrls(GetProductUrlsCallback callback) {
 }
 
 void BraveVpnServiceDesktop::FetchHostnamesForRegion(const std::string& name) {
+  VLOG(2) << __func__;
   // Hostname will be replaced with latest one.
   hostname_.reset();
 
@@ -672,6 +655,7 @@ void BraveVpnServiceDesktop::FetchHostnamesForRegion(const std::string& name) {
 void BraveVpnServiceDesktop::OnFetchHostnames(const std::string& region,
                                               const std::string& hostnames,
                                               bool success) {
+  VLOG(2) << __func__;
   if (cancel_connecting_) {
     UpdateAndNotifyConnectionStateChange(ConnectionState::DISCONNECTED);
     cancel_connecting_ = false;
@@ -754,6 +738,7 @@ void BraveVpnServiceDesktop::ParseAndCacheHostnames(
 
   // Get subscriber credentials and then get EAP credentials with it to create
   // OS VPN entry.
+  VLOG(2) << __func__ << " : request subsriber credential";
   GetSubscriberCredentialV12(
       base::BindOnce(&BraveVpnServiceDesktop::OnGetSubscriberCredential,
                      base::Unretained(this)),

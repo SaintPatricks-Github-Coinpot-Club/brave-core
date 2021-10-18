@@ -193,13 +193,13 @@ void BraveVPNOSConnectionAPIMac::CreateVPNConnection(
         LOG(ERROR) << "Create - saveToPrefs error: "
                    << base::SysNSStringToUTF8([error localizedDescription]);
         for (Observer& obs : observers_)
-          obs.OnCreateFailed(std::string());
+          obs.OnCreateFailed();
 
         return;
       }
       VLOG(2) << "Create - saveToPrefs success";
       for (Observer& obs : observers_)
-        obs.OnCreated(std::string());
+        obs.OnCreated();
     }];
   }];
 }
@@ -224,7 +224,7 @@ void BraveVPNOSConnectionAPIMac::RemoveVPNConnection(const std::string& name) {
         }
         VLOG(2) << "RemoveVPNConnection - successfully removed";
         for (Observer& obs : observers_)
-          obs.OnRemoved(std::string());
+          obs.OnRemoved();
       }];
     }
     RemoveKeychainItemForAccount();
@@ -291,21 +291,21 @@ void BraveVPNOSConnectionAPIMac::CheckConnection(const std::string& name) {
     switch (current_status) {
       case NEVPNStatusConnected:
         for (Observer& obs : observers_)
-          obs.OnConnected(name);
+          obs.OnConnected();
         break;
       case NEVPNStatusConnecting:
       case NEVPNStatusReasserting:
         for (Observer& obs : observers_)
-          obs.OnIsConnecting(name);
+          obs.OnIsConnecting();
         break;
       case NEVPNStatusDisconnected:
       case NEVPNStatusInvalid:
         for (Observer& obs : observers_)
-          obs.OnDisconnected(name);
+          obs.OnDisconnected();
         break;
       case NEVPNStatusDisconnecting:
         for (Observer& obs : observers_)
-          obs.OnIsDisconnecting(name);
+          obs.OnIsDisconnecting();
         break;
       default:
         break;

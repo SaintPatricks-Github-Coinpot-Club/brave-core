@@ -244,30 +244,70 @@ TEST_F(BraveVPNServiceTest, CancelConnectingTest) {
   service_->connection_state_ = ConnectionState::CONNECTING;
   service_->cancel_connecting_ = true;
   service_->connection_state_ = ConnectionState::CONNECTING;
-  service_->OnCreated("");
+  service_->OnCreated();
   EXPECT_FALSE(service_->cancel_connecting_);
   EXPECT_EQ(ConnectionState::DISCONNECTED, service_->connection_state_);
 
-  // Start disconnect() for cancelling when connect is done.
-  service_->cancel_connecting_ = true;
-  service_->asked_connecting_to_os_ = true;
+  // Start disconnect() when connect is done for cancelling.
+  service_->cancel_connecting_ = false;
   service_->connection_state_ = ConnectionState::CONNECTING;
-  service_->OnConnected("");
+  service_->Disconnect();
+  EXPECT_TRUE(service_->cancel_connecting_);
+  EXPECT_EQ(ConnectionState::DISCONNECTING, service_->connection_state_);
+  service_->OnConnected();
   EXPECT_FALSE(service_->cancel_connecting_);
-  EXPECT_FALSE(service_->asked_connecting_to_os_);
   EXPECT_EQ(ConnectionState::DISCONNECTING, service_->connection_state_);
 
-  // Start disconnect() for cancelling when connecting status arrives from os.
-  service_->cancel_connecting_ = true;
-  service_->asked_connecting_to_os_ = true;
+  service_->cancel_connecting_ = false;
   service_->connection_state_ = ConnectionState::CONNECTING;
-  service_->OnIsConnecting("");
-  EXPECT_FALSE(service_->cancel_connecting_);
-  EXPECT_FALSE(service_->asked_connecting_to_os_);
+  service_->Disconnect();
+  EXPECT_TRUE(service_->cancel_connecting_);
   EXPECT_EQ(ConnectionState::DISCONNECTING, service_->connection_state_);
+
+  service_->cancel_connecting_ = true;
+  service_->CreateVPNConnection();
+  EXPECT_FALSE(service_->cancel_connecting_);
+  EXPECT_EQ(ConnectionState::DISCONNECTED, service_->connection_state_);
+
+  service_->cancel_connecting_ = true;
+  service_->connection_state_ = ConnectionState::CONNECTING;
+  service_->OnFetchHostnames("", "", true);
+  EXPECT_FALSE(service_->cancel_connecting_);
+  EXPECT_EQ(ConnectionState::DISCONNECTED, service_->connection_state_);
+
+  service_->cancel_connecting_ = true;
+  service_->connection_state_ = ConnectionState::CONNECTING;
+  service_->OnGetSubscriberCredential("", true);
+  EXPECT_FALSE(service_->cancel_connecting_);
+  EXPECT_EQ(ConnectionState::DISCONNECTED, service_->connection_state_);
+
+  service_->cancel_connecting_ = true;
+  service_->connection_state_ = ConnectionState::CONNECTING;
+  service_->OnGetProfileCredentials("", true);
+  EXPECT_FALSE(service_->cancel_connecting_);
+  EXPECT_EQ(ConnectionState::DISCONNECTED, service_->connection_state_);
 }
 
-TEST_F(BraveVPNServiceTest, NeedsConnectTest) {}
+TEST_F(BraveVPNServiceTest, NeedsConnectTest) {
+  // Check ignore Connect() request while connecting or disconnecting is
+  // in-progress.
+  service_->connection_state_ = ConnectionState::CONNECTING;
+  service_->Connect();
+  EXPECT_EQ(ConnectionState::CONNECTING, service_->connection_state_);
+
+  service_->connection_state_ = ConnectionState::DISCONNECTING;
+  service_->Connect();
+  EXPECT_EQ(ConnectionState::DISCONNECTING, service_->connection_state_);
+
+  // Handle connect after disconnect current connection.
+  service_->connection_state_ = ConnectionState::CONNECTED;
+  service_->Connect();
+  EXPECT_TRUE(service_->needs_connect_);
+  EXPECT_EQ(ConnectionState::DISCONNECTING, service_->connection_state_);
+  service_->OnDisconnected();
+  EXPECT_FALSE(service_->needs_connect_);
+  EXPECT_EQ(ConnectionState::CONNECTING, service_->connection_state_);
+}
 
 TEST_F(BraveVPNServiceTest, LoadRegionDataFromPrefsTest) {
   // Initially, prefs doesn't have region data.

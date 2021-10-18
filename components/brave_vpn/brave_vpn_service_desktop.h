@@ -6,6 +6,7 @@
 #ifndef BRAVE_COMPONENTS_BRAVE_VPN_BRAVE_VPN_SERVICE_DESKTOP_H_
 #define BRAVE_COMPONENTS_BRAVE_VPN_BRAVE_VPN_SERVICE_DESKTOP_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -85,20 +86,19 @@ class BraveVpnServiceDesktop
   void Shutdown() override;
 
   // brave_vpn::BraveVPNOSConnectionAPI::Observer overrides:
-  void OnCreated(const std::string& name) override;
-  void OnCreateFailed(const std::string& name) override;
-  void OnRemoved(const std::string& name) override;
-  void OnConnected(const std::string& name) override;
-  void OnIsConnecting(const std::string& name) override;
-  void OnConnectFailed(const std::string& name) override;
-  void OnDisconnected(const std::string& name) override;
-  void OnIsDisconnecting(const std::string& name) override;
+  void OnCreated() override;
+  void OnCreateFailed() override;
+  void OnRemoved() override;
+  void OnConnected() override;
+  void OnIsConnecting() override;
+  void OnConnectFailed() override;
+  void OnDisconnected() override;
+  void OnIsDisconnecting() override;
 
   brave_vpn::BraveVPNConnectionInfo GetConnectionInfo();
   void LoadCachedRegionData();
   void LoadPurchasedState();
   void LoadSelectedRegion();
-  void CheckConnectionStateIfNeeded();
   void UpdateAndNotifyConnectionStateChange(ConnectionState state);
 
   void FetchRegionData();
@@ -141,7 +141,6 @@ class BraveVpnServiceDesktop
   std::unique_ptr<brave_vpn::Hostname> hostname_;
   brave_vpn::BraveVPNConnectionInfo connection_info_;
   bool cancel_connecting_ = false;
-  bool asked_connecting_to_os_ = false;
   PurchasedState purchased_state_ = PurchasedState::NOT_PURCHASED;
   ConnectionState connection_state_ = ConnectionState::DISCONNECTED;
   bool needs_connect_ = false;
