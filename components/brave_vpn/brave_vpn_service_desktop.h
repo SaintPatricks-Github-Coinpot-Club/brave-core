@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/scoped_observation.h"
+#include "base/sequence_checker.h"
 #include "base/timer/timer.h"
 #include "brave/components/brave_vpn/brave_vpn.mojom.h"
 #include "brave/components/brave_vpn/brave_vpn_connection_info.h"
@@ -153,6 +154,8 @@ class BraveVpnServiceDesktop
 
   // Only for testing.
   std::string test_timezone_;
+
+  SEQUENCE_CHECKER(sequence_checker_);
 };
 
 #endif  // BRAVE_COMPONENTS_BRAVE_VPN_BRAVE_VPN_SERVICE_DESKTOP_H_
