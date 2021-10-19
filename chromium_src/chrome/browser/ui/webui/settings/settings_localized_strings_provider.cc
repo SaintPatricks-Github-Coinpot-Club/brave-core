@@ -333,7 +333,13 @@ void BraveAddCommonStrings(content::WebUIDataSource* html_source,
     {"ipfsKeyExport", IDS_SETTINGS_IPNS_KEY_EXPORT_ITEM},
     {"ipfsKeyRemove", IDS_SETTINGS_IPNS_KEY_REMOVE_ITEM},
     {"ipfsKeyExportError", IDS_SETTINGS_IPNS_KEYS_EXPORT_ERROR},
-    {"resetWallet", IDS_SETTINGS_WALLET_RESET}
+    {"resetWallet", IDS_SETTINGS_WALLET_RESET},
+    {"walletResetConfirmation", IDS_SETTINGS_WALLET_RESET_CONFIRMATION},
+    {"walletNetworksLinkTitle", IDS_SETTINGS_WALLET_NETWORKS_ITEM},
+    {"walletAddNetworkDialogTitle", IDS_SETTINGS_WALLET_ADD_NETWORK_TITLE},
+    {"walletAddNetworkError", IDS_SETTINGS_WALLET_ADD_NETWORK_ERROR},
+    {"walletNetworkAdd", IDS_SETTINGS_WALLET_ADD_NETWORK},
+    {"walletNetworksListTitle", IDS_SETTINGS_WALLET_NETWORK_LIST_TITLE},
   };
 
   html_source->AddLocalizedStrings(localized_strings);

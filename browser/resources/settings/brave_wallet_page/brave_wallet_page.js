@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
-
+import {Router} from '../router.js';
 import {PrefsBehavior} from '../prefs/prefs_behavior.js';
 import 'chrome://resources/cr_elements/cr_input/cr_input.m.js';
  
@@ -60,7 +60,10 @@ Polymer({
     }
     this.setPrefValue('brave.wallet.auto_lock_minutes', value)
   },
-
+  onWalletNetworksEditorClick_: function() {
+    const router = Router.getInstance();
+    router.navigateTo(router.getRoutes().BRAVE_WALLET_NETWORKS);
+  },
   onResetWallet_: function() {
     var message = this.i18n('walletResetConfirmation')
     if (window.prompt(message) !== this.i18n('walletResetConfirmationPhrase'))
