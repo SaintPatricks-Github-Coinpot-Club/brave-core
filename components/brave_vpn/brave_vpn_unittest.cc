@@ -5,6 +5,7 @@
 
 #include <memory>
 
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/test/scoped_feature_list.h"
@@ -12,6 +13,7 @@
 #include "brave/components/brave_vpn/brave_vpn_utils.h"
 #include "brave/components/brave_vpn/features.h"
 #include "brave/components/brave_vpn/pref_names.h"
+#include "brave/components/brave_vpn/switches.h"
 #include "brave/components/skus/browser/pref_names.h"
 #include "brave/components/skus/browser/skus_sdk_impl.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -28,6 +30,8 @@ class BraveVPNServiceTest : public testing::Test {
   }
 
   void SetUp() override {
+    base::CommandLine::ForCurrentProcess()->AppendSwitch(
+        brave_vpn::switches::kBraveVPNSimulation);
     brave_rewards::SkusSdkImpl::RegisterProfilePrefs(pref_service_.registry());
     brave_vpn::prefs::RegisterProfilePrefs(pref_service_.registry());
     service_ = std::make_unique<BraveVpnServiceDesktop>(
