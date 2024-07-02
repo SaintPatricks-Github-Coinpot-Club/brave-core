@@ -27,7 +27,11 @@ import {
   WalletRoutes,
   FilecoinNetwork,
   FilecoinNetworkTypes,
-  FilecoinNetworkLocaleMapping
+  FilecoinNetworkLocaleMapping,
+  BitcoinNetworkTypes,
+  BitcoinNetwork,
+  BitcoinNetworkLocaleMapping,
+  DAppSupportedCoinTypes
 } from '../../../../constants/types'
 
 // actions
@@ -51,13 +55,18 @@ import {
 } from './style'
 
 // selectors
-import { UISelectors } from '../../../../common/selectors'
+import { UISelectors, WalletSelectors } from '../../../../common/selectors'
 
 // hooks
-import { useSafeUISelector } from '../../../../common/hooks/use-safe-selector'
+import {
+  useSafeUISelector,
+  useSafeWalletSelector
+} from '../../../../common/hooks/use-safe-selector'
 import {
   useImportAccountFromJsonMutation,
-  useImportAccountMutation
+  useImportAccountMutation,
+  useImportBtcAccountMutation,
+  useImportFilAccountMutation
 } from '../../../../common/slices/api.slice'
 
 interface Params {
@@ -81,18 +90,22 @@ export const ImportAccountModal = () => {
 
   // redux
   const dispatch = useDispatch()
-
+  const isBitcoinImportEnabled = useSafeWalletSelector(
+    WalletSelectors.isBitcoinImportEnabled
+  )
   // mutations
   const [importAccount] = useImportAccountMutation()
+  const [importFilAccount] = useImportFilAccountMutation()
+  const [importBtcAccount] = useImportBtcAccountMutation()
   const [importAccountFromJson] = useImportAccountFromJsonMutation()
 
   // memos
   const createAccountOptions = React.useMemo(() => {
     return CreateAccountOptions({
-      isBitcoinEnabled: false, // No bitcoin imported accounts by now.
+      isBitcoinEnabled: isBitcoinImportEnabled,
       isZCashEnabled: false // No zcash imported accounts by now.
     })
-  }, [])
+  }, [isBitcoinImportEnabled])
 
   const selectedAccountType = React.useMemo(() => {
     return createAccountOptions.find((option) => {
@@ -104,18 +117,21 @@ export const ImportAccountModal = () => {
 
   // state
   const [hasImportError, setHasImportError] = React.useState(false)
-  const [accountName, setAccountName] = React.useState<string>('')
+  const [fullLengthAccountName, setFullLengthAccountName] =
+    React.useState<string>('')
+  const accountName = fullLengthAccountName.substring(0, 30)
   const [filecoinNetwork, setFilecoinNetwork] =
     React.useState<FilecoinNetwork>('f')
+  const [bitcoinNetwork, setBitcoinNetwork] = React.useState<BitcoinNetwork>(
+    BraveWallet.BITCOIN_MAINNET
+  )
   const [importOption, setImportOption] = React.useState<string>('key')
   const [privateKey, setPrivateKey] = React.useState<string>('')
   const [file, setFile] = React.useState<HTMLInputElement['files']>()
   const [password, setPassword] = React.useState<string>('')
 
   // computed
-  const isAccountNameTooLong =
-    accountName.length > BraveWallet.ACCOUNT_NAME_MAX_CHARACTER_LENGTH
-  const hasAccountNameError = accountName === '' || isAccountNameTooLong
+  const hasAccountNameError = accountName === ''
   const hasImportTypeError = importOption === 'key' ? !privateKey : !file
   const isDisabled = hasAccountNameError || hasImportTypeError
   const modalTitle = selectedAccountType
@@ -137,7 +153,7 @@ export const ImportAccountModal = () => {
 
   const handleAccountNameChanged = React.useCallback(
     (detail: InputEventDetail) => {
-      setAccountName(detail.value)
+      setFullLengthAccountName(detail.value)
       setHasImportError(false)
     },
     []
@@ -146,6 +162,13 @@ export const ImportAccountModal = () => {
   const onChangeFilecoinNetwork = React.useCallback(
     (detail: SelectItemEventDetail) => {
       setFilecoinNetwork(detail.value as FilecoinNetwork)
+    },
+    []
+  )
+
+  const onChangeBitcoinNetwork = React.useCallback(
+    (detail: SelectItemEventDetail) => {
+      setBitcoinNetwork(detail.value as BitcoinNetwork)
     },
     []
   )
@@ -207,14 +230,27 @@ export const ImportAccountModal = () => {
   )
 
   const onClickCreateAccount = React.useCallback(async () => {
+    if (!selectedAccountType) {
+      return
+    }
     if (importOption === 'key') {
-      if (selectedAccountType?.coin === BraveWallet.CoinType.FIL) {
+      if (selectedAccountType.coin === BraveWallet.CoinType.FIL) {
         try {
-          await importAccount({
+          await importFilAccount({
             accountName,
             privateKey,
-            coin: BraveWallet.CoinType.FIL,
             network: filecoinNetwork
+          })
+          history.push(WalletRoutes.Accounts)
+        } catch (error) {
+          setHasImportError(true)
+        }
+      } else if (selectedAccountType.coin === BraveWallet.CoinType.BTC) {
+        try {
+          await importBtcAccount({
+            accountName,
+            payload: privateKey,
+            network: bitcoinNetwork
           })
           history.push(WalletRoutes.Accounts)
         } catch (error) {
@@ -225,7 +261,7 @@ export const ImportAccountModal = () => {
           await importAccount({
             accountName,
             privateKey,
-            coin: selectedAccountType?.coin || BraveWallet.CoinType.ETH
+            coin: selectedAccountType.coin
           }).unwrap()
           history.push(WalletRoutes.Accounts)
         } catch (error) {
@@ -258,12 +294,15 @@ export const ImportAccountModal = () => {
   }, [
     importOption,
     file,
-    selectedAccountType?.coin,
-    importAccount,
+    selectedAccountType,
+    importFilAccount,
     accountName,
     privateKey,
     filecoinNetwork,
     history,
+    importBtcAccount,
+    bitcoinNetwork,
+    importAccount,
     importAccountFromJson,
     password
   ])
@@ -292,6 +331,10 @@ export const ImportAccountModal = () => {
     [history]
   )
 
+  const isDAppCoin =
+    !!selectedAccountType &&
+    DAppSupportedCoinTypes.includes(selectedAccountType?.coin)
+
   // render
   return (
     <PopupModal
@@ -310,11 +353,13 @@ export const ImportAccountModal = () => {
 
       {selectedAccountType && (
         <StyledWrapper>
-          <Alert type='warning'>
-            {getLocale('braveWalletImportAccountDisclaimer')}
-          </Alert>
+          {isDAppCoin && (
+            <Alert type='warning'>
+              {getLocale('braveWalletImportAccountDisclaimer')}
+            </Alert>
+          )}
 
-          {selectedAccountType?.coin === BraveWallet.CoinType.FIL && (
+          {selectedAccountType.coin === BraveWallet.CoinType.FIL && (
             <Alert type='warning'>
               {filPrivateKeyFormatDescriptionTextParts.beforeTag}
               <a
@@ -325,6 +370,11 @@ export const ImportAccountModal = () => {
                 {filPrivateKeyFormatDescriptionTextParts.duringTag}
               </a>
               {filPrivateKeyFormatDescriptionTextParts.afterTag}
+            </Alert>
+          )}
+          {selectedAccountType.coin === BraveWallet.CoinType.BTC && (
+            <Alert type='warning'>
+              {getLocale('braveWalletBtcImportPrivateKeyFormatDescription')}
             </Alert>
           )}
 
@@ -355,8 +405,33 @@ export const ImportAccountModal = () => {
                 })}
               </Dropdown>
             )}
+            {selectedAccountType.coin === BraveWallet.CoinType.BTC && (
+              <Dropdown
+                value={bitcoinNetwork}
+                onChange={onChangeBitcoinNetwork}
+              >
+                <div slot='label'>
+                  {getLocale('braveWalletAllowAddNetworkNetworkPanelTitle')}
+                </div>
 
-            {selectedAccountType?.coin === BraveWallet.CoinType.ETH && (
+                <div slot='value'>
+                  {BitcoinNetworkLocaleMapping[bitcoinNetwork]}
+                </div>
+
+                {BitcoinNetworkTypes.map((network, index) => {
+                  const networkLocale = BitcoinNetworkLocaleMapping[network]
+                  return (
+                    <leo-option
+                      key={index}
+                      value={network}
+                    >
+                      {networkLocale}
+                    </leo-option>
+                  )
+                })}
+              </Dropdown>
+            )}
+            {selectedAccountType.coin === BraveWallet.CoinType.ETH && (
               <Dropdown
                 value={importOption}
                 onChange={onChangeImportOption}
@@ -450,35 +525,12 @@ export const ImportAccountModal = () => {
               onInput={handleAccountNameChanged}
               onKeyDown={handleKeyDown}
               showErrors={hasAccountNameError}
+              maxlength={BraveWallet.ACCOUNT_NAME_MAX_CHARACTER_LENGTH}
             >
               {
                 // Label
                 getLocale('braveWalletAddAccountPlaceholder')
               }
-
-              <div slot='errors'>
-                <ErrorText>
-                  {isAccountNameTooLong
-                    ? getLocale('braveWalletAccountNameTooLongError').replace(
-                        '$1',
-                        BraveWallet.ACCOUNT_NAME_MAX_CHARACTER_LENGTH.toString()
-                      )
-                    : ''}
-                </ErrorText>
-              </div>
-              <div slot='extra'>
-                {isAccountNameTooLong ? (
-                  <ErrorText>
-                    {accountName.length}/
-                    {BraveWallet.ACCOUNT_NAME_MAX_CHARACTER_LENGTH}
-                  </ErrorText>
-                ) : (
-                  <span>
-                    {accountName.length}/
-                    {BraveWallet.ACCOUNT_NAME_MAX_CHARACTER_LENGTH}
-                  </span>
-                )}
-              </div>
             </Input>
 
             <LeoSquaredButton

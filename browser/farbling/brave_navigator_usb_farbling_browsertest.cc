@@ -79,11 +79,15 @@ class FakeChooserView : public permissions::ChooserController::View {
     delete this;
   }
 
-  void OnOptionAdded(size_t index) override { NOTREACHED(); }
-  void OnOptionRemoved(size_t index) override { NOTREACHED(); }
-  void OnOptionUpdated(size_t index) override { NOTREACHED(); }
-  void OnAdapterEnabledChanged(bool enabled) override { NOTREACHED(); }
-  void OnRefreshStateChanged(bool refreshing) override { NOTREACHED(); }
+  void OnOptionAdded(size_t index) override { NOTREACHED_IN_MIGRATION(); }
+  void OnOptionRemoved(size_t index) override { NOTREACHED_IN_MIGRATION(); }
+  void OnOptionUpdated(size_t index) override { NOTREACHED_IN_MIGRATION(); }
+  void OnAdapterEnabledChanged(bool enabled) override {
+    NOTREACHED_IN_MIGRATION();
+  }
+  void OnRefreshStateChanged(bool refreshing) override {
+    NOTREACHED_IN_MIGRATION();
+  }
 
  private:
   std::unique_ptr<permissions::ChooserController> controller_;
@@ -173,7 +177,6 @@ class BraveNavigatorUsbFarblingBrowserTest : public InProcessBrowserTest {
         net::test_server::EmbeddedTestServer::TYPE_HTTPS);
     content::SetupCrossSiteRedirector(https_server_.get());
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir;
     base::PathService::Get(brave::DIR_TEST_DATA, &test_data_dir);
     https_server_->ServeFilesFromDirectory(test_data_dir);
@@ -304,6 +307,20 @@ IN_PROC_BROWSER_TEST_F(BraveNavigatorUsbFarblingBrowserTest,
   SetFingerprintingDefault(domain_z);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url_z));
   EXPECT_EQ("Qv2Eh368mTRQv26G", EvalJs(web_contents(), kRequestDeviceScript));
+
+  // Reload once more with farbling at default but enable a webcompat exception.
+  SetFingerprintingDefault(domain_b);
+  brave_shields::SetWebcompatFeatureSetting(
+      content_settings(),
+      ContentSettingsType::BRAVE_WEBCOMPAT_USB_DEVICE_SERIAL_NUMBER,
+      ControlType::ALLOW, GURL(url_b), nullptr);
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url_b));
+
+  // Call getDevices again. The fake device is still included, but now its
+  // serial number is not farbled.
+  EXPECT_EQ(content::ListValueOf(kTestDeviceSerialNumber),
+            EvalJs(web_contents(), kGetDevicesScript));
 }
 
 }  // namespace

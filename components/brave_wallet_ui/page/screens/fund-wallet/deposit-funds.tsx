@@ -145,6 +145,7 @@ export const DepositFundsScreen = ({ isAndroid }: Props) => {
           cardHeader={
             <PageTitleHeader
               title={getLocale('braveWalletDepositCryptoButton')}
+              expandRoute={WalletRoutes.DepositFundsPage}
             />
           }
         >
@@ -675,7 +676,10 @@ function DepositAccount() {
       </Row>
 
       <Column gap={'4px'}>
-        <AddressTextLabel>Address:</AddressTextLabel>
+        <AddressTextLabel>
+          {getLocale('braveWalletAddress')}
+          {':'}
+        </AddressTextLabel>
 
         {receiveAddress && !isFetchingAddress ? (
           <>

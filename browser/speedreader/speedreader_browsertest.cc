@@ -38,10 +38,10 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_list.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/page_action/page_action_icon_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -106,11 +106,20 @@ class SpeedReaderBrowserTest : public InProcessBrowserTest {
         speedreader::kSpeedreaderFeature,
         {{speedreader::kSpeedreaderTTS.name, "true"}});
 #endif
-    brave::RegisterPathProvider();
-    base::FilePath test_data_dir;
-    base::PathService::Get(brave::DIR_TEST_DATA, &test_data_dir);
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+  }
 
+  SpeedReaderBrowserTest(const SpeedReaderBrowserTest&) = delete;
+  SpeedReaderBrowserTest& operator=(const SpeedReaderBrowserTest&) = delete;
+
+  ~SpeedReaderBrowserTest() override = default;
+
+  void SetUp() override {
+    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+    ASSERT_TRUE(https_server_.InitializeAndListen());
+    InProcessBrowserTest::SetUp();
+  }
+
+  void SetUpOnMainThread() override {
     auto redirector = [](const net::test_server::HttpRequest& request)
         -> std::unique_ptr<net::test_server::HttpResponse> {
       if (request.GetURL().path_piece() != kTestPageRedirect) {
@@ -129,25 +138,17 @@ class SpeedReaderBrowserTest : public InProcessBrowserTest {
     };
 
     https_server_.RegisterDefaultHandler(base::BindRepeating(redirector));
-    https_server_.ServeFilesFromDirectory(test_data_dir);
-
-    EXPECT_TRUE(https_server_.Start());
-  }
-
-  SpeedReaderBrowserTest(const SpeedReaderBrowserTest&) = delete;
-  SpeedReaderBrowserTest& operator=(const SpeedReaderBrowserTest&) = delete;
-
-  ~SpeedReaderBrowserTest() override = default;
-
-  void SetUpOnMainThread() override {
+    https_server_.ServeFilesFromDirectory(
+        base::PathService::CheckedGet(brave::DIR_TEST_DATA));
+    https_server_.StartAcceptingConnections();
     host_resolver()->AddRule("*", "127.0.0.1");
   }
 
   void SetUpCommandLine(base::CommandLine* command_line) override {
+    InProcessBrowserTest::SetUpCommandLine(command_line);
     command_line->AppendSwitchASCII(
         network::switches::kHostResolverRules,
         "MAP *:443 " + https_server_.host_port_pair().ToString());
-    InProcessBrowserTest::SetUpCommandLine(command_line);
   }
 
   content::WebContents* ActiveWebContents() {

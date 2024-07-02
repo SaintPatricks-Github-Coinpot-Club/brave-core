@@ -28,6 +28,7 @@ inline constexpr auto kCollectedTypicalHistograms =
     "Brave.AIChat.AcquisitionSource",
     "Brave.AIChat.AvgPromptCount",
     "Brave.AIChat.ChatCount",
+    "Brave.AIChat.ChatCount.Nebula",
     "Brave.AIChat.ContextMenu.FreeUsages",
     "Brave.AIChat.ContextMenu.MostUsedAction",
     "Brave.AIChat.ContextMenu.PremiumUsages",
@@ -54,6 +55,7 @@ inline constexpr auto kCollectedTypicalHistograms =
     "Brave.Core.TabCount",
     "Brave.Core.TorEverUsed",
     "Brave.Core.WeeklyUsage",
+    "Brave.Core.WeeklyUsage.Nebula",
     "Brave.Core.WindowCount.2",
     "Brave.DNS.AutoSecureRequests",
     "Brave.DNS.AutoSecureRequests.Cloudflare",
@@ -148,23 +150,28 @@ inline constexpr auto kCollectedTypicalHistograms =
     "Brave.Playlist.FirstTimeOffset",
     "Brave.Playlist.NewUserReturning",
     "Brave.Playlist.UsageDaysInWeek",
-    "Brave.Rewards.AdTypesEnabled",
+    "Brave.Rewards.AdTypesEnabled.2",
+    "Brave.Rewards.AdsHistoryView",
     "Brave.Rewards.AutoContributionsState.3",
     "Brave.Rewards.CustomNotificationAdPosition",
     "Brave.Rewards.DesktopPanelCount",
     "Brave.Rewards.EnabledSource",
     "Brave.Rewards.MobileConversion",
     "Brave.Rewards.MobilePanelCount",
+    "Brave.Rewards.SearchResultAdsOptin",
     "Brave.Rewards.TipsState.2",
     "Brave.Rewards.ToolbarButtonTrigger",
     "Brave.Rewards.WalletBalance.3",
     "Brave.Rewards.WalletState",
     "Brave.Savings.BandwidthSavingsMB",
-    "Brave.Search.Promo.BannerA",
     "Brave.Search.Promo.BannerB",
     "Brave.Search.Promo.BannerC",
     "Brave.Search.Promo.BannerD",
     "Brave.Search.Promo.Button",
+    "Brave.Search.Promo.DDGBannerA",
+    "Brave.Search.Promo.DDGBannerB",
+    "Brave.Search.Promo.DDGBannerC",
+    "Brave.Search.Promo.DDGBannerD",
     "Brave.Search.Promo.NewTabPage",
     "Brave.Search.QueriesBeforeChurn",
     "Brave.Search.SwitchEngine",
@@ -190,9 +197,10 @@ inline constexpr auto kCollectedTypicalHistograms =
     "Brave.Today.ClickCardDepth",
     "Brave.Today.LastUsageTime",
     "Brave.Today.NewUserReturning",
+    "Brave.Today.NonRewardsAdViews",
+    "Brave.Today.RewardsAdViews",
     "Brave.Today.SidebarFilterUsages",
     "Brave.Today.WeeklyAddedDirectFeedsCount",
-    "Brave.Today.WeeklyDisplayAdsViewedCount",
     "Brave.Today.WeeklySessionCount",
     "Brave.Today.WeeklyTotalCardClicks",
     "Brave.Today.WeeklyTotalCardViews",
@@ -312,6 +320,7 @@ inline constexpr auto kEphemeralHistograms =
     "Brave.Playlist.UsageDaysInWeek",
     "Brave.PrivacyHub.Views",
     "Brave.RequestOTR.InterstitialDuration",
+    "Brave.Rewards.AdsHistoryView",
     "Brave.Rewards.DesktopPanelCount",
     "Brave.Rewards.EnabledInstallationTime",
     "Brave.Rewards.EnabledSource",
@@ -319,6 +328,7 @@ inline constexpr auto kEphemeralHistograms =
     "Brave.Rewards.MobilePanelCount",
     "Brave.Rewards.PageViewCount",
     "Brave.Rewards.RecurringTip",
+    "Brave.Rewards.SearchResultAdsOptin",
     "Brave.Rewards.TipsSent.2",
     "Brave.Rewards.ToolbarButtonTrigger",
     "Brave.Search.BraveDaily",
@@ -363,6 +373,19 @@ inline constexpr auto kHistogramsWithRefcodeIncluded =
   base::MakeFixedFlatSet<std::string_view>(base::sorted_unique,{
     "Brave.DayZero.A.InstallTime",
     "Brave.DayZero.B.InstallTime",
+});
+
+// List of metrics that should be protected by Nebula.
+//
+// We intend to apply Nebula to all questions by default,
+// subject to verification that it behaves as expected.
+// This list tests a small number of questions to confirm
+// this, and should be removed or converted to an exception
+// list once we're satisfied with the implementation.
+inline constexpr auto kNebulaOnlyHistograms =
+  base::MakeFixedFlatSet<std::string_view>(base::sorted_unique,{
+    "Brave.AIChat.ChatCount.Nebula",
+    "Brave.Core.WeeklyUsage.Nebula",
 });
 
 // clang-format on

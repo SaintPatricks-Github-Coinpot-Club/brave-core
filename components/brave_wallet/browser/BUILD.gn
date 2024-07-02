@@ -131,7 +131,11 @@ static_library("browser") {
     "json_rpc_service.h",
     "keyring_service.cc",
     "keyring_service.h",
+    "keyring_service_migrations.cc",
+    "keyring_service_migrations.h",
     "keyring_service_observer_base.h",
+    "keyring_service_prefs.cc",
+    "keyring_service_prefs.h",
     "meld_integration_response_parser.cc",
     "meld_integration_response_parser.h",
     "meld_integration_service.cc",
@@ -275,6 +279,7 @@ static_library("browser") {
     "//brave/components/services/brave_wallet/public/cpp/utils",
     "//brave/components/services/brave_wallet/public/mojom",
     "//brave/components/services/brave_wallet/public/proto:zcash_proto",
+    "//brave/net/base:utils",
     "//brave/third_party/argon2",
     "//components/component_updater",
     "//components/content_settings/core/browser",
@@ -355,6 +360,7 @@ source_set("utils") {
     "//brave/components/brave_wallet/common",
     "//brave/components/brave_wallet/common:buildflags",
     "//brave/components/brave_wallet/common:mojom",
+    "//brave/components/constants",
     "//brave/components/version_info",
     "//brave/third_party/bip39wally-core-native:bip39wally-core",
     "//components/content_settings/core/common",
@@ -372,8 +378,12 @@ source_set("utils") {
 
 source_set("hd_keyring") {
   sources = [
-    "bitcoin/bitcoin_keyring.cc",
-    "bitcoin/bitcoin_keyring.h",
+    "bitcoin/bitcoin_base_keyring.cc",
+    "bitcoin/bitcoin_base_keyring.h",
+    "bitcoin/bitcoin_hd_keyring.cc",
+    "bitcoin/bitcoin_hd_keyring.h",
+    "bitcoin/bitcoin_import_keyring.cc",
+    "bitcoin/bitcoin_import_keyring.h",
     "ethereum_keyring.cc",
     "ethereum_keyring.h",
     "filecoin_keyring.cc",
@@ -392,6 +402,7 @@ source_set("hd_keyring") {
     ":transaction",
     "internal:hd_key",
     "//base",
+    "//brave/components/brave_wallet/browser:utils",
     "//brave/components/brave_wallet/common",
     "//brave/components/brave_wallet/common:buildflags",
     "//brave/components/brave_wallet/common:common_constants",
@@ -439,6 +450,7 @@ source_set("test_support") {
 
   deps = [
     ":browser",
+    "//brave/components/brave_wallet/browser/test:test_support",
     "//brave/components/brave_wallet/common",
     "//testing/gmock",
     "//testing/gtest",

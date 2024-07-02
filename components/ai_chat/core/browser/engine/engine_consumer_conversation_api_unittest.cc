@@ -21,7 +21,6 @@
 #include "base/test/task_environment.h"
 #include "brave/components/ai_chat/core/browser/engine/conversation_api_client.h"
 #include "brave/components/ai_chat/core/browser/engine/engine_consumer.h"
-#include "brave/components/ai_chat/core/browser/models.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom-forward.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom-shared.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom.h"
@@ -33,6 +32,10 @@
 using ::testing::_;
 
 namespace ai_chat {
+
+namespace {
+const int kTestingMaxPageContentLength = 100;
+}
 
 using ConversationEvent = ConversationAPIClient::ConversationEvent;
 
@@ -69,12 +72,24 @@ class EngineConsumerConversationAPIUnitTest : public testing::Test {
   ~EngineConsumerConversationAPIUnitTest() override = default;
 
   void SetUp() override {
-    auto* model = GetModel("chat-claude-instant");
-    ASSERT_TRUE(model);
-    engine_ = std::make_unique<EngineConsumerConversationAPI>(*model, nullptr,
-                                                              nullptr);
-    engine_->SetAPIForTesting(
-        std::make_unique<MockConversationAPIClient>(model->name));
+    auto options = mojom::LeoModelOptions::New();
+    options->display_maker = "Test Maker";
+    options->name = "test-model-name";
+    options->category = mojom::ModelCategory::CHAT;
+    options->access = mojom::ModelAccess::BASIC;
+    options->max_page_content_length = kTestingMaxPageContentLength;
+    options->long_conversation_warning_character_limit = 1000;
+
+    model_ = mojom::Model::New();
+    model_->key = "test_model_key";
+    model_->display_name = "Test Model Display Name";
+    model_->options =
+        mojom::ModelOptions::NewLeoModelOptions(std::move(options));
+
+    engine_ = std::make_unique<EngineConsumerConversationAPI>(
+        *model_->options->get_leo_model_options(), nullptr, nullptr);
+    engine_->SetAPIForTesting(std::make_unique<MockConversationAPIClient>(
+        model_->options->get_leo_model_options()->name));
   }
 
   MockConversationAPIClient* GetMockConversationAPIClient() {
@@ -94,6 +109,7 @@ class EngineConsumerConversationAPIUnitTest : public testing::Test {
 
  protected:
   base::test::TaskEnvironment task_environment_;
+  mojom::ModelPtr model_;
   std::unique_ptr<EngineConsumerConversationAPI> engine_;
 };
 
@@ -107,8 +123,11 @@ TEST_F(EngineConsumerConversationAPIUnitTest, GenerateEvents_BasicMessage) {
   // ConversationEvent to JSON. It's convenient to test both here but more
   // exhaustive tests of  ConversationAPIClient are performed in its own
   // unit test suite.
+  std::string page_content(kTestingMaxPageContentLength + 1, 'a');
+  std::string expected_page_content(kTestingMaxPageContentLength, 'a');
   std::string expected_events = R"([
-    {"role": "user", "type": "pageText", "content": "This is a page about The Mandalorian."},
+    {"role": "user", "type": "pageText", "content": ")" +
+                                expected_page_content + R"("},
     {"role": "user", "type": "chatMessage", "content": "Which show is this about?"}
   ])";
   auto* mock_api_client = GetMockConversationAPIClient();
@@ -120,6 +139,8 @@ TEST_F(EngineConsumerConversationAPIUnitTest, GenerateEvents_BasicMessage) {
         // Some structured EXPECT calls to catch nicer errors first
         EXPECT_EQ(conversation.size(), 2u);
         EXPECT_EQ(conversation[0].role, mojom::CharacterType::HUMAN);
+        // Page content should be truncated
+        EXPECT_EQ(conversation[0].content, expected_page_content);
         EXPECT_EQ(conversation[0].type, ConversationAPIClient::PageText);
         EXPECT_EQ(conversation[1].role, mojom::CharacterType::HUMAN);
         // Match entire structure
@@ -135,8 +156,8 @@ TEST_F(EngineConsumerConversationAPIUnitTest, GenerateEvents_BasicMessage) {
   history.push_back(std::move(turn));
 
   engine_->GenerateAssistantResponse(
-      false, "This is a page about The Mandalorian.", history,
-      "Which show is this about?", base::DoNothing(),
+      false, page_content, history, "Which show is this about?",
+      base::DoNothing(),
       base::BindLambdaForTesting(
           [&run_loop](EngineConsumer::GenerationResult) { run_loop.Quit(); }));
   run_loop.Run();

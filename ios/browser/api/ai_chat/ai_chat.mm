@@ -13,12 +13,12 @@
 #include "brave/components/ai_chat/core/browser/ai_chat_feedback_api.h"
 #include "brave/components/ai_chat/core/browser/ai_chat_metrics.h"
 #include "brave/components/ai_chat/core/browser/constants.h"
-#include "brave/components/ai_chat/core/browser/models.h"
 #include "brave/components/ai_chat/core/common/features.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom-shared.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom.h"
 #include "brave/components/ai_chat/core/common/pref_names.h"
 #include "brave/ios/browser/api/ai_chat/conversation_driver_ios.h"
+#include "brave/ios/browser/api/ai_chat/model_service_factory.h"
 #include "brave/ios/browser/skus/skus_service_factory.h"
 #include "components/prefs/pref_service.h"
 #include "components/user_prefs/user_prefs.h"
@@ -47,6 +47,9 @@
     ai_chat_metrics_ =
         std::make_unique<ai_chat::AIChatMetrics>(local_state_prefs);
 
+    ai_chat::ModelService* model_service =
+        ai_chat::ModelServiceFactory::GetForBrowserState(browser_state_);
+
     auto skus_service_getter = base::BindRepeating(
         [](ChromeBrowserState* browser_state) {
           return skus::SkusServiceFactory::GetForBrowserState(browser_state);
@@ -55,7 +58,7 @@
 
     driver_ = std::make_unique<ai_chat::ConversationDriverIOS>(
         user_prefs::UserPrefs::Get(browser_state_), local_state_prefs,
-        ai_chat_metrics_.get(), skus_service_getter,
+        model_service, ai_chat_metrics_.get(), skus_service_getter,
         browser_state_->GetSharedURLLoaderFactory(),
         version_info::GetChannelString(::GetChannel()), delegate);
   }
@@ -79,12 +82,12 @@
 }
 
 - (NSArray<AiChatModel*>*)models {
-  std::vector<ai_chat::mojom::ModelPtr> models = driver_->GetModels();
+  const std::vector<ai_chat::mojom::ModelPtr>& models = driver_->GetModels();
   NSMutableArray* result =
       [[NSMutableArray alloc] initWithCapacity:models.size()];
 
-  for (auto&& model : models) {
-    [result addObject:[[AiChatModel alloc] initWithModelPtr:std::move(model)]];
+  for (auto& model : models) {
+    [result addObject:[[AiChatModel alloc] initWithModelPtr:model->Clone()]];
   }
   return [result copy];
 }
@@ -133,13 +136,22 @@
 }
 
 - (NSArray<AiChatActionGroup*>*)slashActions {
-  return brave::vector_to_ns(ai_chat::GetActionMenuList());
+  NSMutableArray* result = [[NSMutableArray alloc] init];
+  for (auto&& group : ai_chat::GetActionMenuList()) {
+    [result addObject:[[AiChatActionGroup alloc]
+                          initWithActionGroupPtr:std::move(group)]];
+  }
+  return result;
 }
 
 - (NSArray<NSString*>*)suggestedQuestions {
   auto status = ai_chat::mojom::SuggestionGenerationStatus::None;
   std::vector<std::string> result = driver_->GetSuggestedQuestions(status);
   return brave::vector_to_ns(result);
+}
+
+- (NSInteger)contentUsedPercentage {
+  return driver_->GetContentUsedPercentage();
 }
 
 - (bool)hasPendingConversationEntry {
@@ -180,6 +192,63 @@
         }
       },
       completion));
+}
+
+- (void)submitSelectedText:(NSString*)selectedText
+                actionType:(AiChatActionType)actionType {
+  [self submitSelectedText:selectedText
+                actionType:actionType
+              onSuggestion:nil
+               onCompleted:nil];
+}
+
+- (void)submitSelectedText:(NSString*)selectedText
+                actionType:(AiChatActionType)actionType
+              onSuggestion:(void (^)(NSString*))onSuggestion
+               onCompleted:(void (^)(NSString* result,
+                                     AiChatAPIError error))onCompleted {
+  driver_->SubmitSelectedText(
+      base::SysNSStringToUTF8(selectedText),
+      static_cast<ai_chat::mojom::ActionType>(actionType),
+      onSuggestion ? base::BindRepeating(^(const std::string& suggestion_text) {
+        onSuggestion(base::SysUTF8ToNSString(suggestion_text));
+      })
+                   : base::NullCallback(),
+      onCompleted
+          ? base::BindOnce(^(ai_chat::EngineConsumer::GenerationResult result) {
+              if (auto result_string = result; result_string.has_value()) {
+                onCompleted(base::SysUTF8ToNSString(result_string.value()),
+                            AiChatAPIErrorNone);
+              } else {
+                onCompleted(nil, static_cast<AiChatAPIError>(result.error()));
+              }
+            })
+          : base::NullCallback());
+}
+
+- (void)submitSelectedText:(NSString*)selectedText
+                  question:(NSString*)question
+                actionType:(AiChatActionType)actionType
+              onSuggestion:(void (^)(NSString*))onSuggestion
+               onCompleted:(void (^)(NSString* result,
+                                     AiChatAPIError error))onCompleted {
+  driver_->SubmitSelectedTextWithQuestion(
+      base::SysNSStringToUTF8(selectedText), base::SysNSStringToUTF8(question),
+      static_cast<ai_chat::mojom::ActionType>(actionType),
+      onSuggestion ? base::BindRepeating(^(const std::string& suggestion_text) {
+        onSuggestion(base::SysUTF8ToNSString(suggestion_text));
+      })
+                   : base::NullCallback(),
+      onCompleted
+          ? base::BindOnce(^(ai_chat::EngineConsumer::GenerationResult result) {
+              if (auto result_string = result; result_string.has_value()) {
+                onCompleted(base::SysUTF8ToNSString(result_string.value()),
+                            AiChatAPIErrorNone);
+              } else {
+                onCompleted(nil, static_cast<AiChatAPIError>(result.error()));
+              }
+            })
+          : base::NullCallback());
 }
 
 - (void)rateMessage:(bool)isLiked

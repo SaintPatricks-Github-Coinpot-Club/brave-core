@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "base/check_op.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "brave/components/brave_ads/core/internal/account/confirmations/confirmation_info.h"
 #include "brave/components/brave_ads/core/internal/account/confirmations/confirmations.h"
@@ -22,14 +23,14 @@
 #include "brave/components/brave_ads/core/internal/ads_notifier_manager.h"
 #include "brave/components/brave_ads/core/internal/client/ads_client_util.h"
 #include "brave/components/brave_ads/core/internal/common/logging_util.h"
+#include "brave/components/brave_ads/core/internal/prefs/pref_util.h"
 #include "brave/components/brave_ads/core/internal/settings/settings.h"
 #include "brave/components/brave_ads/core/mojom/brave_ads.mojom.h"  // IWYU pragma: keep
 #include "brave/components/brave_ads/core/public/ad_units/ad_type.h"
-#include "brave/components/brave_rewards/common/pref_names.h"
 
 namespace brave_ads {
 
-Account::Account(TokenGeneratorInterface* token_generator)
+Account::Account(TokenGeneratorInterface* const token_generator)
     : token_generator_(token_generator) {
   CHECK(token_generator_);
 
@@ -42,13 +43,15 @@ Account::~Account() {
   RemoveAdsClientNotifierObserver(this);
 }
 
-void Account::AddObserver(AccountObserver* observer) {
+void Account::AddObserver(AccountObserver* const observer) {
   CHECK(observer);
+
   observers_.AddObserver(observer);
 }
 
-void Account::RemoveObserver(AccountObserver* observer) {
+void Account::RemoveObserver(AccountObserver* const observer) {
   CHECK(observer);
+
   observers_.RemoveObserver(observer);
 }
 
@@ -56,7 +59,14 @@ void Account::SetWallet(const std::string& payment_id,
                         const std::string& recovery_seed) {
   const std::optional<WalletInfo> wallet = ToWallet(payment_id, recovery_seed);
   if (!wallet) {
+    // TODO(https://github.com/brave/brave-browser/issues/32066):
+    // Detect potential defects using `DumpWithoutCrashing`.
+    SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
+                              "Failed to initialize wallet");
+    base::debug::DumpWithoutCrashing();
+
     BLOG(0, "Failed to initialize wallet");
+
     return NotifyFailedToInitializeWallet();
   }
 
@@ -179,6 +189,17 @@ void Account::FailedToProcessDeposit(
     const std::string& creative_instance_id,
     const AdType ad_type,
     const ConfirmationType confirmation_type) const {
+  // TODO(https://github.com/brave/brave-browser/issues/32066):
+  // Detect potential defects using `DumpWithoutCrashing`.
+  SCOPED_CRASH_KEY_STRING64("Issue32066", "ad_type", ToString(ad_type));
+  SCOPED_CRASH_KEY_STRING64("Issue32066", "confirmation_type",
+                            ToString(confirmation_type));
+  SCOPED_CRASH_KEY_STRING64("Issue32066", "creative_instance_id",
+                            creative_instance_id);
+  SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
+                            "Failed to process deposit");
+  base::debug::DumpWithoutCrashing();
+
   BLOG(0, "Failed to process deposit for "
               << ad_type << " with creative instance id "
               << creative_instance_id << " and " << confirmation_type);
@@ -263,7 +284,7 @@ void Account::OnNotifyDidInitializeAds() {
 }
 
 void Account::OnNotifyPrefDidChange(const std::string& path) {
-  if (path == brave_rewards::prefs::kEnabled) {
+  if (DoesMatchUserHasJoinedBraveRewardsPrefPath(path)) {
     Initialize();
   }
 }

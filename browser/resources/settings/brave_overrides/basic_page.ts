@@ -15,7 +15,6 @@ import '../brave_ipfs_page/brave_ipfs_page.js'
 import '../brave_new_tab_page/brave_new_tab_page.js'
 import '../brave_search_engines_page/brave_search_engines_page.js'
 import '../brave_sync_page/brave_sync_page.js'
-import '../brave_site_settings/brave_site_data_details_subpage.js'
 import '../brave_tor_page/brave_tor_subpage.js'
 import '../brave_wallet_page/brave_wallet_page.js'
 import '../brave_web3_domains_page/brave_web3_domains_page.js'
@@ -23,6 +22,7 @@ import '../default_brave_shields_page/default_brave_shields_page.js'
 import '../getting_started_page/getting_started.js'
 import '../social_blocking_page/social_blocking_page.js'
 import '../brave_leo_assistant_page/brave_leo_assistant_page.js'
+import '../brave_leo_assistant_page/model_list_section.js'
 
 import {html, RegisterPolymerTemplateModifications, RegisterStyleOverride} from 'chrome://resources/brave/polymer_overriding.js'
 
@@ -123,36 +123,6 @@ RegisterPolymerTemplateModifications({
         console.error('[Brave Settings Overrides] Could not find privacyGuidePromoSection element to hide')
       } else {
         privacyGuidePromoSection.remove()
-      }
-      const safetyCheckTemplate = actualTemplate.content.querySelector(
-        'template[is="dom-if"][if="[[showSafetyCheckPage_(pageVisibility.safetyCheck)]]"]')
-      if (!safetyCheckTemplate) {
-        console.error(
-          '[Brave Settings Overrides] Could not find safetyCheck template')
-      } else {
-        const safetyCheckSettingsSection = safetyCheckTemplate.content.
-          querySelector('#safetyCheckSettingsSection')
-        if (!safetyCheckSettingsSection) {
-          console.error('[Brave Settings Overrides] Could not find '
-            + 'safetyCheckSettingsSection element to hide')
-        } else {
-          safetyCheckSettingsSection.remove()
-        }
-      }
-      const safetyHubTemplate = actualTemplate.content.querySelector(
-        'template[is="dom-if"][if="[[showSafetyHubEntryPointPage_(pageVisibility.safetyHub)]]"]')
-      if (!safetyHubTemplate) {
-        console.error(
-          '[Brave Settings Overrides] Could not find safetyHub template')
-      } else {
-        const safetyHubEntryPointSection = safetyHubTemplate.content.
-          querySelector('#safetyHubEntryPointSection')
-        if (!safetyHubEntryPointSection) {
-          console.error('[Brave Settings Overrides] Could not find '
-            + 'safetyHubEntryPointSection element to hide')
-        } else {
-          safetyHubEntryPointSection.remove()
-        }
       }
       const sectionGetStarted = document.createElement('template')
       sectionGetStarted.setAttribute('is', 'dom-if')
@@ -338,6 +308,20 @@ RegisterPolymerTemplateModifications({
           prefs: '{{prefs}}'
         }
       ))
+      const sectionLeoCustomModels = document.createElement('template')
+      sectionLeoCustomModels.setAttribute('is', 'dom-if')
+      sectionLeoCustomModels.setAttribute('restamp', 'true')
+      sectionLeoCustomModels
+        .setAttribute('if', '[[showPage_(pageVisibility.leoAssistant)]]')
+      sectionLeoCustomModels.content.appendChild(createNestedSectionElement(
+        'leoAssistant',
+        'leoAssistant',
+        'braveLeoAssistantByomLabel',
+        'model-list-section',
+        {
+          prefs: '{{prefs}}'
+        }
+      ))
 
       const sectionContent = document.createElement('template')
       sectionContent.setAttribute('is', 'dom-if')
@@ -461,6 +445,8 @@ RegisterPolymerTemplateModifications({
       last = last.insertAdjacentElement('afterend', sectionDataCollection)
       // Insert Leo Assistant
       last = last.insertAdjacentElement('afterend', sectionLeoAssist)
+      // Insert Custom Models List
+      last.insertAdjacentElement('afterend', sectionLeoCustomModels)
 
       // Advanced
       const advancedTemplate = templateContent.querySelector('template[if="[[showAdvancedSettings_(pageVisibility.advancedSettings)]]"]')

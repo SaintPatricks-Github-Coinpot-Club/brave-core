@@ -124,7 +124,7 @@ export const HardwareWalletAccountsList = ({
     if (!networksRegistry) {
       return []
     }
-    return networksRegistry.idsByCoinType[coin].map(
+    return networksRegistry.visibleIdsByCoinType[coin].map(
       (id) => networksRegistry.entities[id] as BraveWallet.NetworkInfo
     )
   }, [networksRegistry, coin])
@@ -223,7 +223,7 @@ export const HardwareWalletAccountsList = ({
     }
 
     // set network dropdown default value
-    setSelectedNetworkId(networksRegistry.idsByCoinType[coin][0])
+    setSelectedNetworkId(networksRegistry.visibleIdsByCoinType[coin][0])
   }, [networksRegistry, coin, selectedNetworkId])
 
   // render
@@ -283,12 +283,18 @@ export const HardwareWalletAccountsList = ({
               value={selectedDerivationScheme}
               onChange={(e) => onChangeDerivationScheme(e.value)}
             >
-              <div slot='value'>{selectedDerivationScheme}</div>
+              <div slot='value'>
+                {solDerivationPathsEnum[selectedDerivationScheme]}{' '}
+                {`"${getPathForSolLedgerIndex(
+                  undefined,
+                  selectedDerivationScheme as SolDerivationPaths
+                )}"`}
+              </div>
               {Object.keys(solDerivationPathsEnum).map((path) => {
                 const pathLocale = solDerivationPathsEnum[path]
                 return (
                   <leo-option
-                    data-value={path}
+                    value={path}
                     key={path}
                   >
                     {pathLocale}{' '}

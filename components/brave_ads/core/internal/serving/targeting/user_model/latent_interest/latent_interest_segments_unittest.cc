@@ -8,7 +8,6 @@
 #include <memory>
 
 #include "brave/components/brave_ads/core/internal/common/unittest/unittest_base.h"
-#include "brave/components/brave_ads/core/internal/segments/segment_alias.h"
 #include "brave/components/brave_ads/core/internal/serving/targeting/user_model/latent_interest/latent_interest_user_model_info.h"
 #include "brave/components/brave_ads/core/internal/targeting/targeting_unittest_helper.h"
 
@@ -21,48 +20,44 @@ class BraveAdsLatentInterestSegmentsTest : public UnitTestBase {
   void SetUp() override {
     UnitTestBase::SetUp();
 
-    targeting_ = std::make_unique<test::TargetingHelper>();
+    targeting_helper_ =
+        std::make_unique<test::TargetingHelper>(task_environment_);
   }
 
-  std::unique_ptr<test::TargetingHelper> targeting_;
+  std::unique_ptr<test::TargetingHelper> targeting_helper_;
 };
 
 TEST_F(BraveAdsLatentInterestSegmentsTest, BuildLatentInterestSegments) {
   // Arrange
-  NotifyDidInitializeAds();
+  targeting_helper_->MockLatentInterest();
 
-  targeting_->MockLatentInterest();
+  // Act
+  const SegmentList latent_interest_segments = BuildLatentInterestSegments();
 
-  // Act & Assert
-  const SegmentList expected_latent_interest_segments =
-      test::TargetingHelper::LatentInterestExpectation().segments;
-  EXPECT_EQ(expected_latent_interest_segments, BuildLatentInterestSegments());
+  // Assert
+  EXPECT_EQ(test::TargetingHelper::LatentInterestExpectation().segments,
+            latent_interest_segments);
 }
 
 TEST_F(BraveAdsLatentInterestSegmentsTest,
        BuildLatentInterestSegmentsIfNoTargeting) {
-  // Arrange
-  NotifyDidInitializeAds();
-
   // Act
-  const SegmentList segments = BuildLatentInterestSegments();
+  const SegmentList latent_interest_segments = BuildLatentInterestSegments();
 
   // Assert
-  EXPECT_TRUE(segments.empty());
+  EXPECT_THAT(latent_interest_segments, ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsLatentInterestSegmentsTest,
        DoNotBuildLatentInterestSegmentsIfFeatureIsDisabled) {
   // Arrange
-  NotifyDidInitializeAds();
-
-  targeting_->MockLatentInterest();
+  targeting_helper_->MockLatentInterest();
 
   // Act
-  const SegmentList segments = BuildLatentInterestSegments();
+  const SegmentList latent_interest_segments = BuildLatentInterestSegments();
 
   // Assert
-  EXPECT_TRUE(segments.empty());
+  EXPECT_THAT(latent_interest_segments, ::testing::IsEmpty());
 }
 
 }  // namespace brave_ads

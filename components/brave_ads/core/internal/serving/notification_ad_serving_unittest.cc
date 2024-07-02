@@ -24,8 +24,9 @@ class BraveAdsNotificationAdServingTest : public UnitTestBase {
   void SetUp() override {
     UnitTestBase::SetUp();
 
-    NotifyDidInitializeAds();
     NotifyBrowserDidBecomeActive();
+
+    NotifyDidInitializeAds();
   }
 
   void MaybeServeAd() {
@@ -50,7 +51,7 @@ TEST_F(BraveAdsNotificationAdServingTest, DoNotServeAdForUnsupportedVersion) {
   test::ForcePermissionRules();
 
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   database::SaveCreativeNotificationAds({creative_ad});
 
   // Act & Assert
@@ -63,7 +64,7 @@ TEST_F(BraveAdsNotificationAdServingTest, ServeAd) {
   test::ForcePermissionRules();
 
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   database::SaveCreativeNotificationAds({creative_ad});
 
   // Act & Assert
@@ -86,7 +87,7 @@ TEST_F(BraveAdsNotificationAdServingTest,
        DoNotServeAdIfNotAllowedDueToPermissionRules) {
   // Arrange
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   database::SaveCreativeNotificationAds({creative_ad});
 
   // Act & Assert

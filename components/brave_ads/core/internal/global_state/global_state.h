@@ -14,6 +14,9 @@
 
 namespace brave_ads {
 
+// TODO(https://github.com/brave/brave-browser/issues/37622): Deprecate global
+// state.
+
 class AdsClient;
 class AdsNotifierManager;
 class BrowserManager;
@@ -65,7 +68,7 @@ class GlobalState final {
  private:
   SEQUENCE_CHECKER(sequence_checker_);
 
-  const raw_ptr<AdsClient> ads_client_ = nullptr;
+  const raw_ptr<AdsClient> ads_client_ = nullptr;  // NOT OWNED
 
   const std::unique_ptr<GlobalStateHolder> global_state_holder_;
 

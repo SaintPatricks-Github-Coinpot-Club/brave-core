@@ -18,6 +18,7 @@
 #include "brave/components/playlist/common/features.h"
 #include "brave/components/request_otr/common/features.h"
 #include "brave/components/speedreader/common/features.h"
+#include "brave/components/webcompat/features.h"
 #include "net/base/features.h"
 #include "third_party/blink/public/common/features.h"
 
@@ -41,6 +42,7 @@
     &safe_browsing::features::kBraveAndroidSafeBrowsing,                \
     &speedreader::kSpeedreaderFeature,                                  \
     &debounce::features::kBraveDebounce,                                \
+    &webcompat::features::kBraveWebcompatExceptionsService,             \
     &net::features::kBraveHttpsByDefault,                               \
     &net::features::kBraveFallbackDoHProvider,                          \
     &google_sign_in_permission::features::kBraveGoogleSignInPermission, \
@@ -60,8 +62,9 @@ namespace android {
 OVERRIDE_FEATURE_DEFAULT_STATES({{
     {kAddToHomescreenIPH, base::FEATURE_DISABLED_BY_DEFAULT},
     {kAndroidHub, base::FEATURE_DISABLED_BY_DEFAULT},
+    {tab_groups::kAndroidTabGroupStableIds, base::FEATURE_DISABLED_BY_DEFAULT},
     {kIncognitoReauthenticationForAndroid, base::FEATURE_ENABLED_BY_DEFAULT},
-    {kShowScrollableMVTOnNTPAndroid, base::FEATURE_ENABLED_BY_DEFAULT},
+    {kMagicStackAndroid, base::FEATURE_DISABLED_BY_DEFAULT},
     {kStartSurfaceAndroid, base::FEATURE_DISABLED_BY_DEFAULT},
     {kSurfacePolish, base::FEATURE_DISABLED_BY_DEFAULT},
     {kAdaptiveButtonInTopToolbarCustomizationV2,

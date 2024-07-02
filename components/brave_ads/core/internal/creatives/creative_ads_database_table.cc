@@ -32,7 +32,7 @@ namespace {
 
 constexpr char kTableName[] = "creative_ads";
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -73,7 +73,7 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   return count;
 }
 
-CreativeAdInfo GetFromRecord(mojom::DBRecordInfo* record) {
+CreativeAdInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   CreativeAdInfo creative_ad;
@@ -137,6 +137,7 @@ void GetForCreativeInstanceIdCallback(
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get creative ad");
+
     return std::move(callback).Run(/*success=*/false, creative_instance_id,
                                    /*creative_ad=*/{});
   }
@@ -146,6 +147,7 @@ void GetForCreativeInstanceIdCallback(
 
   if (creative_ads.size() != 1) {
     BLOG(0, "Failed to get creative ad");
+
     return std::move(callback).Run(/*success=*/false, creative_instance_id,
                                    /*creative_ad=*/{});
   }
@@ -221,7 +223,7 @@ std::string CreativeAds::GetTableName() const {
   return kTableName;
 }
 
-void CreativeAds::Create(mojom::DBTransactionInfo* transaction) {
+void CreativeAds::Create(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
@@ -256,7 +258,7 @@ void CreativeAds::Migrate(mojom::DBTransactionInfo* transaction,
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void CreativeAds::MigrateToV35(mojom::DBTransactionInfo* transaction) {
+void CreativeAds::MigrateToV35(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // We can safely recreate the table because it will be repopulated after

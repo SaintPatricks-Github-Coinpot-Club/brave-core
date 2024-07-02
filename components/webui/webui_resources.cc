@@ -93,10 +93,6 @@ base::span<const webui::LocalizedString> GetWebUILocalizedStrings(
                {"GB", IDS_BRAVE_NEW_TAB_GIGABYTES},
                {"photoBy", IDS_BRAVE_NEW_TAB_PHOTO_BY},
                {"hide", IDS_BRAVE_NEW_TAB_HIDE},
-               {"preferencesPageTitle",
-                IDS_BRAVE_NEW_TAB_PREFERENCES_PAGE_TITLE},
-               {"bookmarksPageTitle", IDS_BRAVE_NEW_TAB_BOOKMARKS_PAGE_TITLE},
-               {"historyPageTitle", IDS_BRAVE_NEW_TAB_HISTORY_PAGE_TITLE},
                {"dashboardSettingsTitle",
                 IDS_BRAVE_NEW_TAB_DASHBOARD_SETTINGS_TITLE},
                {"customize", IDS_BRAVE_NEW_TAB_CUSTOMIZE},
@@ -145,6 +141,8 @@ base::span<const webui::LocalizedString> GetWebUILocalizedStrings(
                {"searchCustomizeList", IDS_BRAVE_NEW_TAB_SEARCH_CUSTOMIZE_LIST},
                {"searchBravePlaceholder",
                 IDS_BRAVE_NEW_TAB_SEARCH_BRAVE_PLACEHOLDER},
+               {"searchHide", IDS_BRAVE_NEW_TAB_SEARCH_HIDE_SEARCH},
+               {"searchAskLeo", IDS_OMNIBOX_ASK_LEO_DESCRIPTION},
                {"searchNonBravePlaceholder",
                 IDS_BRAVE_NEW_TAB_SEARCH_NON_BRAVE_PLACEHOLDER},
                {"searchShowSetting", IDS_BRAVE_NEW_TAB_SEARCH_SHOW_SETTING},
@@ -152,6 +150,14 @@ base::span<const webui::LocalizedString> GetWebUILocalizedStrings(
                 IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_ENGINES_TITLE},
                {"searchCustomizeSearchEngines",
                 IDS_BRAVE_NEW_TAB_SEARCH_CUSTOMIZE_SEARCH_ENGINES},
+               {"searchEnableSuggestionsPromptTitle",
+                IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_TITLE},
+               {"searchEnableSuggestionsPromptExplanation",
+                IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_EXPLANATION},
+               {"searchEnableSuggestionsPromptEnable",
+                IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_ENABLE},
+               {"searchEnableSuggestionsPromptDismiss",
+                IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_DISMISS},
                {"showRewards", IDS_BRAVE_NEW_TAB_SHOW_REWARDS},
                {"cards", IDS_BRAVE_NEW_TAB_SHOW_CARDS},
                {"brandedWallpaperOptIn",
@@ -358,9 +364,6 @@ base::span<const webui::LocalizedString> GetWebUILocalizedStrings(
                {"boxTorText2", IDS_BRAVE_PRIVATE_NEW_TAB_BOX_TOR_TEXT_2},
                {"boxTorButton", IDS_BRAVE_PRIVATE_NEW_TAB_BOX_TOR_BUTTON},
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-               // Brave Talk shortcut
-               {"braveTalkPromptTitle", IDS_BRAVE_TALK_PROMPT_TITLE},
 
                // Rewards widget
                {"rewardsAboutRewards", IDS_REWARDS_WIDGET_ABOUT_REWARDS},

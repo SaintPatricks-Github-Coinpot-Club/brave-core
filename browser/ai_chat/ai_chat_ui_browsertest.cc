@@ -19,9 +19,9 @@
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -52,7 +52,6 @@ class AIChatUIBrowserTest : public InProcessBrowserTest {
     host_resolver()->AddRule("*", "127.0.0.1");
     content::SetupCrossSiteRedirector(&https_server_);
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir;
     test_data_dir = base::PathService::CheckedGet(brave::DIR_TEST_DATA);
     test_data_dir = test_data_dir.AppendASCII(kEmbeddedTestServerDirectory);

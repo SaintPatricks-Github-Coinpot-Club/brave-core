@@ -39,10 +39,10 @@ class BraveAdsConfirmationQueueDatabaseTableTest : public UnitTestBase {
   }
 
   std::optional<ConfirmationInfo> BuildRewardConfirmation(
-      const bool should_use_random_uuids) {
+      const bool should_generate_random_uuids) {
     const std::optional<ConfirmationInfo> confirmation =
         test::BuildRewardConfirmation(&token_generator_mock_,
-                                      should_use_random_uuids);
+                                      should_generate_random_uuids);
     if (!confirmation) {
       return std::nullopt;
     }
@@ -76,7 +76,7 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest, SaveConfirmationQueueItems) {
   test::RefillConfirmationTokens(/*count=*/1);
 
   const std::optional<ConfirmationInfo> confirmation =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/false);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   const ConfirmationQueueItemList confirmation_queue_items =
@@ -99,19 +99,18 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   test::RefillConfirmationTokens(/*count=*/1);
 
   const std::optional<ConfirmationInfo> confirmation =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/false);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
   const ConfirmationQueueItemList confirmation_queue_items =
       test::BuildConfirmationQueueItems(*confirmation, /*count=*/1);
   test::SaveConfirmationQueueItems(confirmation_queue_items);
 
-  const ConfirmationQueueItemList expected_confirmation_queue_items = {
-      confirmation_queue_items.front(), confirmation_queue_items.front()};
-
   // Act
   test::SaveConfirmationQueueItems(confirmation_queue_items);
 
   // Assert
+  const ConfirmationQueueItemList expected_confirmation_queue_items = {
+      confirmation_queue_items.front(), confirmation_queue_items.front()};
   base::MockCallback<GetConfirmationQueueCallback> callback;
   EXPECT_CALL(callback,
               Run(/*success=*/true, expected_confirmation_queue_items));
@@ -128,7 +127,7 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   test::RefillConfirmationTokens(/*count=*/1);
 
   const std::optional<ConfirmationInfo> confirmation =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/false);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
   const ConfirmationQueueItemList confirmation_queue_items =
       test::BuildConfirmationQueueItems(*confirmation, /*count=*/3);
@@ -152,14 +151,14 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   ConfirmationQueueItemList confirmation_queue_items;
 
   const std::optional<ConfirmationInfo> confirmation_1 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_1);
   const ConfirmationQueueItemInfo confirmation_queue_item_1 =
       BuildConfirmationQueueItem(*confirmation_1, /*process_at=*/Now());
   confirmation_queue_items.push_back(confirmation_queue_item_1);
 
   const std::optional<ConfirmationInfo> confirmation_2 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_2);
   const ConfirmationQueueItemInfo confirmation_queue_item_2 =
       BuildConfirmationQueueItem(*confirmation_2, /*process_at=*/Now());
@@ -184,7 +183,7 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   ConfirmationQueueItemList confirmation_queue_items;
 
   const std::optional<ConfirmationInfo> confirmation_1 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_1);
   ConfirmationQueueItemInfo confirmation_queue_item_1 =
       BuildConfirmationQueueItem(*confirmation_1,
@@ -192,14 +191,14 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   confirmation_queue_items.push_back(confirmation_queue_item_1);
 
   const std::optional<ConfirmationInfo> confirmation_2 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_2);
   const ConfirmationQueueItemInfo confirmation_queue_item_2 =
       BuildConfirmationQueueItem(*confirmation_2, /*process_at=*/DistantPast());
   confirmation_queue_items.push_back(confirmation_queue_item_2);
 
   const std::optional<ConfirmationInfo> confirmation_3 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_3);
   const ConfirmationQueueItemInfo confirmation_queue_item_3 =
       BuildConfirmationQueueItem(*confirmation_3, /*process_at=*/Now());
@@ -226,14 +225,14 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   ConfirmationQueueItemList confirmation_queue_items;
 
   const std::optional<ConfirmationInfo> confirmation_1 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_1);
   const ConfirmationQueueItemInfo confirmation_queue_item_1 =
       BuildConfirmationQueueItem(*confirmation_1, /*process_at=*/Now());
   confirmation_queue_items.push_back(confirmation_queue_item_1);
 
   const std::optional<ConfirmationInfo> confirmation_2 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_2);
   const ConfirmationQueueItemInfo confirmation_queue_item_2 =
       BuildConfirmationQueueItem(*confirmation_2, /*process_at=*/Now());
@@ -265,14 +264,14 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   ConfirmationQueueItemList confirmation_queue_items;
 
   const std::optional<ConfirmationInfo> confirmation_1 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_1);
   ConfirmationQueueItemInfo confirmation_queue_item_1 =
       BuildConfirmationQueueItem(*confirmation_1, /*process_at=*/Now());
   confirmation_queue_items.push_back(confirmation_queue_item_1);
 
   const std::optional<ConfirmationInfo> confirmation_2 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_2);
   const ConfirmationQueueItemInfo confirmation_queue_item_2 =
       BuildConfirmationQueueItem(*confirmation_2, /*process_at=*/Now());
@@ -281,7 +280,7 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   test::SaveConfirmationQueueItems(confirmation_queue_items);
 
   const std::optional<ConfirmationInfo> confirmation_3 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_3);
   const ConfirmationQueueItemInfo confirmation_queue_item_3 =
       BuildConfirmationQueueItem(*confirmation_3, /*process_at=*/Now());
@@ -308,7 +307,7 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest, RetryConfirmationQueueItem) {
   ConfirmationQueueItemList confirmation_queue_items;
 
   const std::optional<ConfirmationInfo> confirmation =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation);
   ConfirmationQueueItemInfo confirmation_queue_item =
       BuildConfirmationQueueItem(*confirmation, /*process_at=*/Now());
@@ -345,14 +344,14 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   ConfirmationQueueItemList confirmation_queue_items;
 
   const std::optional<ConfirmationInfo> confirmation_1 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_1);
   ConfirmationQueueItemInfo confirmation_queue_item_1 =
       BuildConfirmationQueueItem(*confirmation_1, /*process_at=*/Now());
   confirmation_queue_items.push_back(confirmation_queue_item_1);
 
   const std::optional<ConfirmationInfo> confirmation_2 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_2);
   const ConfirmationQueueItemInfo confirmation_queue_item_2 =
       BuildConfirmationQueueItem(*confirmation_2, /*process_at=*/Now());
@@ -361,7 +360,7 @@ TEST_F(BraveAdsConfirmationQueueDatabaseTableTest,
   test::SaveConfirmationQueueItems(confirmation_queue_items);
 
   const std::optional<ConfirmationInfo> confirmation_3 =
-      BuildRewardConfirmation(/*should_use_random_uuids=*/true);
+      BuildRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_3);
   const ConfirmationQueueItemInfo confirmation_queue_item_3 =
       BuildConfirmationQueueItem(*confirmation_3, /*process_at=*/Now());

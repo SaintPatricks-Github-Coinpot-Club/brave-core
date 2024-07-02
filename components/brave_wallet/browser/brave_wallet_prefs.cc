@@ -15,6 +15,7 @@
 #include "brave/components/brave_wallet/browser/brave_wallet_utils.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
 #include "brave/components/brave_wallet/browser/keyring_service.h"
+#include "brave/components/brave_wallet/browser/keyring_service_migrations.h"
 #include "brave/components/brave_wallet/browser/pref_names.h"
 #include "brave/components/brave_wallet/browser/tx_state_manager.h"
 #include "brave/components/brave_wallet/common/brave_wallet.mojom.h"
@@ -178,6 +179,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterBooleanPref(kBraveWalletKeyringEncryptionKeysMigrated,
                                 false);
   registry->RegisterDictionaryPref(kBraveWalletCustomNetworks);
+  registry->RegisterDictionaryPref(kBraveWalletEip1559CustomChains);
   registry->RegisterDictionaryPref(kBraveWalletHiddenNetworks,
                                    GetDefaultHiddenNetworks());
   registry->RegisterDictionaryPref(kBraveWalletSelectedNetworks,
@@ -189,7 +191,6 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterIntegerPref(kBraveWalletAutoLockMinutes,
                                 kDefaultWalletAutoLockMinutes);
   registry->RegisterDictionaryPref(kBraveWalletEthAllowancesCache);
-  registry->RegisterBooleanPref(kSupportEip1559OnLocalhostChain, false);
   registry->RegisterDictionaryPref(kBraveWalletLastTransactionSentTimeDict);
   registry->RegisterTimePref(kBraveWalletLastDiscoveredAssetsAt, base::Time());
 
@@ -264,6 +265,14 @@ void RegisterProfilePrefsForMigration(
   // Added 01/2024
   registry->RegisterBooleanPref(kBraveWalletTransactionsDBFormatMigrated,
                                 false);
+  // Added 06/2024
+  registry->RegisterBooleanPref(kBraveWalletEip1559ForCustomNetworksMigrated,
+                                false);
+  // Added 06/2024
+  registry->RegisterBooleanPref(kSupportEip1559OnLocalhostChainDeprecated,
+                                false);
+  // Added 06/2024
+  registry->RegisterBooleanPref(kBraveWalletIsCompressedNftMigrated, false);
 }
 
 void ClearJsonRpcServiceProfilePrefs(PrefService* prefs) {
@@ -272,7 +281,7 @@ void ClearJsonRpcServiceProfilePrefs(PrefService* prefs) {
   prefs->ClearPref(kBraveWalletHiddenNetworks);
   prefs->ClearPref(kBraveWalletSelectedNetworks);
   prefs->ClearPref(kBraveWalletSelectedNetworksPerOrigin);
-  prefs->ClearPref(kSupportEip1559OnLocalhostChain);
+  prefs->ClearPref(kBraveWalletEip1559CustomChains);
 }
 
 void ClearKeyringServiceProfilePrefs(PrefService* prefs) {
@@ -316,10 +325,13 @@ void MigrateObsoleteProfilePrefs(PrefService* prefs) {
   TxStateManager::MigrateAddChainIdToTransactionInfo(prefs);
 
   // Added 07/2023
-  KeyringService::MigrateDerivedAccountIndex(prefs);
+  MigrateDerivedAccountIndex(prefs);
 
   // Added 01/2024 migrate assets pref to plain list.
   BraveWalletService::MigrateAssetsPrefToList(prefs);
+
+  // Added 06/2024 to migrate Eip1559 flag to a separate pref.
+  BraveWalletService::MigrateEip1559ForCustomNetworks(prefs);
 }
 
 }  // namespace brave_wallet

@@ -40,15 +40,6 @@ class AdsService : public KeyedService {
   // Returns the maximum number of notification ads that can be served per hour.
   virtual int64_t GetMaximumNotificationAdsPerHour() const = 0;
 
-  // Called to show a notification indicating that a scheduled captcha with the
-  // given `captcha_id` must be solved for the given `payment_id` before the
-  // user can continue to served ads.
-  virtual void ShowScheduledCaptcha(const std::string& payment_id,
-                                    const std::string& captcha_id) = 0;
-
-  // Called to snooze the scheduled captcha, if any.
-  virtual void SnoozeScheduledCaptcha() = 0;
-
   // Called when a notification ad with `placement_id` is shown.
   virtual void OnNotificationAdShown(const std::string& placement_id) = 0;
 
@@ -139,12 +130,12 @@ class AdsService : public KeyedService {
       TriggerAdEventCallback callback) = 0;
 
   // Called when a user views or interacts with a search result ad to trigger an
-  // `event_type` event for the ad specified in `ad_mojom`. The callback takes
-  // one argument - `bool` is set to `true` if successful otherwise `false`.
-  // Must be called before the `mojom::SearchResultAdInfo::target_url` landing
-  // page is opened.
+  // `event_type` event for the ad specified in `mojom_creative_ad`. The
+  // callback takes one argument - `bool` is set to `true` if successful
+  // otherwise `false`. Must be called before the
+  // `mojom::CreativeSearchResultAdInfo::target_url` landing page is opened.
   virtual void TriggerSearchResultAdEvent(
-      mojom::SearchResultAdInfoPtr ad_mojom,
+      mojom::CreativeSearchResultAdInfoPtr mojom_creative_ad,
       mojom::SearchResultAdEventType event_type,
       TriggerAdEventCallback callback) = 0;
 

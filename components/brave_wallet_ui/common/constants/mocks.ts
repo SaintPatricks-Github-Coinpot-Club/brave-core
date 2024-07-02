@@ -106,8 +106,7 @@ export const mockNetwork: BraveWallet.NetworkInfo = {
   decimals: 18,
   iconUrls: [ETHIconUrl],
   coin: BraveWallet.CoinType.ETH,
-  supportedKeyrings: [BraveWallet.KeyringId.kDefault],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kDefault]
 }
 
 export const mockFilecoinEVMMMainnetNetwork: BraveWallet.NetworkInfo = {
@@ -121,8 +120,7 @@ export const mockFilecoinEVMMMainnetNetwork: BraveWallet.NetworkInfo = {
   decimals: 18,
   iconUrls: [FILECOINIconUrl],
   coin: BraveWallet.CoinType.ETH,
-  supportedKeyrings: [BraveWallet.KeyringId.kDefault],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kDefault]
 }
 
 export const mockFilecoinEVMMTestnetNetwork: BraveWallet.NetworkInfo = {
@@ -136,8 +134,7 @@ export const mockFilecoinEVMMTestnetNetwork: BraveWallet.NetworkInfo = {
   decimals: 18,
   iconUrls: [FILECOINIconUrl],
   coin: BraveWallet.CoinType.ETH,
-  supportedKeyrings: [BraveWallet.KeyringId.kDefault],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kDefault]
 }
 
 export const mockFilecoinMainnetNetwork: BraveWallet.NetworkInfo = {
@@ -151,23 +148,21 @@ export const mockFilecoinMainnetNetwork: BraveWallet.NetworkInfo = {
   decimals: 18,
   iconUrls: [FILECOINIconUrl],
   coin: BraveWallet.CoinType.FIL,
-  supportedKeyrings: [BraveWallet.KeyringId.kFilecoin],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kFilecoin]
 }
 
 export const mockFilecoinTestnetNetwork: BraveWallet.NetworkInfo = {
   chainId: 't',
   chainName: 'Filecoin Testnet',
   activeRpcEndpointIndex: 0,
-  rpcEndpoints: [{ url: 'https://mainnet-beta-solana.brave.com/rpc' }],
+  rpcEndpoints: [{ url: 'https://solana-mainnet.wallet.brave.com' }],
   blockExplorerUrls: ['https://calibration.filscan.io/tipset/message-detail'],
   symbol: 'FIL',
   symbolName: 'Filecoin',
   decimals: 18,
   iconUrls: [FILECOINIconUrl],
   coin: BraveWallet.CoinType.FIL,
-  supportedKeyrings: [BraveWallet.KeyringId.kFilecoinTestnet],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kFilecoinTestnet]
 }
 
 export const mockSolanaMainnetNetwork: BraveWallet.NetworkInfo = {
@@ -181,8 +176,7 @@ export const mockSolanaMainnetNetwork: BraveWallet.NetworkInfo = {
   decimals: 9,
   iconUrls: [SOLIconUrl],
   coin: BraveWallet.CoinType.SOL,
-  supportedKeyrings: [BraveWallet.KeyringId.kSolana],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kSolana]
 }
 
 export const mockSolanaTestnetNetwork: BraveWallet.NetworkInfo = {
@@ -196,8 +190,7 @@ export const mockSolanaTestnetNetwork: BraveWallet.NetworkInfo = {
   decimals: 9,
   iconUrls: [SOLIconUrl],
   coin: BraveWallet.CoinType.SOL,
-  supportedKeyrings: [BraveWallet.KeyringId.kSolana],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kSolana]
 }
 
 export const mockBtcMainnetNetwork: BraveWallet.NetworkInfo = {
@@ -211,8 +204,7 @@ export const mockBtcMainnetNetwork: BraveWallet.NetworkInfo = {
   decimals: 8,
   iconUrls: [],
   coin: BraveWallet.CoinType.BTC,
-  supportedKeyrings: [BraveWallet.KeyringId.kBitcoin84],
-  isEip1559: false
+  supportedKeyrings: [BraveWallet.KeyringId.kBitcoin84]
 }
 
 export const mockNftPinningStatus = {
@@ -230,7 +222,7 @@ export const mockAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kDefault,
     kind: BraveWallet.AccountKind.kDerived,
     address: '0x00c0f72E601C31DEb7890612cB92Ac0Fb7090EB0',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_0x00c0f72E601C31DEb7890612cB92Ac0Fb7090EB0'
   },
   hardware: undefined
@@ -244,7 +236,7 @@ export const mockBtcAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kBitcoin84,
     kind: BraveWallet.AccountKind.kDerived,
     address: 'bc1q4500000000000000000',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_bc1q4500000000000000000'
   },
   hardware: undefined
@@ -258,7 +250,7 @@ export const mockZecAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kZCashMainnet,
     kind: BraveWallet.AccountKind.kDerived,
     address: 'zCash-address',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_zCash-address'
   },
   hardware: undefined
@@ -273,7 +265,7 @@ export const mockEthAccountInfo: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kDefault,
     kind: BraveWallet.AccountKind.kDerived,
     address: '0xf81229FE54D8a20fBc1e1e2a3451D1c7489437Db',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_0xf81229FE54D8a20fBc1e1e2a3451D1c7489437Db'
   }
 }
@@ -286,7 +278,7 @@ export const mockSolanaAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kSolana,
     kind: BraveWallet.AccountKind.kDerived,
     address: '5sDWP4vCRgDrGsmS1RRuWGRWKo5mhP5wKw8RNqK6zRez',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_5sDWP4vCRgDrGsmS1RRuWGRWKo5mhP5wKw8RNqK6zRez'
   },
   hardware: undefined
@@ -300,7 +292,7 @@ export const mockSolanaAccountInfo: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kSolana,
     kind: BraveWallet.AccountKind.kDerived,
     address: '5sDWP4vCRgDrGsmS1RRuWGRWKo5mhP5wKw8RNqK6zRer',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_5sDWP4vCRgDrGsmS1RRuWGRWKo5mhP5wKw8RNqK6zRer'
   },
   hardware: undefined
@@ -314,7 +306,7 @@ export const mockFilecoinAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kFilecoinTestnet,
     kind: BraveWallet.AccountKind.kDerived,
     address: 't1alebc2ujfh4kuxs5bvzmx5b2w5ixrqrl3ni5rti',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_t1alebc2ujfh4kuxs5bvzmx5b2w5ixrqrl3ni5rti'
   },
   hardware: undefined
@@ -328,7 +320,7 @@ export const mockFilecoinAccountInfo: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kFilecoinTestnet,
     kind: BraveWallet.AccountKind.kDerived,
     address: 't1alebc2ujfh4kuxs5bvzmx5b2w5ixrqrl3ni5rti',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_t1alebc2ujfh4kuxs5bvzmx5b2w5ixrqrl3ni5rti'
   },
   hardware: undefined
@@ -342,7 +334,7 @@ export const mockBitcoinAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kBitcoin84,
     kind: BraveWallet.AccountKind.kDerived,
     address: '',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_MockBitcoinAccount'
   },
   hardware: undefined
@@ -356,7 +348,7 @@ export const mockBitcoinTestAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kBitcoin84Testnet,
     kind: BraveWallet.AccountKind.kDerived,
     address: '',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_MockBitcoinTestAccount'
   },
   hardware: undefined
@@ -370,7 +362,7 @@ export const mockBitcoinTestnetAccount: BraveWallet.AccountInfo = {
     keyringId: BraveWallet.KeyringId.kBitcoin84Testnet,
     kind: BraveWallet.AccountKind.kDerived,
     address: '',
-    bitcoinAccountIndex: 0,
+    accountIndex: 0,
     uniqueKey: 'unique_key_MockBitcoinTestnetAccount'
   },
   hardware: undefined
@@ -479,7 +471,8 @@ BraveWallet.SignTransactionRequest = {
       ],
       addressTableLookups: [],
       sendOptions: undefined,
-      signTransactionParam: undefined
+      signTransactionParam: undefined,
+      feeEstimation: undefined
     }
   },
   rawMessage: { bytes: [1], str: undefined },
@@ -563,7 +556,8 @@ SerializableTransactionInfo = {
       ],
       addressTableLookups: [],
       sendOptions: undefined,
-      signTransactionParam: undefined
+      signTransactionParam: undefined,
+      feeEstimation: undefined
     }
   },
   txStatus: 0,
@@ -639,7 +633,8 @@ BraveWallet.SignAllTransactionsRequest = {
         ],
         addressTableLookups: [],
         sendOptions: undefined,
-        signTransactionParam: undefined
+        signTransactionParam: undefined,
+        feeEstimation: undefined
       }
     },
     {
@@ -690,7 +685,8 @@ BraveWallet.SignAllTransactionsRequest = {
         ],
         addressTableLookups: [],
         sendOptions: undefined,
-        signTransactionParam: undefined
+        signTransactionParam: undefined,
+        feeEstimation: undefined
       }
     }
   ],

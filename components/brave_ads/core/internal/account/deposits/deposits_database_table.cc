@@ -28,7 +28,7 @@ namespace {
 
 constexpr char kTableName[] = "deposits";
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -49,7 +49,8 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   for (const auto& creative_ad : creative_ads) {
     BindString(command, index++, creative_ad.creative_instance_id);
     BindDouble(command, index++, creative_ad.value);
-    BindInt64(command, index++, ToChromeTimestampFromTime(creative_ad.end_at));
+    BindInt64(command, index++,
+              ToChromeTimestampFromTime(creative_ad.end_at + base::Days(7)));
 
     ++count;
   }
@@ -57,7 +58,8 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   return count;
 }
 
-void BindParameters(mojom::DBCommandInfo* command, const DepositInfo& deposit) {
+void BindParameters(mojom::DBCommandInfo* const command,
+                    const DepositInfo& deposit) {
   CHECK(command);
   CHECK(deposit.IsValid());
 
@@ -68,7 +70,7 @@ void BindParameters(mojom::DBCommandInfo* command, const DepositInfo& deposit) {
       ToChromeTimestampFromTime(deposit.expire_at.value_or(base::Time())));
 }
 
-DepositInfo GetFromRecord(mojom::DBRecordInfo* record) {
+DepositInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   DepositInfo deposit;
@@ -92,6 +94,7 @@ void GetForCreativeInstanceIdCallback(
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get deposit value");
+
     return std::move(callback).Run(/*success=*/false,
                                    /*deposit=*/std::nullopt);
   }
@@ -112,13 +115,15 @@ void GetForCreativeInstanceIdCallback(
                               "Invalid deposit");
     base::debug::DumpWithoutCrashing();
 
+    BLOG(0, "Invalid deposit");
+
     return std::move(callback).Run(/*success=*/false, /*deposit=*/std::nullopt);
   }
 
   std::move(callback).Run(/*success=*/true, std::move(deposit));
 }
 
-void MigrateToV24(mojom::DBTransactionInfo* transaction) {
+void MigrateToV24(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Recreate table to address a migration problem from older versions.
@@ -136,7 +141,7 @@ void MigrateToV24(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV29(mojom::DBTransactionInfo* transaction) {
+void MigrateToV29(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Migrate `expire_at` column from a UNIX timestamp to a WebKit/Chrome
@@ -163,6 +168,8 @@ void Deposits::Save(const DepositInfo& deposit, ResultCallback callback) {
     SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                               "Invalid deposit");
     base::debug::DumpWithoutCrashing();
+
+    BLOG(0, "Invalid deposit");
 
     return std::move(callback).Run(/*success=*/false);
   }
@@ -250,7 +257,7 @@ std::string Deposits::GetTableName() const {
   return kTableName;
 }
 
-void Deposits::Create(mojom::DBTransactionInfo* transaction) {
+void Deposits::Create(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();

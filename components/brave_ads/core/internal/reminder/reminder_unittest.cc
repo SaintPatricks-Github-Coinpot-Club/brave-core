@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "brave/components/brave_ads/core/internal/ads_observer_mock.h"
@@ -28,7 +29,7 @@ namespace {
 
 void AddHistory(const size_t count) {
   const NotificationAdInfo ad = BuildNotificationAd(
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true));
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true));
 
   for (size_t i = 0; i < count; ++i) {
     HistoryManager::GetInstance().Add(ad, ConfirmationType::kClicked);
@@ -47,7 +48,7 @@ class BraveAdsReminderTest : public UnitTestBase {
     reminder_ = std::make_unique<Reminder>();
   }
 
-  raw_ptr<AdsObserverMock> ads_observer_mock_;
+  raw_ptr<AdsObserverMock> ads_observer_mock_ = nullptr;
 
   std::unique_ptr<Reminder> reminder_;
 };

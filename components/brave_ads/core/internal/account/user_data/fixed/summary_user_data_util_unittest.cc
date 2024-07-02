@@ -7,6 +7,7 @@
 
 #include "brave/components/brave_ads/core/internal/account/tokens/payment_tokens/payment_tokens_unittest_util.h"
 #include "brave/components/brave_ads/core/public/account/confirmations/confirmation_type.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 // npm run test -- brave_unit_tests --filter=BraveAds*
@@ -15,10 +16,11 @@ namespace brave_ads {
 
 TEST(BraveAdsSummaryUserDataUtilTest, BuildBucketsIfNoPaymentTokens) {
   // Act
-  const AdTypeBucketMap buckets = BuildAdTypeBuckets(/*payment_tokens=*/{});
+  const AdTypeBucketMap ad_type_buckets =
+      BuildAdTypeBuckets(/*payment_tokens=*/{});
 
   // Assert
-  EXPECT_TRUE(buckets.empty());
+  EXPECT_THAT(ad_type_buckets, ::testing::IsEmpty());
 }
 
 TEST(BraveAdsSummaryUserDataUtilTest, BuildBuckets) {
@@ -41,13 +43,16 @@ TEST(BraveAdsSummaryUserDataUtilTest, BuildBuckets) {
       ConfirmationType::kViewedImpression, AdType::kInlineContentAd);
   payment_tokens.push_back(payment_token_4);
 
-  // Act & Assert
-  const AdTypeBucketMap expected_buckets = {
+  // Act
+  const AdTypeBucketMap ad_type_buckets = BuildAdTypeBuckets(payment_tokens);
+
+  // Assert
+  const AdTypeBucketMap expected_ad_type_buckets = {
       {AdType::kNotificationAd,
        {{ConfirmationType::kClicked, 1},
         {ConfirmationType::kViewedImpression, 2}}},
       {AdType::kInlineContentAd, {{ConfirmationType::kViewedImpression, 1}}}};
-  EXPECT_EQ(expected_buckets, BuildAdTypeBuckets(payment_tokens));
+  EXPECT_EQ(expected_ad_type_buckets, ad_type_buckets);
 }
 
 }  // namespace brave_ads

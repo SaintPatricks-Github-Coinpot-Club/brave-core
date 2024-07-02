@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { skipToken } from '@reduxjs/toolkit/query/react'
-import { useHistory } from 'react-router'
+import { useHistory, useLocation } from 'react-router'
 
 // Options
 import { SwapAndSendOptions } from '../../../../options/swap-and-send-options'
@@ -58,7 +58,9 @@ import {
   getLiFiFromAmount,
   getLiFiToAmount
 } from '../swap.utils'
-import { makeSwapRoute } from '../../../../utils/routes-utils'
+import {
+  makeSwapOrBridgeRoute //
+} from '../../../../utils/routes-utils'
 
 // Queries
 import {
@@ -69,6 +71,7 @@ import {
 } from '../../../../common/slices/api.slice'
 import { querySubscriptionOptions60s } from '../../../../common/slices/constants'
 import { AccountInfoEntity } from '../../../../common/slices/entities/account-info.entity'
+import { TokenBalancesRegistry } from '../../../../common/slices/entities/token-balance.entity'
 import {
   useAccountFromAddressQuery,
   useGetCombinedTokensListQuery
@@ -111,10 +114,26 @@ const getTokenFromParam = (
   )
 }
 
+const getAssetBalance = (
+  token: BraveWallet.BlockchainToken,
+  fromAccount?: BraveWallet.AccountInfo,
+  tokenBalancesRegistry?: TokenBalancesRegistry
+): Amount => {
+  if (!fromAccount) {
+    return Amount.zero()
+  }
+
+  return new Amount(
+    getBalance(fromAccount.accountId, token, tokenBalancesRegistry)
+  )
+}
+
 export const useSwap = () => {
   // routing
   const query = useQuery()
   const history = useHistory()
+  const { pathname } = useLocation()
+  const isBridge = pathname.includes(WalletRoutes.Bridge)
 
   // Queries
   // FIXME(onyb): what happens when defaultFiatCurrency is empty
@@ -124,8 +143,11 @@ export const useSwap = () => {
   const { account: fromAccount } = useAccountFromAddressQuery(
     query.get('fromAccountId') ?? undefined
   )
+  const { account: toAccount } = useAccountFromAddressQuery(
+    query.get('toAddress') ?? undefined
+  )
   // TODO: deprecate toAccountId in favour of toAddress + toCoin
-  const toAccountId = fromAccount?.accountId
+  const toAccountId = toAccount?.accountId
   const toCoinFromParams = query.get('toCoin') ?? undefined
   const toCoin = toCoinFromParams ? Number(toCoinFromParams) : undefined
   const toAddress = query.get('toAddress') ?? undefined
@@ -155,6 +177,7 @@ export const useSwap = () => {
   const [quoteErrorUnion, setQuoteErrorUnion] = useState<
     BraveWallet.SwapErrorUnion | undefined
   >(undefined)
+  const [backendError, setBackendError] = useState<string | undefined>('')
   const [abortController, setAbortController] = useState<
     AbortController | undefined
   >(undefined)
@@ -164,6 +187,9 @@ export const useSwap = () => {
   )
   const [selectedSwapSendAccount, setSelectedSwapSendAccount] = useState<
     AccountInfoEntity | undefined
+  >(undefined)
+  const [timeUntilNextQuote, setTimeUntilNextQuote] = useState<
+    number | undefined
   >(undefined)
 
   // Mutations
@@ -331,8 +357,10 @@ export const useSwap = () => {
   const reset = useCallback(() => {
     setQuoteUnion(undefined)
     setQuoteErrorUnion(undefined)
+    setBackendError(undefined)
     setIsFetchingQuote(false)
     setSwapFees(undefined)
+    setTimeUntilNextQuote(undefined)
     if (abortController) {
       abortController.abort()
     }
@@ -354,9 +382,19 @@ export const useSwap = () => {
     [quoteOptions, toToken]
   )
 
+  const fromAssetBalance = useMemo(() =>
+    fromToken && getAssetBalance(fromToken, fromAccount, tokenBalancesRegistry),
+    [fromToken, fromAccount, tokenBalancesRegistry]
+  )
+  const nativeAssetBalance = useMemo(() =>
+    nativeAsset &&
+      getAssetBalance(nativeAsset, fromAccount, tokenBalancesRegistry),
+    [nativeAsset, fromAccount, tokenBalancesRegistry]
+  )
+
   const handleQuoteRefreshInternal = useCallback(
     async (overrides: SwapParamsOverrides) => {
-      if (!fromAccount || !toAccountId || !fromNetwork) {
+      if (!fromAccount || !toAccountId || !fromNetwork || !fromAssetBalance) {
         return
       }
 
@@ -401,6 +439,8 @@ export const useSwap = () => {
       const controller = new AbortController()
       setAbortController(controller)
       setIsFetchingQuote(true)
+      setQuoteErrorUnion(undefined)
+      setBackendError(undefined)
 
       let quoteResponse
       try {
@@ -427,7 +467,8 @@ export const useSwap = () => {
           routePriority:
             params.fromToken.chainId === params.toToken.chainId
               ? BraveWallet.RoutePriority.kCheapest
-              : BraveWallet.RoutePriority.kRecommended
+              : BraveWallet.RoutePriority.kRecommended,
+          provider: BraveWallet.SwapProvider.kAuto
         }).unwrap()
       } catch (e) {
         setIsFetchingQuote(false)
@@ -442,6 +483,10 @@ export const useSwap = () => {
 
       if (quoteResponse?.error) {
         setQuoteErrorUnion(quoteResponse.error)
+      }
+
+      if (quoteResponse?.errorString) {
+        setBackendError(quoteResponse.errorString)
       }
 
       if (quoteResponse?.response) {
@@ -468,7 +513,7 @@ export const useSwap = () => {
           if (step) {
             await checkAllowance({
               account: fromAccount,
-              spendAmount: step.estimate.fromAmount,
+              spendAmount: fromAssetBalance.format(),
               spenderAddress: step.estimate.approvalAddress,
               token: params.fromToken
             })
@@ -512,7 +557,7 @@ export const useSwap = () => {
 
           await checkAllowance({
             account: fromAccount,
-            spendAmount: quoteResponse.response.zeroExQuote.sellAmount,
+            spendAmount: fromAssetBalance.format(),
             spenderAddress: quoteResponse.response.zeroExQuote.allowanceTarget,
             token: params.fromToken
           })
@@ -525,6 +570,7 @@ export const useSwap = () => {
 
       setIsFetchingQuote(false)
       setAbortController(undefined)
+      setTimeUntilNextQuote(10000)
     },
     [
       fromAccount,
@@ -534,6 +580,7 @@ export const useSwap = () => {
       toAmount,
       fromToken,
       toToken,
+      fromAssetBalance,
       editingFromOrToAmount,
       reset,
       generateSwapQuote,
@@ -589,51 +636,37 @@ export const useSwap = () => {
     [handleQuoteRefresh]
   )
 
-  const getAssetBalance = useCallback(
-    (token: BraveWallet.BlockchainToken): Amount => {
-      if (!fromAccount) {
-        return Amount.zero()
-      }
-
-      return new Amount(
-        getBalance(fromAccount.accountId, token, tokenBalancesRegistry)
-      )
-    },
-    [tokenBalancesRegistry, fromAccount]
-  )
-
-  const fromAssetBalance = fromToken && getAssetBalance(fromToken)
-  const nativeAssetBalance = nativeAsset && getAssetBalance(nativeAsset)
-
   const onClickFlipSwapTokens = useCallback(async () => {
-    if (!fromAccount || !fromToken || !toToken) {
+    if (!fromAccount || !toAccount || !fromToken || !toToken) {
       return
     }
     if (
-      fromAccount.accountId.coin !== toToken.coin ||
-      toCoin !== fromToken.coin
+      !isBridge &&
+      (fromAccount.accountId.coin !== toToken.coin || toCoin !== fromToken.coin)
     ) {
       history.replace(WalletRoutes.Swap)
     } else {
       history.replace(
-        makeSwapRoute({
+        makeSwapOrBridgeRoute({
           fromToken: toToken,
-          fromAccount,
+          fromAccount: toAccount,
           toToken: fromToken,
-          toAddress,
-          toCoin
+          toAddress: fromAccount.accountId.address,
+          toCoin: fromToken.coin,
+          routeType: isBridge ? 'bridge' : 'swap'
         })
       )
     }
     await handleOnSetFromAmount('')
   }, [
     fromAccount,
+    toAccount,
     fromToken,
     toToken,
     toCoin,
     handleOnSetFromAmount,
     history,
-    toAddress
+    isBridge
   ])
 
   // Changing the To asset does the following:
@@ -644,18 +677,22 @@ export const useSwap = () => {
   //     debouncing.
   //  5. Fetch spot price.
   const onSelectToToken = useCallback(
-    async (token: BraveWallet.BlockchainToken) => {
+    async (
+      token: BraveWallet.BlockchainToken,
+      account?: BraveWallet.AccountInfo
+    ) => {
       if (!fromToken || !fromAccount) {
         return
       }
       setEditingFromOrToAmount('from')
       history.replace(
-        makeSwapRoute({
+        makeSwapOrBridgeRoute({
           fromToken,
           fromAccount,
           toToken: token,
-          toAddress,
-          toCoin: token.coin
+          toAddress: account?.accountId.address,
+          toCoin: token.coin,
+          routeType: isBridge ? 'bridge' : 'swap'
         })
       )
       setSelectingFromOrTo(undefined)
@@ -671,7 +708,7 @@ export const useSwap = () => {
       fromToken,
       fromAccount,
       history,
-      toAddress,
+      isBridge,
       reset,
       handleQuoteRefreshInternal
     ]
@@ -691,23 +728,46 @@ export const useSwap = () => {
         return
       }
       setEditingFromOrToAmount('from')
-      // ToDo: Until cross-chain swaps is supported,
-      // we have this check to make sure that the toToken
-      // and the incoming fromToken are on the same network.
-      // If not we clear the toToken from params.
-      if (toToken && toToken.chainId === token.chainId) {
+
+      if (isBridge) {
         history.replace(
-          makeSwapRoute({
+          makeSwapOrBridgeRoute({
             fromToken: token,
             fromAccount: account,
             toToken,
             toAddress,
-            toCoin
+            toCoin,
+            routeType: 'bridge'
+          })
+        )
+        setSelectingFromOrTo(undefined)
+        setFromAmount('')
+        setToAmount('')
+        reset()
+        return
+      }
+
+      // For regular Swaps we check that the toToken
+      // and the incoming fromToken are on the same network.
+      // If not we clear the toToken from params.
+      if (toToken && toToken.chainId === token.chainId) {
+        history.replace(
+          makeSwapOrBridgeRoute({
+            fromToken: token,
+            fromAccount: account,
+            toToken,
+            toAddress,
+            toCoin,
+            routeType: 'swap'
           })
         )
       } else {
         history.replace(
-          makeSwapRoute({ fromToken: token, fromAccount: account })
+          makeSwapOrBridgeRoute({
+            fromToken: token,
+            fromAccount: account,
+            routeType: 'swap'
+          })
         )
       }
       setSelectingFromOrTo(undefined)
@@ -715,7 +775,7 @@ export const useSwap = () => {
       setToAmount('')
       reset()
     },
-    [toToken, reset, history, toAddress, toCoin]
+    [toToken, reset, history, toAddress, toCoin, isBridge]
   )
 
   const onSetSelectedSwapAndSendOption = useCallback((value: string) => {
@@ -734,6 +794,25 @@ export const useSwap = () => {
       setUserConfirmedAddress(checked)
     },
     []
+  )
+
+  const onChangeRecipient = useCallback(
+    async (address: string) => {
+      if (!fromToken || !fromAccount || !toToken) {
+        return
+      }
+      history.replace(
+        makeSwapOrBridgeRoute({
+          fromToken,
+          fromAccount,
+          toToken: toToken,
+          toAddress: address,
+          toCoin: toToken.coin,
+          routeType: isBridge ? 'bridge' : 'swap'
+        })
+      )
+    },
+    [fromToken, toToken, fromAccount, history, isBridge]
   )
 
   // Memos
@@ -817,6 +896,11 @@ export const useSwap = () => {
         return 'insufficientFundsForGas'
       }
 
+      // No quote-based validations to perform when backend error is set.
+      if (backendError) {
+        return 'unknownError'
+      }
+
       // EVM specific validations
       if (
         (quoteUnion?.zeroExQuote || quoteUnion?.lifiQuote) &&
@@ -830,6 +914,10 @@ export const useSwap = () => {
       if (quoteErrorUnion?.zeroExError) {
         if (quoteErrorUnion.zeroExError.isInsufficientLiquidity) {
           return 'insufficientLiquidity'
+        }
+
+        if (quoteErrorUnion.zeroExError.isInsufficientAllowance) {
+          return 'insufficientAllowance'
         }
 
         return 'unknownError'
@@ -872,11 +960,18 @@ export const useSwap = () => {
       quoteUnion?.lifiQuote,
       quoteUnion?.jupiterQuote?.routePlan.length,
       hasAllowance,
-      quoteErrorUnion
+      quoteErrorUnion,
+      backendError
     ])
 
   const onSubmit = useCallback(async () => {
-    if (!quoteUnion || !fromAccount || !fromNetwork || !fromToken) {
+    if (
+      !quoteUnion ||
+      !fromAccount ||
+      !fromNetwork ||
+      !fromToken ||
+      !fromAssetBalance
+    ) {
       return
     }
 
@@ -886,6 +981,7 @@ export const useSwap = () => {
       if (hasAllowance) {
         const error = await zeroEx.exchange()
         if (error) {
+          console.log('zeroEx.exchange error', error.zeroExError)
           setQuoteErrorUnion(error)
         } else {
           setFromAmount('')
@@ -898,7 +994,7 @@ export const useSwap = () => {
           network: fromNetwork,
           spenderAddress: quoteUnion.zeroExQuote.allowanceTarget,
           token: fromToken,
-          spendAmount: quoteUnion.zeroExQuote.sellAmount
+          spendAmount: fromAssetBalance.format()
         })
       }
     }
@@ -916,6 +1012,7 @@ export const useSwap = () => {
         // confirmations)
         const error = await lifi.exchange(step)
         if (error) {
+          console.log('lifi.exchange error', error.lifiError)
           setQuoteErrorUnion(error)
         } else {
           setFromAmount('')
@@ -925,7 +1022,7 @@ export const useSwap = () => {
       } else {
         await approveSpendAllowance({
           spenderAddress: step.estimate.approvalAddress,
-          spendAmount: step.estimate.fromAmount,
+          spendAmount: fromAssetBalance.format(),
           account: fromAccount,
           network: fromNetwork,
           token: fromToken
@@ -936,6 +1033,7 @@ export const useSwap = () => {
     if (quoteUnion.jupiterQuote) {
       const error = await jupiter.exchange(quoteUnion.jupiterQuote)
       if (error) {
+        console.log('jupiter.exchange error', error.jupiterError)
         setQuoteErrorUnion(error)
       } else {
         setFromAmount('')
@@ -950,6 +1048,7 @@ export const useSwap = () => {
     fromAccount,
     fromNetwork,
     fromToken,
+    fromAssetBalance,
     hasAllowance,
     zeroEx,
     reset,
@@ -959,8 +1058,16 @@ export const useSwap = () => {
   ])
 
   const submitButtonText = useMemo(() => {
+    if (isFetchingQuote) {
+      return getLocale('braveWalletFetchingQuote')
+    }
+
+    const defaultText = isBridge
+      ? getLocale('braveWalletReviewBridge')
+      : getLocale('braveWalletReviewSwap')
+
     if (!fromToken || !fromNetwork) {
-      return getLocale('braveSwapReviewOrder')
+      return defaultText
     }
 
     if (swapValidationError === 'insufficientBalance') {
@@ -992,8 +1099,8 @@ export const useSwap = () => {
       return getLocale('braveWalletSwapUnknownError')
     }
 
-    return getLocale('braveSwapReviewOrder')
-  }, [fromToken, fromNetwork, swapValidationError])
+    return defaultText
+  }, [isBridge, fromToken, fromNetwork, swapValidationError, isFetchingQuote])
 
   const isSubmitButtonDisabled = useMemo(() => {
     return (
@@ -1047,12 +1154,18 @@ export const useSwap = () => {
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      await handleQuoteRefresh({})
-    }, 10000)
+      if (timeUntilNextQuote && timeUntilNextQuote !== 0) {
+        setTimeUntilNextQuote(timeUntilNextQuote - 1000)
+        return
+      }
+      if (!isFetchingQuote) {
+        await handleQuoteRefresh({})
+      }
+    }, 1000)
     return () => {
       clearInterval(interval)
     }
-  }, [handleQuoteRefresh])
+  }, [handleQuoteRefresh, timeUntilNextQuote, isFetchingQuote])
 
   return {
     fromAccount,
@@ -1094,12 +1207,16 @@ export const useSwap = () => {
     setSlippageTolerance,
     setUseDirectRoute,
     onSubmit,
+    onChangeRecipient,
     submitButtonText,
     isSubmitButtonDisabled,
     swapValidationError,
     spotPrices: spotPriceRegistry,
     tokenBalancesRegistry,
-    isLoadingBalances
+    isLoadingBalances,
+    isBridge,
+    toAccount,
+    timeUntilNextQuote
   }
 }
 export default useSwap

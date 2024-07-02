@@ -344,8 +344,7 @@ interface WalletAutoPinService {
 // Used by the WebUI page to bootstrap bidirectional communication.
 interface PanelHandlerFactory {
   // The WebUI calls this method when the page is first initialized.
-  CreatePanelHandler(pending_remote<Page> page,
-                     pending_receiver<PanelHandler> panel_handler,
+  CreatePanelHandler(pending_receiver<PanelHandler> panel_handler,
                      pending_receiver<WalletHandler> wallet_handler,
                      pending_receiver<JsonRpcService> json_rpc_service,
                      pending_receiver<BitcoinWalletService> bitcoin_wallet_service,
@@ -373,8 +372,7 @@ interface PanelHandlerFactory {
 
 interface PageHandlerFactory {
   // The WebUI calls this method when the page is first initialized.
-  CreatePageHandler(pending_remote<Page> page,
-                    pending_receiver<PageHandler> page_handler,
+  CreatePageHandler(pending_receiver<PageHandler> page_handler,
                     pending_receiver<WalletHandler> wallet_handler,
                     pending_receiver<JsonRpcService> json_rpc_service,
                     pending_receiver<BitcoinWalletService> bitcoin_wallet_service,
@@ -494,6 +492,13 @@ enum RoutePriority {
   kSafest
 };
 
+enum SwapProvider {
+  kAuto,
+  kLiFi,
+  kZeroEx,
+  kJupiter
+};
+
 struct SwapQuoteParams {
   AccountId from_account_id;
   string from_chain_id;
@@ -513,6 +518,8 @@ struct SwapQuoteParams {
   // This is primarily used for LiFi swaps. For every other case, this should
   // be set to kRecommended.
   RoutePriority route_priority;
+
+  SwapProvider provider;
 };
 
 union SwapTransactionParamsUnion {
@@ -572,17 +579,23 @@ struct ZeroExQuote {
   ZeroExFees fees;
 };
 
-struct ZeroExErrorItem {
+struct ZeroExValidationError {
   string field;
   string code;
   string reason;
 };
 
+struct ZeroExGenericError {
+  string message;
+};
+
 struct ZeroExError {
   string code;
   string reason;
-  array<ZeroExErrorItem> validation_errors;
+  array<ZeroExValidationError> validation_errors;
+  ZeroExGenericError? values;
   bool is_insufficient_liquidity;
+  bool is_insufficient_allowance;
 };
 
 union SwapErrorUnion {
@@ -837,6 +850,8 @@ enum KeyringId {
   kBitcoin84Testnet = 5,
   kZCashMainnet = 6,
   kZCashTestnet = 7,
+  kBitcoinImport = 8,
+  kBitcoinImportTestnet = 9,
 };
 
 const string kP3ACountTestNetworksSwitch = "p3a-count-wallet-test-networks";
@@ -877,7 +892,8 @@ struct AccountId {
   AccountKind kind;
   // TODO(apaymyshev): should be an index within keyring.
   string address;
-  uint32 bitcoin_account_index;
+  // Account index for index-based keyrings (BTC and ZEC).
+  uint32 account_index;
 
   // Two `AccountIds` equal iff their `unique_key` fields equal. Use this to
   // check AccountIds for equality or to store as string keys. Persist with
@@ -906,6 +922,7 @@ struct WalletInfo {
   bool is_wallet_locked;
   bool is_wallet_backed_up;
   bool is_bitcoin_enabled;
+  bool is_bitcoin_import_enabled;
   bool is_z_cash_enabled;
   bool is_nft_pinning_feature_enabled;
   bool is_ankr_balances_feature_enabled;
@@ -918,6 +935,13 @@ interface WalletHandler {
   GetWalletInfo() => (WalletInfo walletInfo);
 };
 
+enum SPLTokenProgram {
+  kUnknown = 0,  // To be determined by the backend.
+  kUnsupported = 1,  // Unsupported token program or not SPL token.
+  kToken = 2,
+  kToken2022 = 3,
+};
+
 struct BlockchainToken {
   // TODO(jocelyn): contract_address should be renamed to address to be a
   // general naming for different coin type. Currently it's token mint address
@@ -925,9 +949,11 @@ struct BlockchainToken {
   string contract_address;
   string name;
   string logo;
+  bool is_compressed = false; // Solana NFTs only
   bool is_erc20;
   bool is_erc721;
   bool is_erc1155;
+  SPLTokenProgram spl_token_program = SPLTokenProgram.kUnknown;
   bool is_nft;
   bool is_spam;
   string symbol;
@@ -945,10 +971,6 @@ struct AllowanceInfo {
   string approver_address;
   string spender_address;
   string amount;
-};
-
-// WebUI-side handler for requests from the browser.
-interface Page {
 };
 
 interface KeyringServiceObserver {
@@ -1074,18 +1096,22 @@ interface KeyringService {
   ImportAccount(string accountName, string privateKey, CoinType coin)
     => (AccountInfo? account);
 
-  // Imports a filecoin account with a specific private key and network
+  // Imports a filecoin account with a specific private key and network.
   ImportFilecoinAccount(string accountName, string privateKey, string network)
       => (AccountInfo? account);
 
-  // Imports an account via JSON
+  // Imports a bitcoin account for a network. Payload is an extended private key.
+  ImportBitcoinAccount(string accountName, string payload, string network)
+      => (AccountInfo? account);
+
+  // Imports an account via JSON.
   ImportAccountFromJson(string accountName, string password, string json)
     => (AccountInfo? account);
 
-  // Determines if the keyring has been backed up
+  // Determines if wallet's mnemonic has been backed up.
   IsWalletBackedUp() => (bool backed_up);
 
-  // Informs the keyring that the wallet has been backed up
+  // Called by UI when wallet's mnemonic passed backup check.
   NotifyWalletBackupComplete();
 
   // Adds a KeyringServiceObserver
@@ -1230,9 +1256,6 @@ interface JsonRpcServiceObserver {
 
   // Fired when a wallet_addEthereumChain request is completed
   OnAddEthereumChainRequestCompleted(string chain_id, string error);
-
-  // Fired when a chain ID's 1559 status changes
-  OnIsEip1559Changed(string chain_id, bool is_eip1559);
 };
 
 struct TxData {
@@ -1266,9 +1289,15 @@ struct TxData1559 {
 
 const string kSolanaSystemProgramId = "11111111111111111111111111111111";
 const string kSolanaTokenProgramId = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
+const string kSolanaToken2022ProgramId =
+    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb";
 const string kSolanaAssociatedTokenProgramId = "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL";
 const string kSolanaSysvarRentProgramId = "SysvarRent111111111111111111111111111111111";
 const string kSolanaMetadataProgramId = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
+const string kSolanaBubbleGumProgramId =
+  "BGUMAp9Gq7iTEuizy4pqaxsTyUCBK68MDfK752saRPUY";
+const string kSolanaAccountCompressionProgramId =
+  "cmtDvXumGCrqC1Age74AVPhSRVXJMd8PJS91L8KbNCK";
 const string kSolanaConfigProgramId =
   "Config1111111111111111111111111111111111111";
 const string kSolanaStakeProgramId =
@@ -1281,6 +1310,7 @@ const string kSolanaEd25519SigVerifyProgramId =
   "Ed25519SigVerify111111111111111111111111111";
 const string kSolanaKeccakSecp256kProgramId =
   "KeccakSecp256k11111111111111111111111111111";
+const string kSolanaComputeBudgetProgramId = "ComputeBudget111111111111111111111111111111";
 
 // It is required to keep these chain IDs lowercase ASCII
 const string kMainnetChainId = "0x1";
@@ -1348,7 +1378,6 @@ struct NetworkInfo {
   int32 decimals;
   CoinType coin;
   array<KeyringId> supported_keyrings;
-  bool is_eip1559; // only for ETH.
 };
 
 struct OriginInfo {
@@ -1420,6 +1449,34 @@ struct AnkrAssetBalance {
   string price_usd;
 };
 
+struct NftAttribute {
+  string trait_type;
+  string value;
+};
+
+struct NftMetadata {
+  // "Official" metadata fields as per OpenSea
+  // https://docs.opensea.io/docs/metadata-standards#metadata-structure.
+  string name;
+  string description;
+  string image;
+  string image_data;
+  string external_url;
+  array<NftAttribute> attributes;
+  string background_color;
+  string animation_url;
+  string youtube_url;
+
+  // Other metadata fields
+  string collection;
+};
+
+struct NftIdentifier {
+  string chain_id;
+  string contract_address;
+  string token_id;
+};
+
 // Deals with the ETH JSON RPC API, as well as things like the user's current
 // network.
 interface JsonRpcService {
@@ -1437,7 +1494,7 @@ interface JsonRpcService {
   SetNetwork(string chain_id, CoinType coin, url.mojom.Origin? origin)
     => (bool success);
   GetNetwork(CoinType coin, url.mojom.Origin? origin) => (NetworkInfo network);
-  GetAllNetworks(CoinType coin) => (array<NetworkInfo> networks);
+  GetAllNetworks() => (array<NetworkInfo> networks);
   GetCustomNetworks(CoinType coin) => (array<string> chain_ids);
   GetKnownNetworks(CoinType coin) => (array<string> chain_ids);
   GetHiddenNetworks(CoinType coin) => (array<string> chain_ids);
@@ -1449,10 +1506,6 @@ interface JsonRpcService {
   GetDefaultChainId(CoinType coin) => (string chain_id);
   // Obtains the selected network's chain ID for origin.
   GetChainIdForOrigin(CoinType coin, url.mojom.Origin origin) => (string chain_id);
-
-  // Obtains the current network's URL
-  GetNetworkUrl(CoinType coin, url.mojom.Origin? origin)
-    => (string network_url);
 
   // Obtains the native balance (e.g. ETH for Ethereum) for the address
   GetBalance(string address, CoinType coin, string chain_id) => (string balance, ProviderError error, string error_message);
@@ -1573,6 +1626,20 @@ interface JsonRpcService {
                             string token_mint_address, string chain_id) =>
       (string amount, uint8 decimals, string uiAmountString,
        SolanaProviderError error, string error_message);
+
+  // Returns the metadata json associated with the NFT. Uses the SimpleHash API, not
+  // the JSON RPC API. Callers should only supply NFT identifiers owned by a single
+  // account at a time.
+  GetNftMetadatas(CoinType coin,
+                   array<NftIdentifier> nft_identifiers) => (array<NftMetadata> metadatas,
+                                                             string error_message);
+
+  // Returns the balances of the list of NFTs for the owner using the SimpleHash API.
+  GetNftBalances(string wallet_address,
+                 array<NftIdentifier> nft_identifiers,
+                 CoinType coin) => (array<uint64> balances,
+                                    string error_message);
+
   // Returns the metadata json associated with the NFT account address
   GetSolTokenMetadata(string chain_id, string token_mint_address)
     => (string token_url, string response, SolanaProviderError error,
@@ -1705,6 +1772,7 @@ enum TransactionType {
   SolanaDappSignTransaction = 12,
   SolanaSwap = 13,
   ETHFilForwarderTransfer = 14, // Used to send from FEVM to FVM
+  SolanaCompressedNftTransfer = 15,
 };
 
 struct FilTxData {
@@ -1806,12 +1874,24 @@ interface TxServiceObserver {
   OnTxServiceReset();
 };
 
+struct NewEvmTransactionParams {
+  string chain_id;
+  AccountId from;
+  string to;
+  string value;
+  string gas_limit;
+  array<uint8> data;
+};
+
 // For transaction management such as creation, broadcasting, and storing
 // transactions.
 interface TxService {
   AddUnapprovedTransaction(TxDataUnion tx_data_union,
                            string chain_id,
                            AccountId from)
+    => (bool success, string tx_meta_id, string error_message);
+
+  AddUnapprovedEvmTransaction(NewEvmTransactionParams params)
     => (bool success, string tx_meta_id, string error_message);
 
   // Used to approve a transaction
@@ -1922,11 +2002,12 @@ interface SolanaTxManagerProxy {
       string spl_token_mint_address,
       string from_wallet_address,
       string to_wallet_address,
-      uint64 amount)
+      uint64 amount,
+      uint8 decimals)
       => (SolanaTxData? tx_data, SolanaProviderError error, string error_message);
 
-  GetEstimatedTxFee(string chain_id, string tx_meta_id)
-    => (uint64 fee, SolanaProviderError error, string error_message);
+  GetSolanaTxFeeEstimation(string chain_id, string tx_meta_id)
+    => (SolanaFeeEstimation fee, SolanaProviderError error, string error_message);
 
   // Get transaction data from transaction bytes encoded in base64 format.
   //
@@ -1936,6 +2017,13 @@ interface SolanaTxManagerProxy {
       string encoded_transaction,
       TransactionType tx_type,
       SolanaSendTransactionOptions? send_options)
+      => (SolanaTxData? tx_data, SolanaProviderError error, string error_message);
+
+  MakeBubbleGumProgramTransferTxData(
+      string chain_id,
+      string token_address,
+      string from_wallet_address,
+      string to_wallet_address)
       => (SolanaTxData? tx_data, SolanaProviderError error, string error_message);
 };
 
@@ -2390,6 +2478,15 @@ enum SolanaTokenInstruction {
   kInitializeMint2 = 20,
 };
 
+// https://docs.rs/solana-sdk/1.18.14/src/solana_sdk/compute_budget.rs.html#25-39
+enum SolanaComputeBudgetInstruction {
+  kUnused = 0,
+  kRequestHeapFrame = 1,
+  kSetComputeUnitLimit = 2,
+  kSetComputeUnitPrice = 3,
+  kSetLoadedAccountsDataSizeLimit = 4,
+};
+
 // Solana instruction parameter names shared between C++ backend and UI.
 // Note: UI can add names they need here, and please update
 // solana_instruction_data_decoder.cc to use the same constant.
@@ -2460,6 +2557,17 @@ struct SolanaMessageHeader {
   uint8 num_readonly_unsigned_accounts;
 };
 
+// https://github.com/solana-labs/solana/blob/ced8f6a512c61e0dd5308095ae8457add4a39e94/program-runtime/src/prioritization_fee.rs#L1-L2C41
+const uint64 kMicroLamportsPerLamport = 1000000;
+
+struct SolanaFeeEstimation {
+  uint64 base_fee;
+
+  // Priority fee = compute units * fee_per_compute_unit
+  uint32 compute_units;
+  uint64 fee_per_compute_unit;
+};
+
 struct SolanaTxData {
   string recent_blockhash;
   uint64 last_valid_block_height;
@@ -2483,6 +2591,8 @@ struct SolanaTxData {
   // signAllTransactions provider APIs, which includes serialized message and
   // signatures from partial_sign.
   SolanaSignTransactionParam? sign_transaction_param;
+
+  SolanaFeeEstimation? fee_estimation;
 };
 
 // This is used by BraveWalletProviderDelegate::RequestPermissions for us to

@@ -56,6 +56,10 @@ public class AppState {
           Migration.postCoreDataInitMigrations()
           Migration.migrateLostTabsActiveWindow()
         }
+
+        if !AppConstants.isOfficialBuild || Preferences.Debug.developerOptionsEnabled.value {
+          NetworkMonitor.shared.start()
+        }
         break
       case .active:
         break
@@ -181,7 +185,10 @@ public class AppState {
     var switches: [BraveCoreSwitch] = []
     // Check prefs for additional switches
     let activeSwitches = Set(Preferences.BraveCore.activeSwitches.value)
+    let customSwitches = Set(Preferences.BraveCore.customSwitches.value)
     let switchValues = Preferences.BraveCore.switchValues.value
+
+    // Add regular known switches
     for activeSwitch in activeSwitches {
       let key = BraveCoreSwitchKey(rawValue: activeSwitch)
       if key.isValueless {
@@ -190,6 +197,19 @@ public class AppState {
         switches.append(.init(key: key, value: value))
       }
     }
+
+    // Add custom user defined switches
+    for customSwitch in customSwitches {
+      let key = BraveCoreSwitchKey(rawValue: customSwitch)
+      if let value = switchValues[customSwitch] {
+        if value.isEmpty {
+          switches.append(.init(key: key))
+        } else {
+          switches.append(.init(key: key, value: value))
+        }
+      }
+    }
+
     switches.append(.init(key: .rewardsFlags, value: BraveRewards.Configuration.current().flags))
 
     // Initialize BraveCore

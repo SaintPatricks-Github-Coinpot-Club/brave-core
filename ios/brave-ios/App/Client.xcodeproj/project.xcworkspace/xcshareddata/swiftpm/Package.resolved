@@ -28,12 +28,12 @@
       }
     },
     {
-      "identity" : "lottie-ios",
+      "identity" : "lottie-spm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/airbnb/lottie-ios",
+      "location" : "https://github.com/airbnb/lottie-spm",
       "state" : {
-        "revision" : "4a6058cbbdfe4f74aeae92c8bd51ad3b0de2a1ee",
-        "version" : "3.3.0"
+        "revision" : "1d29eccc24cc8b75bff9f6804155112c0ffc9605",
+        "version" : "4.4.3"
       }
     },
     {
@@ -93,8 +93,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/mkrd/Swift-BigInt",
       "state" : {
-        "revision" : "b5f483488bca316cbb078ae16f865fa0c21f874a",
-        "version" : "2.2.0"
+        "revision" : "b07e961f4c999671cf8c2dc80e740899e8946013",
+        "version" : "2.3.0"
       }
     },
     {
@@ -156,7 +156,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/jitsi/webrtc",
       "state" : {
-        "revision" : "f20affccefa9c096a64ca15066f4b786a2ada1f6"
+        "revision" : "a52d059956976c2cba24b6b29ef1edfaf4c9cadf"
       }
     },
     {

@@ -3,9 +3,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+#include "brave/components/brave_wallet/browser/swap_service.h"
+
 #include <map>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/memory/ref_counted.h"
 #include "base/memory/scoped_refptr.h"
@@ -16,7 +19,6 @@
 #include "brave/components/brave_wallet/browser/brave_wallet_prefs.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
 #include "brave/components/brave_wallet/browser/swap_response_parser.h"
-#include "brave/components/brave_wallet/browser/swap_service.h"
 #include "brave/components/brave_wallet/common/brave_wallet.mojom-shared.h"
 #include "brave/components/brave_wallet/common/brave_wallet.mojom.h"
 #include "brave/components/brave_wallet/common/common_utils.h"
@@ -51,7 +53,8 @@ mojom::SwapQuoteParamsPtr GetCannedSwapQuoteParams(
     const std::string& from_token,
     mojom::CoinType to_coin,
     const std::string& to_chain_id,
-    const std::string& to_token) {
+    const std::string& to_token,
+    mojom::SwapProvider provider) {
   auto params = mojom::SwapQuoteParams::New();
 
   params->from_account_id = MakeAccountId(
@@ -61,7 +64,7 @@ mojom::SwapQuoteParamsPtr GetCannedSwapQuoteParams(
           : "S5ARSDD3ddZqqqqqb2EUE2h2F1XQHBk7bErRW1WPGe4");
   params->from_chain_id = from_chain_id;
   params->from_token = from_token;
-  params->to_amount = "1000000000000000000000";
+  params->from_amount = "1000000000000000000000";
 
   params->to_account_id = MakeAccountId(
       to_coin, mojom::KeyringId::kDefault, mojom::AccountKind::kDerived,
@@ -73,6 +76,7 @@ mojom::SwapQuoteParamsPtr GetCannedSwapQuoteParams(
 
   params->slippage_percentage = "3";
   params->route_priority = mojom::RoutePriority::kRecommended;
+  params->provider = provider;
   return params;
 }
 
@@ -301,10 +305,7 @@ class SwapServiceUnitTest : public testing::Test {
             base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
                 &url_loader_factory_)) {
     brave_wallet::RegisterProfilePrefs(prefs_.registry());
-    json_rpc_service_ =
-        std::make_unique<JsonRpcService>(shared_url_loader_factory_, &prefs_);
-    swap_service_ = std::make_unique<SwapService>(shared_url_loader_factory_,
-                                                  json_rpc_service_.get());
+    swap_service_ = std::make_unique<SwapService>(shared_url_loader_factory_);
   }
 
   ~SwapServiceUnitTest() override = default;
@@ -342,7 +343,8 @@ class SwapServiceUnitTest : public testing::Test {
                         const std::string& from_chain_id,
                         mojom::CoinType to_coin,
                         const std::string& to_chain_id,
-                        const bool expected_success) {
+                        const bool expected_success,
+                        mojom::SwapProvider provider) {
     SetInterceptor(json);
     auto expected_error_string =
         expected_success ? ""
@@ -355,7 +357,7 @@ class SwapServiceUnitTest : public testing::Test {
 
     swap_service_->GetQuote(
         GetCannedSwapQuoteParams(from_coin, from_chain_id, "DAI", to_coin,
-                                 to_chain_id, "ETH"),
+                                 to_chain_id, "ETH", provider),
         callback.Get());
     task_environment_.RunUntilIdle();
   }
@@ -385,7 +387,6 @@ class SwapServiceUnitTest : public testing::Test {
 
  protected:
   sync_preferences::TestingPrefServiceSyncable prefs_;
-  std::unique_ptr<JsonRpcService> json_rpc_service_;
   std::unique_ptr<SwapService> swap_service_;
   base::test::TaskEnvironment task_environment_;
 
@@ -465,11 +466,11 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuote) {
   expected_zero_ex_quote->fees = std::move(fees);
 
   auto expected_swap_fees = mojom::SwapFees::New();
-  expected_swap_fees->fee_pct = "0.875";
+  expected_swap_fees->fee_pct = "0";
   expected_swap_fees->discount_pct = "0";
+  expected_swap_fees->effective_fee_pct = "0";
   expected_swap_fees->discount_code = mojom::SwapDiscountCode::kNone;
-  expected_swap_fees->effective_fee_pct = "0.875";
-  expected_swap_fees->fee_param = "0.00875";
+  expected_swap_fees->fee_param = "";
 
   base::MockCallback<mojom::SwapService::GetQuoteCallback> callback;
   EXPECT_CALL(callback, Run(EqualsMojo(mojom::SwapQuoteUnion::NewZeroExQuote(
@@ -480,7 +481,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuote) {
   swap_service_->GetQuote(
       GetCannedSwapQuoteParams(
           mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH"),
+          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+          mojom::SwapProvider::kZeroEx),
       callback.Get());
   task_environment_.RunUntilIdle();
   testing::Mock::VerifyAndClearExpectations(&callback);
@@ -523,7 +525,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuote) {
   swap_service_->GetQuote(
       GetCannedSwapQuoteParams(
           mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH"),
+          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+          mojom::SwapProvider::kZeroEx),
       callback.Get());
   task_environment_.RunUntilIdle();
   testing::Mock::VerifyAndClearExpectations(&callback);
@@ -564,7 +567,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteError) {
   swap_service_->GetQuote(
       GetCannedSwapQuoteParams(
           mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH"),
+          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+          mojom::SwapProvider::kZeroEx),
       callback.Get());
   task_environment_.RunUntilIdle();
 }
@@ -583,7 +587,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteUnexpectedReturn) {
   swap_service_->GetQuote(
       GetCannedSwapQuoteParams(
           mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH"),
+          mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+          mojom::SwapProvider::kZeroEx),
       callback.Get());
   task_environment_.RunUntilIdle();
 }
@@ -674,7 +679,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransaction) {
       mojom::SwapTransactionParamsUnion::NewZeroExTransactionParams(
           GetCannedSwapQuoteParams(
               mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH")),
+              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+              mojom::SwapProvider::kZeroEx)),
       callback.Get());
   task_environment_.RunUntilIdle();
   testing::Mock::VerifyAndClearExpectations(&callback);
@@ -721,7 +727,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransaction) {
       mojom::SwapTransactionParamsUnion::NewZeroExTransactionParams(
           GetCannedSwapQuoteParams(
               mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH")),
+              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+              mojom::SwapProvider::kZeroEx)),
       callback.Get());
   task_environment_.RunUntilIdle();
   testing::Mock::VerifyAndClearExpectations(&callback);
@@ -742,7 +749,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionError) {
       mojom::SwapTransactionParamsUnion::NewZeroExTransactionParams(
           GetCannedSwapQuoteParams(
               mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH")),
+              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+              mojom::SwapProvider::kZeroEx)),
       callback.Get());
   task_environment_.RunUntilIdle();
 }
@@ -760,7 +768,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionUnexpectedReturn) {
       mojom::SwapTransactionParamsUnion::NewZeroExTransactionParams(
           GetCannedSwapQuoteParams(
               mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
-              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH")),
+              mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "ETH",
+              mojom::SwapProvider::kZeroEx)),
       callback.Get());
   task_environment_.RunUntilIdle();
 }
@@ -786,13 +795,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteURL) {
     // OK: with fees
     auto url = swap_service_->GetZeroExQuoteURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "0.00875");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/price?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "buyTokenPercentageFee=0.00875&"
@@ -805,13 +815,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteURL) {
     // Ok: no fees
     url = swap_service_->GetZeroExQuoteURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/price?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "slippagePercentage=0.030000&"
@@ -828,13 +839,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteURL) {
     // OK: with fees
     auto url = swap_service_->GetZeroExQuoteURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "0.00875");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/quote?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "buyTokenPercentageFee=0.00875&"
@@ -848,13 +860,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteURL) {
     // Ok: no fees
     url = swap_service_->GetZeroExQuoteURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/quote?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "slippagePercentage=0.030000&"
@@ -867,7 +880,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExQuoteURL) {
   // KO: unsupported network
   EXPECT_EQ(swap_service_->GetZeroExQuoteURL(
                 *GetCannedSwapQuoteParams(mojom::CoinType::ETH, "0x3", "DAI",
-                                          mojom::CoinType::ETH, "0x3", "ETH"),
+                                          mojom::CoinType::ETH, "0x3", "ETH",
+                                          mojom::SwapProvider::kZeroEx),
                 "0.00875"),
             "");
 }
@@ -893,13 +907,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionURL) {
     // OK: with fees
     auto url = swap_service_->GetZeroExTransactionURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "0.00875");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/quote?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "buyTokenPercentageFee=0.00875&"
@@ -911,13 +926,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionURL) {
     // OK: no fees
     url = swap_service_->GetZeroExTransactionURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/quote?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "slippagePercentage=0.030000&"
@@ -933,13 +949,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionURL) {
     // OK: with fees
     auto url = swap_service_->GetZeroExTransactionURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "0.00875");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/quote?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "buyTokenPercentageFee=0.00875&"
@@ -952,13 +969,14 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionURL) {
     // OK: no fees
     url = swap_service_->GetZeroExTransactionURL(
         *GetCannedSwapQuoteParams(mojom::CoinType::ETH, chain_id, "DAI",
-                                  mojom::CoinType::ETH, chain_id, "ETH"),
+                                  mojom::CoinType::ETH, chain_id, "ETH",
+                                  mojom::SwapProvider::kZeroEx),
         "");
     EXPECT_EQ(url,
               base::StringPrintf(
                   "https://%s/swap/v1/quote?"
                   "takerAddress=0xa92D461a9a988A7f11ec285d39783A637Fdd6ba4&"
-                  "buyAmount=1000000000000000000000&"
+                  "sellAmount=1000000000000000000000&"
                   "buyToken=ETH&"
                   "sellToken=DAI&"
                   "slippagePercentage=0.030000&"
@@ -970,7 +988,8 @@ TEST_F(SwapServiceUnitTest, GetZeroExTransactionURL) {
   // KO: unsupported network
   EXPECT_EQ(swap_service_->GetZeroExTransactionURL(
                 *GetCannedSwapQuoteParams(mojom::CoinType::ETH, "0x3", "DAI",
-                                          mojom::CoinType::ETH, "0x3", "ETH"),
+                                          mojom::CoinType::ETH, "0x3", "ETH",
+                                          mojom::SwapProvider::kZeroEx),
                 "0.00875"),
             "");
 }
@@ -1008,7 +1027,8 @@ TEST_F(SwapServiceUnitTest, IsSwapSupported) {
 TEST_F(SwapServiceUnitTest, GetJupiterQuoteURL) {
   auto params = GetCannedSwapQuoteParams(
       mojom::CoinType::SOL, mojom::kSolanaMainnet, "", mojom::CoinType::SOL,
-      mojom::kSolanaMainnet, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+      mojom::kSolanaMainnet, "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      mojom::SwapProvider::kAuto);
   params->from_token = "So11111111111111111111111111111111111111112";
   params->to_token = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
   params->from_amount = "10000";
@@ -1090,11 +1110,11 @@ TEST_F(SwapServiceUnitTest, GetJupiterQuote) {
   auto& expected_quote = params->get_jupiter_transaction_params()->quote;
 
   auto expected_swap_fees = mojom::SwapFees::New();
-  expected_swap_fees->fee_pct = "0.85";
+  expected_swap_fees->fee_pct = "0";
   expected_swap_fees->discount_pct = "0";
-  expected_swap_fees->effective_fee_pct = "0.85";
+  expected_swap_fees->effective_fee_pct = "0";
   expected_swap_fees->discount_code = mojom::SwapDiscountCode::kNone;
-  expected_swap_fees->fee_param = "85";
+  expected_swap_fees->fee_param = "";
 
   base::MockCallback<mojom::SwapService::GetQuoteCallback> callback;
   EXPECT_CALL(callback, Run(EqualsMojo(mojom::SwapQuoteUnion::NewJupiterQuote(
@@ -1104,18 +1124,21 @@ TEST_F(SwapServiceUnitTest, GetJupiterQuote) {
   swap_service_->GetQuote(
       GetCannedSwapQuoteParams(mojom::CoinType::SOL, mojom::kSolanaMainnet, "",
                                mojom::CoinType::SOL, mojom::kSolanaMainnet,
-                               "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+                               "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                               mojom::SwapProvider::kAuto),
       callback.Get());
   task_environment_.RunUntilIdle();
   testing::Mock::VerifyAndClearExpectations(&callback);
 
   // KO: empty JSON for conversion
   TestGetQuoteCase(R"({})", mojom::CoinType::SOL, mojom::kSolanaMainnet,
-                   mojom::CoinType::SOL, mojom::kSolanaMainnet, false);
+                   mojom::CoinType::SOL, mojom::kSolanaMainnet, false,
+                   mojom::SwapProvider::kAuto);
 
   // KO: invalid JSON
   TestGetQuoteCase(R"(foo)", mojom::CoinType::SOL, mojom::kSolanaMainnet,
-                   mojom::CoinType::SOL, mojom::kSolanaMainnet, false);
+                   mojom::CoinType::SOL, mojom::kSolanaMainnet, false,
+                   mojom::SwapProvider::kAuto);
 }
 
 TEST_F(SwapServiceUnitTest, GetJupiterTransaction) {
@@ -1380,11 +1403,11 @@ TEST_F(SwapServiceUnitTest, GetLiFiQuote) {
   )");
 
   auto expected_swap_fees = mojom::SwapFees::New();
-  expected_swap_fees->fee_pct = "0.875";
+  expected_swap_fees->fee_pct = "0";
   expected_swap_fees->discount_pct = "0";
-  expected_swap_fees->effective_fee_pct = "0.875";
+  expected_swap_fees->effective_fee_pct = "0";
   expected_swap_fees->discount_code = mojom::SwapDiscountCode::kNone;
-  expected_swap_fees->fee_param = "0.00875";
+  expected_swap_fees->fee_param = "";
 
   base::MockCallback<mojom::SwapService::GetQuoteCallback> callback;
   EXPECT_CALL(
@@ -1395,19 +1418,21 @@ TEST_F(SwapServiceUnitTest, GetLiFiQuote) {
   auto quote_params = GetCannedSwapQuoteParams(
       mojom::CoinType::ETH, mojom::kPolygonMainnetChainId, "DAI",
       mojom::CoinType::SOL, mojom::kSolanaMainnet,
-      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+      "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+      mojom::SwapProvider::kAuto);
   swap_service_->GetQuote(std::move(quote_params), callback.Get());
   task_environment_.RunUntilIdle();
   testing::Mock::VerifyAndClearExpectations(&callback);
 
   // KO: empty JSON for conversion
   TestGetQuoteCase(R"({})", mojom::CoinType::ETH, mojom::kPolygonMainnetChainId,
-                   mojom::CoinType::SOL, mojom::kSolanaMainnet, false);
+                   mojom::CoinType::SOL, mojom::kSolanaMainnet, false,
+                   mojom::SwapProvider::kAuto);
 
   // KO: invalid JSON
   TestGetQuoteCase(R"(foo)", mojom::CoinType::ETH,
                    mojom::kPolygonMainnetChainId, mojom::CoinType::SOL,
-                   mojom::kSolanaMainnet, false);
+                   mojom::kSolanaMainnet, false, mojom::SwapProvider::kAuto);
 }
 
 TEST_F(SwapServiceUnitTest, GetLiFiTransaction) {
@@ -1472,7 +1497,8 @@ TEST_F(SwapServiceUnitTest, GetLiFiQuoteError) {
       GetCannedSwapQuoteParams(mojom::CoinType::ETH,
                                mojom::kPolygonMainnetChainId, "DAI",
                                mojom::CoinType::SOL, mojom::kSolanaMainnet,
-                               "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
+                               "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                               mojom::SwapProvider::kAuto),
       callback.Get());
   task_environment_.RunUntilIdle();
 }

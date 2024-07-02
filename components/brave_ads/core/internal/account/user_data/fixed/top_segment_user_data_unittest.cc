@@ -23,30 +23,29 @@ class BraveAdsTopSegmentUserDataTest : public UnitTestBase {
   void SetUp() override {
     UnitTestBase::SetUp();
 
-    targeting_ = std::make_unique<test::TargetingHelper>();
+    targeting_helper_ =
+        std::make_unique<test::TargetingHelper>(task_environment_);
 
-    LoadResource();
-  }
-
-  void LoadResource() {
     NotifyDidUpdateResourceComponent(kLanguageComponentManifestVersion,
                                      kLanguageComponentId);
-    task_environment_.RunUntilIdle();
   }
 
-  std::unique_ptr<test::TargetingHelper> targeting_;
+  std::unique_ptr<test::TargetingHelper> targeting_helper_;
 };
 
 TEST_F(BraveAdsTopSegmentUserDataTest, BuildTopSegmentUserDataForRewardsUser) {
   // Arrange
-  targeting_->MockInterest();
-  task_environment_.RunUntilIdle();
+  targeting_helper_->MockInterest();
 
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/false);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
+  // Act
+  const base::Value::Dict user_data = BuildTopSegmentUserData(transaction);
+
+  // Assert
   EXPECT_EQ(base::test::ParseJsonDict(
                 R"(
                     {
@@ -56,7 +55,7 @@ TEST_F(BraveAdsTopSegmentUserDataTest, BuildTopSegmentUserDataForRewardsUser) {
                         }
                       ]
                     })"),
-            BuildTopSegmentUserData(transaction));
+            user_data);
 }
 
 TEST_F(BraveAdsTopSegmentUserDataTest,
@@ -64,29 +63,34 @@ TEST_F(BraveAdsTopSegmentUserDataTest,
   // Arrange
   test::DisableBraveRewards();
 
-  targeting_->MockInterest();
-  task_environment_.RunUntilIdle();
+  targeting_helper_->MockInterest();
 
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/false);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
-  EXPECT_TRUE(BuildTopSegmentUserData(transaction).empty());
+  // Act
+  const base::Value::Dict user_data = BuildTopSegmentUserData(transaction);
+
+  // Assert
+  EXPECT_THAT(user_data, ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsTopSegmentUserDataTest,
        DoNotBuildTopSegmentUserDataForNonViewedConfirmationType) {
   // Arrange
-  targeting_->MockInterest();
-  task_environment_.RunUntilIdle();
+  targeting_helper_->MockInterest();
 
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd, ConfirmationType::kClicked,
-      /*should_use_random_uuids=*/false);
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
-  EXPECT_TRUE(BuildTopSegmentUserData(transaction).empty());
+  // Act
+  const base::Value::Dict user_data = BuildTopSegmentUserData(transaction);
+
+  // Assert
+  EXPECT_THAT(user_data, ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsTopSegmentUserDataTest,
@@ -94,15 +98,19 @@ TEST_F(BraveAdsTopSegmentUserDataTest,
   // Arrange
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/false);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
+  // Act
+  const base::Value::Dict user_data = BuildTopSegmentUserData(transaction);
+
+  // Assert
   EXPECT_EQ(base::test::ParseJsonDict(
                 R"(
                     {
                       "topSegment": []
                     })"),
-            BuildTopSegmentUserData(transaction));
+            user_data);
 }
 
 }  // namespace brave_ads

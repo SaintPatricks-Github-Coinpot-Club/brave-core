@@ -10,9 +10,11 @@ import {
   SendPageTabHashes,
   WalletOrigin,
   WalletCreationMode,
-  WalletImportMode
+  WalletImportMode,
+  NftDropdownOptionId
 } from '../constants/types'
 import { LOCAL_STORAGE_KEYS } from '../common/constants/local-storage-keys'
+import { SUPPORT_LINKS } from '../common/constants/support_links'
 
 /**
  * Checks the provided route against a list of routes that we are OK with the
@@ -43,7 +45,8 @@ export function isPersistableSessionRoute(
   return (
     isPersistableInPanel ||
     route.includes(WalletRoutes.Swap) ||
-    route.includes(WalletRoutes.Send)
+    route.includes(WalletRoutes.Send) ||
+    route.includes(WalletRoutes.Bridge)
   )
 }
 
@@ -226,18 +229,20 @@ export const makeSendRoute = (
   return `${WalletRoutes.Send}?${params.toString()}${SendPageTabHashes.token}`
 }
 
-export const makeSwapRoute = ({
+export const makeSwapOrBridgeRoute = ({
   fromToken,
   fromAccount,
   toToken,
   toAddress,
-  toCoin
+  toCoin,
+  routeType
 }: {
   fromToken: BraveWallet.BlockchainToken
   fromAccount: BraveWallet.AccountInfo
   toToken?: BraveWallet.BlockchainToken
   toAddress?: string
   toCoin?: BraveWallet.CoinType
+  routeType?: 'swap' | 'bridge'
 }) => {
   const baseQueryParams = {
     fromChainId: fromToken.chainId,
@@ -258,7 +263,9 @@ export const makeSwapRoute = ({
       : baseQueryParams
   )
 
-  return `${WalletRoutes.Swap}?${params.toString()}`
+  const route = routeType === 'bridge' ? WalletRoutes.Bridge : WalletRoutes.Swap
+
+  return `${route}?${params.toString()}`
 }
 
 export const makeTransactionDetailsRoute = (transactionId: string) => {
@@ -269,6 +276,36 @@ export const makePortfolioAssetRoute = (isNft: boolean, assetId: string) => {
   return (
     isNft ? WalletRoutes.PortfolioNFTAsset : WalletRoutes.PortfolioAsset
   ).replace(':assetId', assetId)
+}
+
+export const makePortfolioNftCollectionRoute = (
+  collectionId: string,
+  page?: number
+) => {
+  if (page) {
+    const params = new URLSearchParams({
+      page: page.toString()
+    })
+    return `${WalletRoutes.PortfolioNFTCollection.replace(
+      ':collectionId',
+      collectionId
+    )}?${params.toString()}`
+  }
+  return WalletRoutes.PortfolioNFTCollection.replace(
+    ':collectionId',
+    collectionId
+  )
+}
+
+export const makePortfolioNftsRoute = (
+  tab: NftDropdownOptionId,
+  page?: number
+) => {
+  const params = new URLSearchParams({
+    tab: tab,
+    page: page?.toString() || '1'
+  })
+  return `${WalletRoutes.PortfolioNFTs}?${params.toString()}`
 }
 
 // Tabs
@@ -297,4 +334,20 @@ export function openWalletSettings() {
 
 export function openNetworkSettings() {
   openTab('chrome://settings/wallet/networks')
+}
+
+export const openSupportTab = (key: keyof typeof SUPPORT_LINKS) => {
+  const url = SUPPORT_LINKS[key]
+  if (!url) {
+    console.error(`support link not found (${key})`)
+  }
+  chrome.tabs.create({ url }, () => {
+    if (chrome.runtime.lastError) {
+      console.error('tabs.create failed: ' + chrome.runtime.lastError.message)
+    }
+  })
+}
+
+export const openAssociatedTokenAccountSupportArticleTab = () => {
+  openSupportTab('WhatIsTheAssociatedTokenAccountProgram')
 }

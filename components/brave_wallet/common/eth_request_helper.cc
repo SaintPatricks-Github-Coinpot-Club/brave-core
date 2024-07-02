@@ -741,7 +741,8 @@ mojom::BlockchainTokenPtr ParseWalletWatchAssetParams(
 
   return mojom::BlockchainToken::New(
       eth_addr.ToChecksumAddress(), *symbol /* name */, logo,
-      true /* is_erc20 */, false /* is_erc721 */, false /* is_erc1155 */,
+      false /* is_compressed */, true /* is_erc20 */, false /* is_erc721 */,
+      false /* is_erc1155 */, mojom::SPLTokenProgram::kUnsupported,
       false /* is_nft */, false /* is_spam */, *symbol, decimals, true, "", "",
       base::ToLowerASCII(chain_id), mojom::CoinType::ETH);
 }

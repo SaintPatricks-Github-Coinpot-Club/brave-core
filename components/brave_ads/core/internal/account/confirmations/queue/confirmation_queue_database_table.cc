@@ -43,7 +43,7 @@ constexpr int kDefaultBatchSize = 50;
 
 constexpr base::TimeDelta kMaximumRetryDelay = base::Hours(1);
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -81,6 +81,9 @@ size_t BindParameters(
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid confirmation queue item");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid confirmation queue item");
+
       continue;
     }
 
@@ -147,7 +150,7 @@ size_t BindParameters(
   return count;
 }
 
-ConfirmationQueueItemInfo GetFromRecord(mojom::DBRecordInfo* record) {
+ConfirmationQueueItemInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   ConfirmationQueueItemInfo confirmation_queue_item;
@@ -218,6 +221,7 @@ void GetCallback(GetConfirmationQueueCallback callback,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get confirmation queue");
+
     return std::move(callback).Run(/*success=*/false,
                                    /*confirmations_queue_items=*/{});
   }
@@ -235,6 +239,9 @@ void GetCallback(GetConfirmationQueueCallback callback,
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid confirmation queue item");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid confirmation queue item");
+
       continue;
     }
 
@@ -242,6 +249,45 @@ void GetCallback(GetConfirmationQueueCallback callback,
   }
 
   std::move(callback).Run(/*success=*/true, confirmation_queue_items);
+}
+
+void MigrateToV36(mojom::DBTransactionInfo* const transaction) {
+  CHECK(transaction);
+
+  mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
+  command->type = mojom::DBCommandInfo::Type::EXECUTE;
+  command->sql =
+      R"(
+          CREATE TABLE confirmation_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+            transaction_id TEXT NOT NULL,
+            creative_instance_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            ad_type TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL,
+            token TEXT,
+            blinded_token TEXT,
+            unblinded_token TEXT,
+            public_key TEXT,
+            signature TEXT,
+            credential_base64url TEXT,
+            user_data TEXT NOT NULL,
+            process_at TIMESTAMP NOT NULL,
+            retry_count INTEGER DEFAULT 0
+          );)";
+  transaction->commands.push_back(std::move(command));
+
+  // Optimize database query for `GetNext`.
+  CreateTableIndex(transaction, /*table_name=*/"confirmation_queue",
+                   /*columns=*/{"process_at"});
+}
+
+void MigrateToV38(mojom::DBTransactionInfo* const transaction) {
+  CHECK(transaction);
+
+  // The conversion queue is deprecated since all confirmations are now being
+  // added to the confirmation queue.
+  DropTable(transaction, "conversion_queue");
 }
 
 }  // namespace
@@ -403,7 +449,7 @@ std::string ConfirmationQueue::GetTableName() const {
   return kTableName;
 }
 
-void ConfirmationQueue::Create(mojom::DBTransactionInfo* transaction) {
+void ConfirmationQueue::Create(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
@@ -433,7 +479,7 @@ void ConfirmationQueue::Create(mojom::DBTransactionInfo* transaction) {
   CreateTableIndex(transaction, GetTableName(), /*columns=*/{"process_at"});
 }
 
-void ConfirmationQueue::Migrate(mojom::DBTransactionInfo* transaction,
+void ConfirmationQueue::Migrate(mojom::DBTransactionInfo* const transaction,
                                 const int to_version) {
   CHECK(transaction);
 
@@ -451,46 +497,6 @@ void ConfirmationQueue::Migrate(mojom::DBTransactionInfo* transaction,
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-void ConfirmationQueue::MigrateToV36(
-    mojom::DBTransactionInfo* transaction) const {
-  CHECK(transaction);
-
-  mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
-  command->type = mojom::DBCommandInfo::Type::EXECUTE;
-  command->sql =
-      R"(
-          CREATE TABLE confirmation_queue (
-            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-            transaction_id TEXT NOT NULL,
-            creative_instance_id TEXT NOT NULL,
-            type TEXT NOT NULL,
-            ad_type TEXT NOT NULL,
-            created_at TIMESTAMP NOT NULL,
-            token TEXT,
-            blinded_token TEXT,
-            unblinded_token TEXT,
-            public_key TEXT,
-            signature TEXT,
-            credential_base64url TEXT,
-            user_data TEXT NOT NULL,
-            process_at TIMESTAMP NOT NULL,
-            retry_count INTEGER DEFAULT 0
-          );)";
-  transaction->commands.push_back(std::move(command));
-
-  // Optimize database query for `GetNext`.
-  CreateTableIndex(transaction, GetTableName(), /*columns=*/{"process_at"});
-}
-
-// static
-void ConfirmationQueue::MigrateToV38(mojom::DBTransactionInfo* transaction) {
-  CHECK(transaction);
-
-  // The conversion queue is deprecated since all confirmations are now being
-  // added to the confirmation queue.
-  DropTable(transaction, "conversion_queue");
-}
 
 void ConfirmationQueue::InsertOrUpdate(
     mojom::DBTransactionInfo* transaction,

@@ -16,6 +16,7 @@
 #include "brave/components/brave_wallet/browser/bitcoin_rpc_responses.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_constants.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_utils.h"
+#include "brave/components/brave_wallet/browser/json_rpc_response_parser.h"
 #include "brave/components/brave_wallet/common/features.h"
 #include "brave/components/json/rs/src/lib.rs.h"
 #include "components/grit/brave_components_strings.h"
@@ -162,30 +163,19 @@ const GURL MakePostTransactionUrl(const GURL& base_url) {
   return base_url.ReplaceComponents(replacements);
 }
 
-std::string EndpointHost(const GURL& request_url) {
+GURL EndpointHost(const GURL& request_url) {
   DCHECK(request_url.is_valid());
-  return request_url.host();
+  return request_url.GetWithEmptyPath();
 }
 
-bool ShouldThrottleEndpoint(const std::string& endpoint_host) {
+bool ShouldThrottleEndpoint(const GURL& endpoint_host) {
   // Don't throttle requests if host matches brave proxy.
-  return EndpointHost(GURL(brave_wallet::kBitcoinMainnetRpcEndpoint)) !=
-         endpoint_host;
+  return !brave_wallet::IsEndpointUsingBraveWalletProxy(endpoint_host);
 }
 
 std::optional<std::string> ConvertPlainStringToJsonArray(
     const std::string& json) {
   return base::StrCat({"[\"", json, "\"]"});
-}
-
-std::optional<std::string> ConvertAllNumbersToString(const std::string& json) {
-  auto converted_json =
-      std::string(json::convert_all_numbers_to_string(json, ""));
-  if (converted_json.empty()) {
-    return std::nullopt;
-  }
-
-  return converted_json;
 }
 
 template <class TCallback>
@@ -342,7 +332,7 @@ void BitcoinRpc::GetAddressStats(const std::string& chain_id,
   auto internal_callback =
       base::BindOnce(&BitcoinRpc::OnGetAddressStats,
                      weak_ptr_factory_.GetWeakPtr(), std::move(callback));
-  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString);
+  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString, "");
   RequestInternal(request_url, std::move(internal_callback),
                   std::move(conversion_callback));
 }
@@ -373,7 +363,7 @@ void BitcoinRpc::GetUtxoList(const std::string& chain_id,
   auto internal_callback =
       base::BindOnce(&BitcoinRpc::OnGetUtxoList, weak_ptr_factory_.GetWeakPtr(),
                      std::move(callback), address);
-  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString);
+  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString, "");
   RequestInternal(request_url, std::move(internal_callback),
                   std::move(conversion_callback));
 }
@@ -457,7 +447,7 @@ void BitcoinRpc::RequestInternal(
 
   auto endpoint_host = EndpointHost(request_url);
 
-  auto& endpoint = endpoints_[endpoint_host];
+  auto& endpoint = endpoints_[endpoint_host.host()];
 
   auto& request = endpoint.requests_queue.emplace_back();
   request.request_url = request_url;
@@ -467,10 +457,10 @@ void BitcoinRpc::RequestInternal(
   MaybeStartQueuedRequest(endpoint_host);
 }
 
-void BitcoinRpc::OnRequestInternalDone(const std::string& endpoint_host,
+void BitcoinRpc::OnRequestInternalDone(const GURL& endpoint_host,
                                        RequestIntermediateCallback callback,
                                        APIRequestResult api_request_result) {
-  auto& endpoint = endpoints_[endpoint_host];
+  auto& endpoint = endpoints_[endpoint_host.host()];
   endpoint.active_requests--;
   DCHECK_GE(endpoint.active_requests, 0u);
   std::move(callback).Run(std::move(api_request_result));
@@ -480,8 +470,8 @@ void BitcoinRpc::OnRequestInternalDone(const std::string& endpoint_host,
                                 weak_ptr_factory_.GetWeakPtr(), endpoint_host));
 }
 
-void BitcoinRpc::MaybeStartQueuedRequest(const std::string& endpoint_host) {
-  auto& endpoint = endpoints_[endpoint_host];
+void BitcoinRpc::MaybeStartQueuedRequest(const GURL& endpoint_host) {
+  auto& endpoint = endpoints_[endpoint_host.host()];
 
   auto rpc_throttle = features::kBitcoinRpcThrottle.Get();
   if (ShouldThrottleEndpoint(endpoint_host) && rpc_throttle > 0 &&
@@ -501,7 +491,7 @@ void BitcoinRpc::MaybeStartQueuedRequest(const std::string& endpoint_host) {
       base::BindOnce(&BitcoinRpc::OnRequestInternalDone,
                      weak_ptr_factory_.GetWeakPtr(), endpoint_host,
                      std::move(request.callback)),
-      {}, {.auto_retry_on_network_change = true},
+      MakeBraveServicesKeyHeaders(), {.auto_retry_on_network_change = true},
       std::move(request.conversion_callback));
 }
 

@@ -78,7 +78,7 @@ program
   .option('--target_arch <target_arch>', 'target architecture', /^(host_cpu|x64|arm64|x86)$/i)
   .option('--target_environment <target_environment>', 'target environment (device, catalyst, simulator)', /^(device|catalyst|simulator)$/i)
   .arguments('[build_config]')
-  .action((buildConfig = config.defaultBuildConfig, options = {}) => {
+  .action(async (buildConfig = config.defaultBuildConfig, options = {}) => {
     config.buildConfig = buildConfig
     if (options.target_os == 'host_os')
       delete options.target_os
@@ -95,7 +95,7 @@ program
 
     fs.removeSync(current_link)
     fs.symlinkSync(config.outputDir, current_link, 'junction')
-    util.generateNinjaFiles()
+    await util.generateNinjaFiles()
   })
 
 program
@@ -162,6 +162,7 @@ program
   .option('--target <target>', 'Comma-separated list of targets to build, instead of the default browser target')
   .option('--build_sparkle', 'Build the Sparkle macOS update framework from source')
   .option('--no_gn_gen', 'Build without running gn gen')
+  .option('--prepare_only', 'Do not build targets, but prepare everything (build redirect_cc, update branding, etc.)')
   .arguments('[build_config]')
   .action(build)
 

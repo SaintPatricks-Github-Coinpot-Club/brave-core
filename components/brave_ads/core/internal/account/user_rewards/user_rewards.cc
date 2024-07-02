@@ -7,6 +7,7 @@
 
 #include <utility>
 
+#include "base/debug/dump_without_crashing.h"
 #include "base/functional/bind.h"
 #include "brave/components/brave_ads/core/internal/account/confirmations/confirmations_util.h"
 #include "brave/components/brave_ads/core/internal/account/issuers/issuers_info.h"
@@ -23,7 +24,7 @@
 
 namespace brave_ads {
 
-UserRewards::UserRewards(TokenGeneratorInterface* token_generator,
+UserRewards::UserRewards(TokenGeneratorInterface* const token_generator,
                          WalletInfo wallet)
     : refill_confirmation_tokens_(token_generator), wallet_(std::move(wallet)) {
   CHECK(wallet_.IsValid());
@@ -103,6 +104,12 @@ void UserRewards::OnDidRedeemPaymentTokens(
   transactions_database_table_.Reconcile(
       payment_tokens, base::BindOnce([](const bool success) {
         if (!success) {
+          // TODO(https://github.com/brave/brave-browser/issues/32066):
+          // Detect potential defects using `DumpWithoutCrashing`.
+          SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
+                                    "Failed to reconcile transactions");
+          base::debug::DumpWithoutCrashing();
+
           return BLOG(0, "Failed to reconcile transactions");
         }
 
@@ -134,7 +141,7 @@ void UserRewards::OnDidRetryRefillingConfirmationTokens() {
 
 void UserRewards::OnCaptchaRequiredToRefillConfirmationTokens(
     const std::string& captcha_id) {
-  ShowScheduledCaptchaNotification(wallet_.payment_id, captcha_id);
+  ShowScheduledCaptcha(wallet_.payment_id, captcha_id);
 }
 
 }  // namespace brave_ads

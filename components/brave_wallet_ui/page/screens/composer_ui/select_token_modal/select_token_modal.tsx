@@ -41,6 +41,9 @@ import { getAssetIdKey } from '../../../../utils/asset-utils'
 import {
   getEntitiesListFromEntityState //
 } from '../../../../utils/entities.utils'
+import {
+  getAccountsForNetwork //
+} from '../../../../utils/account-utils'
 
 // Queries
 import {
@@ -100,7 +103,7 @@ import {
   SearchInput
 } from './select_token_modal.style'
 
-const checkIsDropdownOptionDisabled = (
+const checkIsSwapDropdownOptionDisabled = (
   account: BraveWallet.AccountInfo,
   network: BraveWallet.NetworkInfo
 ) => {
@@ -111,6 +114,13 @@ const checkIsDropdownOptionDisabled = (
     return false
   }
   return account.accountId.coin !== network.coin
+}
+
+const checkIsBridgeNetworkDropdownOptionDisabled = (
+  networkChainId: string,
+  tokenChainId: string
+) => {
+  return networkChainId === tokenChainId
 }
 
 const getFullAssetBalance = (
@@ -179,7 +189,11 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
     } = props
 
     // State
-    const [searchValue, setSearchValue] = React.useState<string>('')
+    const [searchValue, setSearchValue] = React.useState<string>(
+      modalType === 'bridge' && selectingFromOrTo === 'to' && selectedFromToken
+        ? selectedFromToken.symbol
+        : ''
+    )
     const [selectedNetworkFilter, setSelectedNetworkFilter] =
       React.useState<BraveWallet.NetworkInfo>(
         selectedNetwork || AllNetworksOption
@@ -207,7 +221,7 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
     const { data: swapNetworks = [] } = useGetSwapSupportedNetworksQuery(
       undefined,
       {
-        skip: modalType !== 'swap'
+        skip: modalType === 'send'
       }
     )
 
@@ -238,7 +252,44 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
         })
       })
 
-    const networks = modalType === 'swap' ? swapNetworks : visibleNetworks
+    const bridgeAndSwapNetworks = React.useMemo(() => {
+      if (
+        modalType === 'bridge' &&
+        selectingFromOrTo === 'to' &&
+        selectedFromToken
+      ) {
+        return swapNetworks.filter(
+          (network) =>
+            !checkIsBridgeNetworkDropdownOptionDisabled(
+              network.chainId,
+              selectedFromToken.chainId
+            )
+        )
+      }
+      if (
+        modalType === 'bridge' &&
+        selectingFromOrTo === 'from' &&
+        selectedToToken
+      ) {
+        return swapNetworks.filter(
+          (network) =>
+            !checkIsBridgeNetworkDropdownOptionDisabled(
+              network.chainId,
+              selectedToToken.chainId
+            )
+        )
+      }
+      return swapNetworks
+    }, [
+      modalType,
+      selectingFromOrTo,
+      selectedFromToken,
+      selectedToToken,
+      swapNetworks
+    ])
+
+    const networks =
+      modalType === 'send' ? visibleNetworks : bridgeAndSwapNetworks
 
     const { data: tokenBalancesRegistry, isLoading: isLoadingBalances } =
       useBalancesFetcher({
@@ -263,9 +314,9 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
     )
 
     const tokensBySelectedComposerOption = React.useMemo(() => {
-      if (modalType === 'swap') {
+      if (modalType === 'swap' || modalType === 'bridge') {
         return fullVisibleFungibleTokensList.filter((token) =>
-          swapNetworks.some(({ chainId }) => chainId === token.chainId)
+          bridgeAndSwapNetworks.some(({ chainId }) => chainId === token.chainId)
         )
       }
 
@@ -281,7 +332,7 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
     }, [
       modalType,
       fullVisibleFungibleTokensList,
-      swapNetworks,
+      bridgeAndSwapNetworks,
       userVisibleNfts,
       userVisibleFungibleTokens,
       selectedSendOption,
@@ -426,11 +477,8 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
       if (!pendingSelectedAsset) {
         return []
       }
-      return accounts
-        .filter(
-          (account) => account.accountId.coin === pendingSelectedAsset.coin
-        )
-        .sort(function (a, b) {
+      return getAccountsForNetwork(pendingSelectedAsset, accounts).sort(
+        function (a, b) {
           return new Amount(
             getBalance(b.accountId, pendingSelectedAsset, tokenBalancesRegistry)
           )
@@ -442,7 +490,8 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
               )
             )
             .toNumber()
-        })
+        }
+      )
     }, [accounts, pendingSelectedAsset, tokenBalancesRegistry])
 
     // Methods
@@ -451,7 +500,7 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
         // No need to select an account when selecting
         // a token to receive right now.
         // This will change with bridge.
-        if (selectingFromOrTo === 'to') {
+        if (selectingFromOrTo === 'to' && modalType === 'swap') {
           onSelectAsset(token)
           onClose()
           return
@@ -459,7 +508,7 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
 
         setPendingSelectedAsset(token)
       },
-      [onSelectAsset, onClose, selectingFromOrTo]
+      [onSelectAsset, onClose, selectingFromOrTo, modalType]
     )
 
     const handleSelectAccount = React.useCallback(
@@ -472,16 +521,92 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
       [onSelectAsset, onClose, pendingSelectedAsset]
     )
 
+    const checkIsNetworkOptionDisabled = React.useCallback(
+      (network: BraveWallet.NetworkInfo) => {
+        if (modalType === 'swap') {
+          return checkIsSwapDropdownOptionDisabled(
+            selectedAccountFilter,
+            network
+          )
+        }
+        if (
+          modalType === 'bridge' &&
+          selectingFromOrTo === 'to' &&
+          selectedFromToken
+        ) {
+          return checkIsBridgeNetworkDropdownOptionDisabled(
+            selectedFromToken.chainId,
+            network.chainId
+          )
+        }
+        if (
+          modalType === 'bridge' &&
+          selectingFromOrTo === 'from' &&
+          selectedToToken
+        ) {
+          return checkIsBridgeNetworkDropdownOptionDisabled(
+            selectedToToken.chainId,
+            network.chainId
+          )
+        }
+        return false
+      },
+      [
+        modalType,
+        selectingFromOrTo,
+        selectedAccountFilter,
+        selectedFromToken,
+        selectedToToken
+      ]
+    )
+
+    const checkIsAccountOptionDisabled = React.useCallback(
+      (account: BraveWallet.AccountInfo) => {
+        if (modalType === 'swap') {
+          return checkIsSwapDropdownOptionDisabled(
+            account,
+            selectedNetworkFilter
+          )
+        }
+        if (
+          modalType === 'bridge' &&
+          selectingFromOrTo === 'to' &&
+          selectedFromToken
+        ) {
+          return (
+            account.accountId.coin === BraveWallet.CoinType.SOL &&
+            selectedFromToken.coin === BraveWallet.CoinType.SOL
+          )
+        }
+        if (
+          modalType === 'bridge' &&
+          selectingFromOrTo === 'from' &&
+          selectedToToken
+        ) {
+          return (
+            account.accountId.coin === BraveWallet.CoinType.SOL &&
+            selectedToToken.coin === BraveWallet.CoinType.SOL
+          )
+        }
+        return false
+      },
+      [
+        modalType,
+        selectingFromOrTo,
+        selectedFromToken,
+        selectedToToken,
+        selectedNetworkFilter
+      ]
+    )
+
     const onSelectNetworkFilter = React.useCallback(
-      (chainId: string) => {
-        const network =
-          networks.find((n) => n.chainId === chainId) ?? AllNetworksOption
-        if (checkIsDropdownOptionDisabled(selectedAccountFilter, network)) {
+      (network: BraveWallet.NetworkInfo) => {
+        if (checkIsNetworkOptionDisabled(network)) {
           return
         }
         setSelectedNetworkFilter(network)
       },
-      [networks, selectedAccountFilter]
+      [checkIsNetworkOptionDisabled]
     )
 
     const onSelectAccountFilter = React.useCallback(
@@ -489,12 +614,12 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
         const account =
           accounts.find((a) => a.accountId.uniqueKey === uniqueKey) ??
           AllAccountsOption
-        if (checkIsDropdownOptionDisabled(account, selectedNetworkFilter)) {
+        if (checkIsAccountOptionDisabled(account)) {
           return
         }
         setSelectedAccountFilter(account)
       },
-      [accounts, selectedNetworkFilter]
+      [accounts, checkIsAccountOptionDisabled]
     )
 
     // Computed & Memos
@@ -502,7 +627,7 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
       !isLoadingBalances && tokensBySearchValue.length === 0
 
     const tokenList = React.useMemo(() => {
-      if (isLoadingBalances) {
+      if (isLoadingBalances || isLoadingSpotPrices) {
         return (
           <TokenListItemSkeleton
             isNFT={selectedSendOption === SendPageTabHashes.nft}
@@ -611,6 +736,8 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
           title={getLocale(
             modalType === 'swap'
               ? 'braveWalletChooseAssetToSwap'
+              : modalType === 'bridge'
+              ? 'braveWalletChooseAssetToBridge'
               : 'braveWalletChooseAssetToSend'
           )}
           width='560px'
@@ -647,26 +774,19 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
                 <Icon name='search' />
               </div>
             </SearchInput>
-            {selectingFromOrTo === 'from' && (
+            {!(selectingFromOrTo === 'to' && modalType === 'swap') && (
               <Row
                 padding='16px 0px 0px 0px'
                 gap='8px'
               >
                 <AccountsDropdown
                   accounts={
-                    modalType === 'swap' ? swapSupportedAccounts : accounts
+                    modalType === 'send' ? accounts : swapSupportedAccounts
                   }
                   selectedAccount={selectedAccountFilter}
                   showAllAccountsOption={true}
                   onSelectAccount={onSelectAccountFilter}
-                  checkIsAccountOptionDisabled={(
-                    account: BraveWallet.AccountInfo
-                  ) =>
-                    checkIsDropdownOptionDisabled(
-                      account,
-                      selectedNetworkFilter
-                    )
-                  }
+                  checkIsAccountOptionDisabled={checkIsAccountOptionDisabled}
                 />
                 <NetworksDropdown
                   networks={
@@ -675,14 +795,7 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
                   selectedNetwork={selectedNetworkFilter}
                   showAllNetworksOption={true}
                   onSelectNetwork={onSelectNetworkFilter}
-                  checkIsNetworkOptionDisabled={(
-                    network: BraveWallet.NetworkInfo
-                  ) =>
-                    checkIsDropdownOptionDisabled(
-                      selectedAccountFilter,
-                      network
-                    )
-                  }
+                  checkIsNetworkOptionDisabled={checkIsNetworkOptionDisabled}
                 />
               </Row>
             )}
@@ -694,27 +807,35 @@ export const SelectTokenModal = React.forwardRef<HTMLDivElement, Props>(
             {tokenList}
           </ScrollContainer>
         </PopupModal>
-        {isPanel && pendingSelectedAsset && (
-          <BottomSheet onClose={() => setPendingSelectedAsset(undefined)}>
-            <SelectAccount
-              token={pendingSelectedAsset}
-              accounts={accountsForPendingSelectedAsset}
-              tokenBalancesRegistry={tokenBalancesRegistry}
-              spotPrice={
-                spotPriceRegistry
-                  ? getTokenPriceFromRegistry(
-                      spotPriceRegistry,
-                      pendingSelectedAsset
-                    )
-                  : undefined
-              }
-              onSelectAccount={handleSelectAccount}
-            />
+        {isPanel && (
+          <BottomSheet
+            onClose={() => setPendingSelectedAsset(undefined)}
+            isOpen={pendingSelectedAsset !== undefined}
+          >
+            {pendingSelectedAsset && (
+              <SelectAccount
+                token={pendingSelectedAsset}
+                accounts={accountsForPendingSelectedAsset}
+                tokenBalancesRegistry={tokenBalancesRegistry}
+                spotPrice={
+                  spotPriceRegistry
+                    ? getTokenPriceFromRegistry(
+                        spotPriceRegistry,
+                        pendingSelectedAsset
+                      )
+                    : undefined
+                }
+                onSelectAccount={handleSelectAccount}
+              />
+            )}
           </BottomSheet>
         )}
-        {isPanel && tokenDetails && (
-          <BottomSheet onClose={() => setTokenDetails(undefined)}>
-            <TokenDetails token={tokenDetails} />
+        {isPanel && (
+          <BottomSheet
+            onClose={() => setTokenDetails(undefined)}
+            isOpen={tokenDetails !== undefined}
+          >
+            {tokenDetails && <TokenDetails token={tokenDetails} />}
           </BottomSheet>
         )}
       </>

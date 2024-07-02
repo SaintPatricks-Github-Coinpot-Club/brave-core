@@ -19,9 +19,9 @@ namespace brave_ads {
 
 void MockDeviceId();
 
-void MockBuildChannel(BuildChannelType type);
-
 void MockPlatformHelper(const PlatformHelperMock& mock, PlatformType type);
+
+void MockBuildChannel(BuildChannelType type);
 
 void MockIsNetworkConnectionAvailable(const AdsClientMock& mock,
                                       bool is_available);

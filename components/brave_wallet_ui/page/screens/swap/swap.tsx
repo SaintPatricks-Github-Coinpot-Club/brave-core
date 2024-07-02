@@ -10,7 +10,7 @@ import { useSafeUISelector } from '../../../common/hooks/use-safe-selector'
 import { UISelectors } from '../../../common/selectors'
 
 // Types
-import { BraveWallet, WalletRoutes } from '../../../constants/types'
+import { WalletRoutes } from '../../../constants/types'
 
 // Hooks
 import { useSwap } from './hooks/useSwap'
@@ -33,7 +33,11 @@ import WalletPageWrapper from '../../../components/desktop/wallet-page-wrapper/w
 import { PanelActionHeader } from '../../../components/desktop/card-headers/panel-action-header'
 
 // Styled Components
-import { LeoSquaredButton } from '../../../components/shared/style'
+import {
+  Column,
+  LeoSquaredButton,
+  VerticalSpace
+} from '../../../components/shared/style'
 import { ReviewButtonRow } from '../composer_ui/shared_composer.style'
 
 export const Swap = () => {
@@ -63,13 +67,16 @@ export const Swap = () => {
     setSelectedGasFeeOption,
     setSlippageTolerance,
     onSubmit,
+    onChangeRecipient,
     submitButtonText,
     isSubmitButtonDisabled,
     swapValidationError,
-    spotPrices,
     tokenBalancesRegistry,
     isLoadingBalances,
-    swapFees
+    swapFees,
+    isBridge,
+    toAccount,
+    timeUntilNextQuote
   } = swap
 
   // State
@@ -120,8 +127,12 @@ export const Swap = () => {
         cardHeader={
           isPanel ? (
             <PanelActionHeader
-              title={getLocale('braveWalletSwap')}
-              expandRoute={WalletRoutes.Swap}
+              title={
+                isBridge
+                  ? getLocale('braveWalletBridge')
+                  : getLocale('braveWalletSwap')
+              }
+              expandRoute={isBridge ? WalletRoutes.Bridge : WalletRoutes.Swap}
             />
           ) : undefined
         }
@@ -150,65 +161,69 @@ export const Swap = () => {
           inputValue={toAmount}
           onClickSelectToken={() => setSelectingFromOrTo('to')}
           token={toToken}
-          inputDisabled={
-            (fromNetwork?.coin === BraveWallet.CoinType.SOL &&
-              toNetwork?.coin === BraveWallet.CoinType.SOL) ||
-            !fromToken
-          }
+          inputDisabled={false}
           hasInputError={swapValidationError === 'toAmountDecimalsOverflow'}
           network={toNetwork}
           selectedSendOption='#token'
           isFetchingQuote={isFetchingQuote}
           buttonDisabled={!fromToken}
+          timeUntilNextQuote={timeUntilNextQuote}
         >
-          {/* TODO: QuoteOptions is currently unused
-          selectedNetwork?.coin === BraveWallet.CoinType.SOL &&
-            quoteOptions.length > 0 && (
-              <QuoteOptions
-                options={quoteOptions}
-                selectedQuoteOptionIndex={selectedQuoteOptionIndex}
-                onSelectQuoteOption={onSelectQuoteOption}
-                spotPrices={spotPrices}
-              />
-          ) */}
-          {quoteOptions.length > 0 && (
-            <>
-              <QuoteInfo
-                selectedQuoteOption={quoteOptions[selectedQuoteOptionIndex]}
-                fromToken={fromToken}
-                toToken={toToken}
-                toAmount={toAmount}
-                spotPrices={spotPrices}
-                swapFees={swapFees}
-              />
-
-              {/* TODO: Swap and Send  is currently unavailable
-              <SwapAndSend
-                onChangeSwapAndSendSelected={setSwapAndSendSelected}
-                handleOnSetToAnotherAddress={handleOnSetToAnotherAddress}
-                onCheckUserConfirmedAddress={onCheckUserConfirmedAddress}
-                onSelectSwapAndSendOption={onSetSelectedSwapAndSendOption}
-                onSelectSwapSendAccount={setSelectedSwapSendAccount}
-                swapAndSendSelected={swapAndSendSelected}
-                selectedSwapAndSendOption={selectedSwapAndSendOption}
-                selectedSwapSendAccount={selectedSwapSendAccount}
-                toAnotherAddress={toAnotherAddress}
-                userConfirmedAddress={userConfirmedAddress}
-            */}
-            </>
-          )}
-          <ReviewButtonRow
-            width='100%'
-            padding='16px 16px 0px 16px'
+          <Column
+            fullWidth={true}
+            fullHeight={true}
+            justifyContent='space-between'
           >
-            <LeoSquaredButton
-              onClick={onSubmit}
-              size='large'
-              isDisabled={isSubmitButtonDisabled}
-            >
-              {submitButtonText}
-            </LeoSquaredButton>
-          </ReviewButtonRow>
+            {/* TODO: QuoteOptions is currently unused
+            {selectedNetwork?.coin === BraveWallet.CoinType.SOL &&
+              quoteOptions.length > 0 && (
+                <QuoteOptions
+                  options={quoteOptions}
+                  selectedQuoteOptionIndex={selectedQuoteOptionIndex}
+                  onSelectQuoteOption={onSelectQuoteOption}
+                  spotPrices={spotPrices}
+                />
+              )} */}
+            {quoteOptions.length > 0 ? (
+              <>
+                <QuoteInfo
+                  selectedQuoteOption={quoteOptions[selectedQuoteOptionIndex]}
+                  fromToken={fromToken}
+                  toToken={toToken}
+                  swapFees={swapFees}
+                  isBridge={isBridge}
+                  toAccount={toAccount}
+                  onChangeRecipient={onChangeRecipient}
+                />
+                <VerticalSpace space='12px' />
+                {/* TODO: Swap and Send is currently unavailable
+                <SwapAndSend
+                  onChangeSwapAndSendSelected={setSwapAndSendSelected}
+                  handleOnSetToAnotherAddress={handleOnSetToAnotherAddress}
+                  onCheckUserConfirmedAddress={onCheckUserConfirmedAddress}
+                  onSelectSwapAndSendOption={onSetSelectedSwapAndSendOption}
+                  onSelectSwapSendAccount={setSelectedSwapSendAccount}
+                  swapAndSendSelected={swapAndSendSelected}
+                  selectedSwapAndSendOption={selectedSwapAndSendOption}
+                  selectedSwapSendAccount={selectedSwapSendAccount}
+                  toAnotherAddress={toAnotherAddress}
+                  userConfirmedAddress={userConfirmedAddress}
+                /> */}
+              </>
+            ) : (
+              <VerticalSpace space='2px' />
+            )}
+            <ReviewButtonRow width='100%'>
+              <LeoSquaredButton
+                onClick={onSubmit}
+                size='large'
+                isDisabled={isSubmitButtonDisabled}
+                isLoading={isFetchingQuote}
+              >
+                {submitButtonText}
+              </LeoSquaredButton>
+            </ReviewButtonRow>
+          </Column>
         </ToAsset>
         {showSwapSettings && (
           <AdvancedSettingsModal
@@ -233,8 +248,10 @@ export const Swap = () => {
           selectingFromOrTo={selectingFromOrTo}
           selectedFromToken={fromToken}
           selectedToToken={toToken}
-          selectedNetwork={selectingFromOrTo === 'to' ? fromNetwork : undefined}
-          modalType='swap'
+          selectedNetwork={
+            !isBridge && selectingFromOrTo === 'to' ? fromNetwork : undefined
+          }
+          modalType={isBridge ? 'bridge' : 'swap'}
           selectedSendOption='#token'
         />
       )}

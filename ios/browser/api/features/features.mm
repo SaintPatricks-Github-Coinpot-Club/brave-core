@@ -25,6 +25,7 @@
 #include "brave/components/p3a/features.h"
 #include "brave/components/playlist/common/features.h"
 #include "brave/components/skus/common/features.h"
+#include "brave/ios/browser/playlist/features.h"
 #import "build/blink_buildflags.h"
 #include "build/build_config.h"
 
@@ -195,6 +196,11 @@
       initWithFeature:&brave_search::features::kBraveSearchDefaultAPIFeature];
 }
 
++ (Feature*)kBraveShredFeature {
+  return [[Feature alloc]
+      initWithFeature:&brave_shields::features::kBraveShredFeature];
+}
+
 + (Feature*)kBraveShowStrictFingerprintingMode {
   return
       [[Feature alloc] initWithFeature:&brave_shields::features::
@@ -293,14 +299,13 @@
       initWithFeature:&brave_component_updater::kUseDevUpdaterUrl];
 }
 
-+ (Feature*)kVBatNoticeFeature {
-  return [[Feature alloc]
-      initWithFeature:&brave_rewards::features::kVBatNoticeFeature];
-}
-
 + (Feature*)kVerboseLoggingFeature {
   return [[Feature alloc]
       initWithFeature:&brave_rewards::features::kVerboseLoggingFeature];
+}
+
++ (Feature*)kNewPlaylistUI {
+  return [[Feature alloc] initWithFeature:&playlist::features::kNewPlaylistUI];
 }
 
 @end

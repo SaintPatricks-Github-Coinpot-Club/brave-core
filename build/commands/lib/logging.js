@@ -27,6 +27,9 @@ const cmdDirStyle = chalk.blue
 const cmdCmdStyle = chalk.green
 const cmdArrowStyle = chalk.magenta
 
+// Track Teamcity progress scopes and finish them on unexpected exit.
+const progressScopes = []
+
 if (tsm) {
   tsm.autoFlowId = false
   // Ensure that the output is not buffered when using Teamcity Service
@@ -39,11 +42,18 @@ if (tsm) {
   // "drain" event.
   process.stdout._handle.setBlocking(true)
   process.stderr._handle.setBlocking(true)
+
+  process.on('exit', () => {
+    while (progressScopes.length) {
+      tsm.blockClosed({ name: progressScopes.pop() })
+    }
+  })
 }
 
 function progressStart(message) {
   if (tsm) {
     tsm.blockOpened({ name: message })
+    progressScopes.push(message)
   } else {
     console.log(progressStyle(`${message}...`))
   }
@@ -51,6 +61,7 @@ function progressStart(message) {
 
 function progressFinish(message) {
   if (tsm) {
+    progressScopes.pop()
     tsm.blockClosed({ name: message })
   } else {
     console.log(progressStyle(`...${message} done`))
@@ -66,16 +77,37 @@ function progressScope(message, callable) {
   }
 }
 
-function status(message) {
-  console.log(statusStyle(message))
+async function progressScopeAsync(message, callable) {
+  progressStart(message)
+  try {
+    await callable()
+  } finally {
+    progressFinish(message)
+  }
+}
+
+function status(message, alreadyStyled = false) {
+  if (tsm) {
+    tsm.progressMessage(message)
+  } else {
+    console.log(alreadyStyled ? message : statusStyle(message))
+  }
 }
 
 function error(message) {
-  console.error(errorStyle(message))
+  if (tsm) {
+    tsm.message({text: message, status: 'ERROR'})
+  } else {
+    console.error(errorStyle(message))
+  }
 }
 
 function warn(message) {
-  console.error(warningStyle(message))
+  if (tsm) {
+    tsm.message({text: message, status: 'WARNING'})
+  } else {
+    console.error(warningStyle(message))
+  }
 }
 
 function updateStatus (projectUpdateStatus) {
@@ -89,7 +121,7 @@ function command (dir, cmd, args) {
   console.log(divider)
   if (dir)
     console.log(cmdDirStyle(dir))
-  console.log(`${cmdArrowStyle('>')} ${cmdCmdStyle(cmd)} ${args.join(' ')}`)
+  status(`${cmdArrowStyle('>')} ${cmdCmdStyle(cmd)} ${args.join(' ')}`, true)
 }
 
 function allPatchStatus(allPatchStatus, patchGroupName) {
@@ -144,6 +176,7 @@ module.exports = {
   progressStart,
   progressFinish,
   progressScope,
+  progressScopeAsync,
   status,
   error,
   warn,

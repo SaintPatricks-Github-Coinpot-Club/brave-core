@@ -28,13 +28,15 @@ DatabaseManager& DatabaseManager::GetInstance() {
   return GlobalState::GetInstance()->GetDatabaseManager();
 }
 
-void DatabaseManager::AddObserver(DatabaseManagerObserver* observer) {
+void DatabaseManager::AddObserver(DatabaseManagerObserver* const observer) {
   CHECK(observer);
+
   observers_.AddObserver(observer);
 }
 
-void DatabaseManager::RemoveObserver(DatabaseManagerObserver* observer) {
+void DatabaseManager::RemoveObserver(DatabaseManagerObserver* const observer) {
   CHECK(observer);
+
   observers_.RemoveObserver(observer);
 }
 
@@ -71,13 +73,15 @@ void DatabaseManager::CreateOrOpenCallback(
     base::debug::DumpWithoutCrashing();
 
     BLOG(0, "Failed to create or open database");
+
     NotifyFailedToCreateOrOpenDatabase();
+
     return std::move(callback).Run(/*success=*/false);
   }
 
   CHECK(command_response->result);
-  CHECK(command_response->result->get_value()->which() ==
-        mojom::DBValue::Tag::kIntValue);
+  CHECK_EQ(command_response->result->get_value()->which(),
+           mojom::DBValue::Tag::kIntValue);
   const int from_version =
       command_response->result->get_value()->get_int_value();
 
@@ -113,7 +117,8 @@ void DatabaseManager::CreateCallback(ResultCallback callback,
     SCOPED_CRASH_KEY_NUMBER("Issue32066", "sqlite_schema_version", to_version);
     base::debug::DumpWithoutCrashing();
 
-    BLOG(1, "Failed to create database for schema version " << to_version);
+    BLOG(0, "Failed to create database for schema version " << to_version);
+
     NotifyFailedToCreateOrOpenDatabase();
 
     return std::move(callback).Run(/*success=*/false);
@@ -150,7 +155,9 @@ void DatabaseManager::MaybeMigrate(const int from_version,
 
     BLOG(0, "Failed to migrate database from schema version "
                 << from_version << " to schema version " << to_version);
+
     NotifyFailedToMigrateDatabase(from_version, to_version);
+
     return std::move(callback).Run(/*success=*/false);
   }
 
@@ -181,9 +188,11 @@ void DatabaseManager::MigrateFromVersionCallback(const int from_version,
                               "Database migration failed");
     base::debug::DumpWithoutCrashing();
 
-    BLOG(1, "Failed to migrate database from schema version "
+    BLOG(0, "Failed to migrate database from schema version "
                 << from_version << " to schema version " << to_version);
+
     NotifyFailedToMigrateDatabase(from_version, to_version);
+
     return std::move(callback).Run(/*success=*/false);
   }
 

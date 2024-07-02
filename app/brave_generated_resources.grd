@@ -593,13 +593,13 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
           Don't Google it. Can't Bing it. Just Brave it.
         </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_B_DESC" desc="The text for the banner type description">
-          Brave doesn't track you, your queries, or your clicks. And it's 100% independent.
+          Brave Search doesn't profile you. And it's 100% independent.
         </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_C_TITLE" desc="The text for the banner type title">
           Search and you will find. Privately.
         </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_C_DESC" desc="The text for the banner type description">
-          Brave doesn't track you, your queries, or your clicks. And it's 100% independent of Big Tech.
+          Brave Search doesn't profile you. And it's 100% independent of Big Tech.
         </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_D_TITLE" desc="The text for the banner type title">
           AI-infused search with a unique index.
@@ -607,11 +607,35 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
         <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_D_DESC" desc="The text for the banner type description">
           Fully private, 100% independent, and with great AI features.
         </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_A_DDG_DESC" desc="The text for the banner type description">
+          DDG is just Bing in disguise. Time for real privacy, better results, and an independent index. Time for Brave Search.
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_B_DDG_TITLE" desc="The text for the banner type title">
+          Ditch the duck
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_B_DDG_DESC" desc="The text for the banner type description">
+          Brave Search doesn’t track you, your queries, or your clicks. And (unlike DDG) it’s not just Bing in disguise.
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_C_DDG_TITLE" desc="The text for the banner type title">
+          Get better results
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_C_DDG_DESC" desc="The text for the banner type description">
+          Brave Search is independently verified to have better results than Bing (or Bing clones like DuckDuckGo).
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_D_DDG_TITLE" desc="The text for the banner type title">
+          Improve search results
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_PROMOTION_BANNER_TYPE_D_DDG_DESC" desc="The text for the banner type description">
+          Brave Search has better results than DuckDuckGo for most queries. And it’s truly private.
+        </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_TRY_BUTTON_LABEL" desc="The text for the try button in the promotion match">
           Try Brave Search
         </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_CLOSE_BUTTON_TOOLTIP" desc="The tooltip text for the dismiss button in a promotion match">
           Dismiss
+        </message>
+        <message name="IDS_BRAVE_SEARCH_CONVERSION_SET_AS_DEFAULT_BUTTON_LABEL" desc="The text for the set as default button in a promotion match">
+          Set Brave as default
         </message>
         <message name="IDS_BRAVE_SEARCH_CONVERSION_MAYBE_LATER_BUTTON_TOOLTIP" desc="The tooltip text for the maybe later button in a promotion match">
           Maybe later
@@ -666,6 +690,11 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
         </message>
         <message name="IDS_SHARED_PINNED_TABS_DUMMY_TAB_VIEW_DESCRIPTION" desc="The description explaning how to bring the tab to this window when dummy tab is visible"> 
           Clicking this tab will bring its contents to this window
+        </message>
+
+        <!-- Split View -->
+        <message name="IDS_SPLIT_VIEW_A11Y_SEPARATOR_MENU_BUTTON" desc="The a11y text for the separator menu button in split view">
+          Split view menu button
         </message>
       </if>
 
@@ -756,6 +785,18 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
         <message name="IDS_SIDEBAR_ADD_ITEM_BUBBLE_TITLE" desc="Title of sidebar add item bubble">
           Add to Sidebar
         </message>
+        <message name="IDS_APP_MENU_SIDEBAR_TITLE" desc="Tile of a group of buttons to set visibility of sidebar">
+          Sidebar
+        </message>
+        <message name="IDS_APP_MENU_SIDEBAR_ON" desc="Label for a button to always show sidebar">
+          On
+        </message>
+        <message name="IDS_APP_MENU_SIDEBAR_OFF" desc="Label for a button to hide sidebar">
+          Off
+        </message>
+        <message name="IDS_APP_MENU_SIDEBAR_HOVER" desc="Label for a button to show sidebar on hover">
+          Autohide
+        </message>
         <message name="IDS_SIDEBAR_SHOW_OPTION_TITLE" desc="Title of sidebar show option menu">
           Show Sidebar
         </message>
@@ -804,11 +845,8 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
         <message name="IDS_SIDEBAR_ADD_ITEM_BUTTON_TOOLTIP" desc="Text of sidebar add item button tooltip">
           Add to Sidebar
         </message>
-        <message name="IDS_SIDEBAR_BOOKMARKS_PANEL_HEADER_TITLE" desc="Text of bookmarks panel header">
-          bookmarks
-        </message>
         <message name="IDS_SIDEBAR_READING_LIST_PANEL_HEADER_TITLE" desc="Text of readling list panel header">
-          reading list
+          Reading List
         </message>
         <message name="IDS_SIDEBAR_PANEL_CLOSE_BUTTON_TOOLTIP" desc="Text of side panel's close button">
           Close
@@ -1203,13 +1241,13 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
           <message name="IDS_PLAYLIST_MEDIA_FOUND_IN_THIS_PAGE" desc="A sub title in a bubble to add media files to playlist">
             Media found in this page
           </message>
-          <message name="IDS_PLAYLIST_ADDED_TO_PLAYLIST_FOLDER" desc="A label on a bubble that shows up when items were added from the current page">
-            Added to <ph name="PLAYLIST_FOLDER_NAME">$1<ex>Play Later</ex></ph>
-          </message>
           <message name="IDS_PLAYLIST_MEDIA_NOT_FOUND_IN_THIS_PAGE" desc="An error message that shows up when we fail to extract media from a page">
             Sorry, we couldn't find any media on this page.
           </message>
         <if expr="use_titlecase">
+          <message name="IDS_PLAYLIST_ADDED_TO_PLAYLIST" desc="A title label on a bubble to show media file is added to Playlist">
+            Added to Playlist
+          </message>
           <message name="IDS_PLAYLIST_OPEN_IN_PLAYLIST" desc="A menu name to open added media files on Playlist">
             Open in Playlist
           </message>
@@ -1227,6 +1265,9 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
           </message>
         </if>
         <if expr="not use_titlecase">
+          <message name="IDS_PLAYLIST_ADDED_TO_PLAYLIST" desc="A title label on a bubble to show media file is added to Playlist">
+            Added to playlist
+          </message>
           <message name="IDS_PLAYLIST_OPEN_IN_PLAYLIST" desc="A menu name to open added media files on Playlist">
             Open in playlist
           </message>
@@ -1234,7 +1275,7 @@ Or change later at <ph name="SETTINGS_EXTENIONS_LINK">$2<ex>brave://settings/ext
             Change folder
           </message>
           <message name="IDS_PLAYLIST_REMOVE_FROM_PLAYLIST" desc="A menu name to remove items">
-            Remove from Playlist
+            Remove from playlist
           </message>
           <message name="IDS_PLAYLIST_MORE_MEDIA_IN_THIS_PAGE" desc="A menu name to see found media files">
             More media on this page...

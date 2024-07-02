@@ -32,18 +32,18 @@ TEST_F(BraveAdsSegmentUtilTest, GetSegmentsFromCatalog) {
       json::reader::ReadCatalog(*contents);
   ASSERT_TRUE(catalog);
 
-  // Act & Assert
+  // Act
+  const SegmentList segments = GetSegments(*catalog);
+
+  // Assert
   const SegmentList expected_segments = {"technology & computing",
                                          "untargeted"};
-  EXPECT_EQ(expected_segments, GetSegments(*catalog));
+  EXPECT_EQ(expected_segments, segments);
 }
 
 TEST_F(BraveAdsSegmentUtilTest, GetSegmentsFromEmptyCatalog) {
-  // Act
-  const SegmentList segments = GetSegments(/*catalog=*/{});
-
-  // Assert
-  EXPECT_TRUE(segments.empty());
+  // Act & Assert
+  EXPECT_THAT(GetSegments(/*catalog=*/{}), ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsSegmentUtilTest, GetParentSegmentFromParentChildSegment) {
@@ -64,18 +64,18 @@ TEST_F(BraveAdsSegmentUtilTest, GetParentSegments) {
                                 "personal finance-personal finance",
                                 "automotive"};
 
-  // Act & Assert
+  // Act
+  const SegmentList parent_segments = GetParentSegments(segments);
+
+  // Assert
   const SegmentList expected_parent_segments = {
       "technology & computing", "personal finance", "automotive"};
-  EXPECT_EQ(expected_parent_segments, GetParentSegments(segments));
+  EXPECT_EQ(expected_parent_segments, parent_segments);
 }
 
 TEST_F(BraveAdsSegmentUtilTest, GetParentSegmentsForEmptyList) {
-  // Act
-  const SegmentList parent_segments = GetParentSegments(/*segments=*/{});
-
-  // Assert
-  EXPECT_TRUE(parent_segments.empty());
+  // Act & Assert
+  EXPECT_THAT(GetParentSegments(/*segments=*/{}), ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsSegmentUtilTest, ShouldFilterMatchingParentChildSegment) {

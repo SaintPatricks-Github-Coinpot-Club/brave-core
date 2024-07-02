@@ -67,6 +67,17 @@ protocol URLChangeDelegate {
   func tab(_ tab: Tab, urlDidChangeTo url: URL)
 }
 
+struct RewardsTabChangeReportingState {
+  /// Set to true when the resulting page was restored from session state.
+  var wasRestored = false
+  /// Set to true when the resulting page navigation is not a reload or a
+  /// back/forward type.
+  var isNewNavigation = true
+  /// Set to true when the resulting page is showing an error interstitial or
+  /// the resulting response from the web page had a 4xx or 5xx status code.
+  var isErrorPage = false
+}
+
 enum TabSecureContentState: String {
   case unknown = "Unknown"
   case localhost = "Localhost"
@@ -242,13 +253,14 @@ class Tab: NSObject {
   var restoring: Bool = false
   var pendingScreenshot = false
 
-  /// The type of action triggering a navigation.
-  var navigationType: WKNavigationType?
+  // This variable is used to keep track of current page. It is used to detect
+  // and report same document navigations to Brave Rewards library.
+  var rewardsXHRLoadURL: URL?
 
   /// This object holds on to information regarding the current web page
   ///
   /// The page data is cleared when the user leaves the page (i.e. when the main frame url changes)
-  var currentPageData: PageData?
+  @MainActor var currentPageData: PageData?
 
   /// The url set after a successful navigation. This will also set the `url` property.
   ///
@@ -301,11 +313,13 @@ class Tab: NSObject {
   }
 
   var mimeType: String?
-  var isEditing: Bool = false
-  var shouldNotifyAdsServiceTabDidChange = true
-  var shouldNotifyAdsServiceTabContentDidChange = true
+  var isEditing = false
   var playlistItem: PlaylistInfo?
   var playlistItemState: PlaylistItemAddedState = .none
+
+  /// The rewards reporting state which is filled during a page navigation.
+  // It is reset to initial values when the page navigation is finished.
+  var rewardsReportingState = RewardsTabChangeReportingState()
 
   /// This is the request that was upgraded to HTTPS
   /// This allows us to rollback the upgrade when we encounter a 4xx+
@@ -568,7 +582,7 @@ class Tab: NSObject {
       lastTitle = sessionInfo.title
       webView.interactionState = sessionInfo.interactionState
       restoring = false
-      shouldNotifyAdsServiceTabContentDidChange = false
+      rewardsReportingState.wasRestored = true
       self.sessionData = nil
     } else if let request = lastRequest {
       webView.load(request)
@@ -776,11 +790,8 @@ class Tab: NSObject {
     if let webView = webView {
       lastRequest = request
       sslPinningError = nil
-      if let url = request.url {
-        if url.isFileURL, request.isPrivileged {
-          return webView.loadFileURL(url, allowingReadAccessTo: url)
-        }
 
+      if let url = request.url {
         // Donate Custom Intent Open Website
         if url.isSecureWebPage(), !isPrivate {
           ActivityShortcutManager.shared.donateCustomIntent(

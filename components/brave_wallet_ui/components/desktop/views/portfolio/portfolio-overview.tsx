@@ -5,17 +5,12 @@
 
 import * as React from 'react'
 import { skipToken } from '@reduxjs/toolkit/query/react'
-import { useDispatch } from 'react-redux'
-import { useHistory } from 'react-router'
+import { useHistory, useLocation } from 'react-router'
 import { Route, Switch, Redirect } from 'react-router-dom'
 
 // selectors
-import {
-  useUnsafePageSelector,
-  useSafeUISelector
-} from '../../../../common/hooks/use-safe-selector'
+import { useSafeUISelector } from '../../../../common/hooks/use-safe-selector'
 import { UISelectors } from '../../../../common/selectors'
-import { PageSelectors } from '../../../../page/selectors'
 
 // hooks
 import {
@@ -37,9 +32,6 @@ import {
   WalletStatus
 } from '../../../../constants/types'
 import { emptyRewardsInfo } from '../../../../common/async/base-query-cache'
-
-// actions
-import { WalletPageActions } from '../../../../page/actions'
 
 // Utils
 import Amount from '../../../../utils/amount'
@@ -86,6 +78,7 @@ import {
 import {
   PortfolioFiltersModal //
 } from '../../popup-modals/filter-modals/portfolio-filters-modal'
+import { NftCollection } from '../nfts/components/nft_collection'
 
 // Styled Components
 import {
@@ -115,12 +108,16 @@ import {
   querySubscriptionOptions60s //
 } from '../../../../common/slices/constants'
 import {
-  selectAllVisibleUserAssetsFromQueryResult //
+  selectAllVisibleFungibleUserAssetsFromQueryResult //
 } from '../../../../common/slices/entities/blockchain-token.entity'
 
 export const PortfolioOverview = () => {
   // routing
   const history = useHistory()
+  const location = useLocation()
+  const isCollectionView = location.pathname.includes(
+    WalletRoutes.PortfolioNFTCollection.replace(':collectionId', '')
+  )
 
   // local-storage
   const [filteredOutPortfolioNetworkKeys] = useLocalStorage(
@@ -153,8 +150,6 @@ export const PortfolioOverview = () => {
   )
 
   // redux
-  const dispatch = useDispatch()
-  const nftMetadata = useUnsafePageSelector(PageSelectors.nftMetadata)
   const isPanel = useSafeUISelector(UISelectors.isPanel)
 
   // queries
@@ -164,7 +159,8 @@ export const PortfolioOverview = () => {
     useGetUserTokensRegistryQuery(undefined, {
       selectFromResult: (result) => ({
         isLoadingUserTokens: result.isLoading,
-        userVisibleTokensInfo: selectAllVisibleUserAssetsFromQueryResult(result)
+        userVisibleTokensInfo:
+          selectAllVisibleFungibleUserAssetsFromQueryResult(result)
       })
     })
   const { data: defaultFiat } = useGetDefaultFiatCurrencyQuery()
@@ -261,21 +257,10 @@ export const PortfolioOverview = () => {
   const visibleTokensForFilteredChains = React.useMemo(() => {
     return userTokensWithRewards.filter((token) =>
       visiblePortfolioNetworkIds.includes(
-        networkEntityAdapter
-          .selectId({
-            chainId: token.chainId,
-            coin: token.coin
-          })
-          .toString()
+        networkEntityAdapter.selectId(token).toString()
       )
     )
   }, [userTokensWithRewards, visiblePortfolioNetworkIds])
-
-  const userVisibleNfts = React.useMemo(() => {
-    return visibleTokensForFilteredChains.filter(
-      (token) => token.isErc721 || token.isNft
-    )
-  }, [visibleTokensForFilteredChains])
 
   const { data: tokenBalancesRegistry } =
     // wait to see if we need rewards before fetching
@@ -339,22 +324,17 @@ export const PortfolioOverview = () => {
       // wait for balances before computing this list
       return []
     }
-    return visibleTokensForFilteredChains
-      .filter(
-        (asset) =>
-          asset.visible && !asset.isErc721 && !asset.isErc1155 && !asset.isNft
-      )
-      .map((asset) => {
-        return {
-          asset,
-          assetBalance:
-            getIsRewardsToken(asset) && rewardsBalance
-              ? new Amount(rewardsBalance)
-                  .multiplyByDecimals(asset.decimals)
-                  .format()
-              : fullAssetBalance(asset)
-        }
-      })
+    return visibleTokensForFilteredChains.map((asset) => {
+      return {
+        asset,
+        assetBalance:
+          getIsRewardsToken(asset) && rewardsBalance
+            ? new Amount(rewardsBalance)
+                .multiplyByDecimals(asset.decimals)
+                .format()
+            : fullAssetBalance(asset)
+      }
+    })
   }, [
     visibleTokensForFilteredChains,
     fullAssetBalance,
@@ -372,7 +352,7 @@ export const PortfolioOverview = () => {
 
   const { data: spotPriceRegistry, isLoading: isLoadingSpotPrices } =
     useGetTokenSpotPricesQuery(
-      tokenPriceIds.length && defaultFiat
+      !isCollectionView && tokenPriceIds.length && defaultFiat
         ? { ids: tokenPriceIds, toCurrency: defaultFiat }
         : skipToken,
       querySubscriptionOptions60s
@@ -382,7 +362,8 @@ export const PortfolioOverview = () => {
     data: portfolioPriceHistory,
     isFetching: isFetchingPortfolioPriceHistory
   } = useGetPricesHistoryQuery(
-    visibleTokensForFilteredChains.length &&
+    !isCollectionView &&
+      visibleTokensForFilteredChains.length &&
       tokenBalancesRegistry &&
       defaultFiat
       ? {
@@ -494,18 +475,9 @@ export const PortfolioOverview = () => {
   // methods
   const onSelectAsset = React.useCallback(
     (asset: BraveWallet.BlockchainToken) => {
-      if ((asset.isErc721 || asset.isNft) && nftMetadata) {
-        // reset nft metadata
-        dispatch(WalletPageActions.updateNFTMetadata(undefined))
-      }
-      history.push(
-        makePortfolioAssetRoute(
-          asset.isErc721 || asset.isNft || asset.isErc1155,
-          getAssetIdKey(asset)
-        )
-      )
+      history.push(makePortfolioAssetRoute(false, getAssetIdKey(asset)))
     },
-    [dispatch, history, nftMetadata]
+    [history]
   )
 
   const tokenLists = React.useMemo(() => {
@@ -573,87 +545,90 @@ export const PortfolioOverview = () => {
   // render
   return (
     <>
-      <BalanceAndLineChartWrapper
-        fullWidth={true}
-        justifyContent='flex-start'
-      >
-        {isPanel && <BackgroundWatermark />}
-        <BalanceAndButtonsWrapper
-          fullWidth={true}
-          alignItems='center'
-          padding='40px 32px'
-        >
-          <BalanceAndChangeWrapper>
-            {formattedFullPortfolioFiatBalance !== '' ? (
-              <BalanceText>
-                {hidePortfolioBalances
-                  ? '******'
-                  : formattedFullPortfolioFiatBalance}
-              </BalanceText>
-            ) : (
-              <Column padding='9px 0px'>
-                <LoadingSkeleton
-                  width={150}
-                  height={36}
-                />
-              </Column>
-            )}
-            <Row
+      {!isCollectionView && (
+        <>
+          <BalanceAndLineChartWrapper
+            fullWidth={true}
+            justifyContent='flex-start'
+          >
+            {isPanel && <BackgroundWatermark />}
+            <BalanceAndButtonsWrapper
+              fullWidth={true}
               alignItems='center'
-              justifyContent='center'
-              width='unset'
+              padding='40px 32px'
             >
-              {fiatValueChange !== '' ? (
-                <>
-                  <FiatChange isDown={isPortfolioDown}>
+              <BalanceAndChangeWrapper>
+                {formattedFullPortfolioFiatBalance !== '' ? (
+                  <BalanceText>
                     {hidePortfolioBalances
-                      ? '*****'
-                      : `${isPortfolioDown ? '' : '+'}${fiatValueChange}`}
-                  </FiatChange>
-                  <PercentBubble isDown={isPortfolioDown}>
-                    {hidePortfolioBalances
-                      ? '*****'
-                      : `${isPortfolioDown ? '' : '+'}${percentageChange}%`}
-                  </PercentBubble>
-                </>
-              ) : (
-                <>
-                  <LoadingSkeleton
-                    width={55}
-                    height={24}
-                  />
-                  <HorizontalSpace space='8px' />
-                  <LoadingSkeleton
-                    width={55}
-                    height={24}
-                  />
-                </>
-              )}
-            </Row>
-          </BalanceAndChangeWrapper>
-          <BuySendSwapDepositNav />
-        </BalanceAndButtonsWrapper>
-        <ColumnReveal hideContent={hidePortfolioGraph}>
-          <PortfolioOverviewChart
-            timeframe={selectedTimeframe}
-            onTimeframeChanged={setSelectedTimeframe}
-            hasZeroBalance={fullPortfolioFiatBalance.isZero()}
-            portfolioPriceHistory={portfolioPriceHistory}
-            isLoading={
-              isFetchingPortfolioPriceHistory || !portfolioPriceHistory
-            }
-          />
-        </ColumnReveal>
-      </BalanceAndLineChartWrapper>
-
-      <ControlsRow controlsHidden={hidePortfolioNFTsTab}>
-        {!hidePortfolioNFTsTab && (
-          <SegmentedControl
-            navOptions={PortfolioNavOptions}
-            width={384}
-          />
-        )}
-      </ControlsRow>
+                      ? '******'
+                      : formattedFullPortfolioFiatBalance}
+                  </BalanceText>
+                ) : (
+                  <Column padding='9px 0px'>
+                    <LoadingSkeleton
+                      width={150}
+                      height={36}
+                    />
+                  </Column>
+                )}
+                <Row
+                  alignItems='center'
+                  justifyContent='center'
+                  width='unset'
+                >
+                  {fiatValueChange !== '' ? (
+                    <>
+                      <FiatChange isDown={isPortfolioDown}>
+                        {hidePortfolioBalances
+                          ? '*****'
+                          : `${isPortfolioDown ? '' : '+'}${fiatValueChange}`}
+                      </FiatChange>
+                      <PercentBubble isDown={isPortfolioDown}>
+                        {hidePortfolioBalances
+                          ? '*****'
+                          : `${isPortfolioDown ? '' : '+'}${percentageChange}%`}
+                      </PercentBubble>
+                    </>
+                  ) : (
+                    <>
+                      <LoadingSkeleton
+                        width={55}
+                        height={24}
+                      />
+                      <HorizontalSpace space='8px' />
+                      <LoadingSkeleton
+                        width={55}
+                        height={24}
+                      />
+                    </>
+                  )}
+                </Row>
+              </BalanceAndChangeWrapper>
+              <BuySendSwapDepositNav />
+            </BalanceAndButtonsWrapper>
+            <ColumnReveal hideContent={hidePortfolioGraph}>
+              <PortfolioOverviewChart
+                timeframe={selectedTimeframe}
+                onTimeframeChanged={setSelectedTimeframe}
+                hasZeroBalance={fullPortfolioFiatBalance.isZero()}
+                portfolioPriceHistory={portfolioPriceHistory}
+                isLoading={
+                  isFetchingPortfolioPriceHistory || !portfolioPriceHistory
+                }
+              />
+            </ColumnReveal>
+          </BalanceAndLineChartWrapper>
+          <ControlsRow controlsHidden={hidePortfolioNFTsTab}>
+            {!hidePortfolioNFTsTab && (
+              <SegmentedControl
+                navOptions={PortfolioNavOptions}
+                width={384}
+              />
+            )}
+          </ControlsRow>
+        </>
+      )}
 
       <Switch>
         <Route
@@ -671,12 +646,22 @@ export const PortfolioOverview = () => {
         </Route>
 
         <Route
+          path={WalletRoutes.PortfolioNFTCollection}
+          exact
+        >
+          <NftCollection
+            networks={visiblePortfolioNetworks}
+            accounts={usersFilteredAccounts}
+            tokenBalancesRegistry={tokenBalancesRegistry}
+          />
+        </Route>
+
+        <Route
           path={WalletRoutes.PortfolioNFTs}
           exact
         >
           <Nfts
-            networks={networks}
-            nftList={userVisibleNfts}
+            networks={visiblePortfolioNetworks}
             accounts={usersFilteredAccounts}
             onShowPortfolioSettings={() => setShowPortfolioSettings(true)}
             tokenBalancesRegistry={tokenBalancesRegistry}
@@ -692,7 +677,18 @@ export const PortfolioOverview = () => {
 
       {showPortfolioSettings && (
         <PortfolioFiltersModal
-          onClose={() => setShowPortfolioSettings(false)}
+          onSave={() => {
+            // reset to first page after filters change
+            const newParams = new URLSearchParams(location.search)
+            newParams.delete('page')
+            history.push({
+              ...location,
+              search: `?${newParams.toString()}`
+            })
+          }}
+          onClose={() => {
+            setShowPortfolioSettings(false)
+          }}
         />
       )}
     </>

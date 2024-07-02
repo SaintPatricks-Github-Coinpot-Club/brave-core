@@ -7,7 +7,7 @@ import * as React from 'react'
 import { skipToken } from '@reduxjs/toolkit/query/react'
 
 // Utils
-import { getLocale } from '../../../../../common/locale'
+import { getLocale, splitStringForTag } from '../../../../../common/locale'
 import { computeFiatAmount } from '../../../../utils/pricing-utils'
 import { getPriceIdForToken } from '../../../../utils/api-utils'
 import {
@@ -42,7 +42,20 @@ import {
   SelectAndInputRow
 } from './to_asset.style'
 import { AmountInput, ToSectionWrapper } from '../shared_composer.style'
-import { Column, Row } from '../../../../components/shared/style'
+import { Column, Row, Text } from '../../../../components/shared/style'
+
+const makeTwoDigits = (n: number) => {
+  return (n < 10 ? '0' : '') + n
+}
+
+const millisecondToString = (milliseconds: number) => {
+  const calculatedMin = Math.floor(milliseconds / 60000)
+  const calculatedSec = Math.floor(milliseconds / 1000)
+  const secRemaining = calculatedSec - calculatedMin * 60
+  const min = makeTwoDigits(calculatedMin)
+  const sec = makeTwoDigits(secRemaining)
+  return `${min}:${sec}`
+}
 
 interface Props {
   onClickSelectToken: () => void
@@ -55,6 +68,7 @@ interface Props {
   network: BraveWallet.NetworkInfo | undefined
   selectedSendOption: SendPageTabHashes
   isFetchingQuote: boolean
+  timeUntilNextQuote?: number
   children?: React.ReactNode
 }
 
@@ -70,6 +84,7 @@ export const ToAsset = (props: Props) => {
     network,
     selectedSendOption,
     isFetchingQuote,
+    timeUntilNextQuote,
     children
   } = props
 
@@ -94,6 +109,7 @@ export const ToAsset = (props: Props) => {
     [onChange]
   )
 
+  // Memos
   const fiatValue = React.useMemo(() => {
     if (!token || selectedSendOption === SendPageTabHashes.nft) {
       return ''
@@ -118,6 +134,18 @@ export const ToAsset = (props: Props) => {
     return getDominantColorFromImageURL(token?.logo ?? '')
   }, [token?.logo])
 
+  // Computed
+  const countdown =
+    timeUntilNextQuote !== undefined
+      ? millisecondToString(timeUntilNextQuote)
+      : ''
+
+  const newQuoteString = getLocale('braveWalletNewQuoteIn').replace(
+    '$3',
+    countdown
+  )
+  const { beforeTag, duringTag } = splitStringForTag(newQuoteString)
+
   // render
   return (
     <ToSectionWrapper
@@ -126,37 +154,48 @@ export const ToAsset = (props: Props) => {
     >
       <Column
         fullWidth={true}
-        justifyContent='space-between'
+        fullHeight={true}
+        justifyContent='flex-start'
         alignItems='center'
-        padding='48px 0px 0px 0px'
+        padding='32px 0px 0px 0px'
       >
         <ReceiveAndQuoteRow
           width='100%'
           alignItems='center'
           justifyContent='space-between'
-          padding='0px 16px'
           marginBottom={10}
         >
           <ReceiveAndQuoteText
-            textSize='16px'
+            textSize='14px'
             isBold={false}
           >
             {getLocale('braveWalletReceiveEstimate')}
           </ReceiveAndQuoteText>
-          {isFetchingQuote && (
-            <ReceiveAndQuoteText
-              textSize='16px'
-              isBold={false}
+          {!isFetchingQuote && timeUntilNextQuote !== undefined && (
+            <Row
+              width='unset'
+              gap='4px'
             >
-              {getLocale('braveSwapFindingPrice')}
-            </ReceiveAndQuoteText>
+              <ReceiveAndQuoteText
+                textSize='12px'
+                isBold={false}
+              >
+                {beforeTag}
+              </ReceiveAndQuoteText>
+              <Text
+                textSize='12px'
+                isBold={true}
+                textColor='primary'
+              >
+                {duringTag}
+              </Text>
+            </Row>
           )}
         </ReceiveAndQuoteRow>
         <SelectAndInputRow
           width='100%'
           alignItems='center'
           justifyContent='space-between'
-          padding='0px 16px 0px 6px'
           marginBottom={10}
         >
           <Row width='unset'>
@@ -182,7 +221,6 @@ export const ToAsset = (props: Props) => {
           width='100%'
           alignItems='center'
           justifyContent='space-between'
-          padding='0px 16px'
         >
           {network && token && (
             <NetworkAndFiatText

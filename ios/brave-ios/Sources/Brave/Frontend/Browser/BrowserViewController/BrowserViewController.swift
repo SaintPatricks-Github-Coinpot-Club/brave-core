@@ -372,6 +372,10 @@ public class BrowserViewController: UIViewController {
     }
 
     rewards.ads.captchaHandler = self
+    // Start Brave Ads if one of the following is true:
+    // - Brave Rewards is enabled
+    // - Brave News is enabled
+    // - `ShouldAlwaysRunBraveAdsService` feature is enabled
     let shouldStartAds =
       rewards.ads.isEnabled || Preferences.BraveNews.isEnabled.value
       || BraveAds.shouldAlwaysRunService()
@@ -714,7 +718,7 @@ public class BrowserViewController: UIViewController {
       let webView = tab.webView
     {
       updateURLBar()
-      updateForwardStatusIfNeeded(webView: webView)
+      updateBackForwardActionStatus(for: webView)
       topToolbar.locationView.loading = tab.loading
     }
 
@@ -780,6 +784,7 @@ public class BrowserViewController: UIViewController {
   @objc func appWillTerminateNotification() {
     tabManager.saveAllTabs()
     tabManager.removePrivateWindows()
+    tabManager.forgetDataOnAppClose()
   }
 
   @objc private func tappedCollapsedURLBar() {
@@ -1173,6 +1178,9 @@ public class BrowserViewController: UIViewController {
       }
     }
     self.tabManager.selectTab(tabToSelect)
+
+    // Clear forget me data in case we are restoring from a crash
+    tabManager.forgetDataOnAppClose()
 
     if !setupTasksCompleted {
       for task in postSetupTasks {
@@ -1893,10 +1901,6 @@ public class BrowserViewController: UIViewController {
     return false
   }
 
-  // This variable is used to keep track of current page. It is used to detect internal site navigation
-  // to report internal page load to Rewards lib
-  var rewardsXHRLoadURL: URL?
-
   override public func observeValue(
     forKeyPath keyPath: String?,
     of object: Any?,
@@ -1980,13 +1984,15 @@ public class BrowserViewController: UIViewController {
 
       // Rewards reporting
       if let url = change?[.newKey] as? URL, !url.isLocal {
-        // Notify Rewards of new page load.
-        if let rewardsURL = rewardsXHRLoadURL,
+        // Notify Brave Rewards library of the same document navigation.
+        if let tab = tabManager.selectedTab,
+          let rewardsURL = tab.rewardsXHRLoadURL,
           url.host == rewardsURL.host
         {
-          tabManager.selectedTab?.reportPageNavigation(to: rewards)
-          // Not passing redirection chain here, in page navigation should not use them.
-          tabManager.selectedTab?.reportPageLoad(to: rewards, redirectChain: [])
+          tab.reportPageNavigation(to: rewards)
+          if let url = webView.url {
+            tab.reportPageLoad(to: rewards, redirectChain: [url])
+          }
         }
       }
 
@@ -2000,7 +2006,7 @@ public class BrowserViewController: UIViewController {
 
       Task {
         await tab.updateSecureContentState()
-        self.logSecureContentState(tab: tab, path: .url)
+        self.logSecureContentState(tab: tab, path: .url, change: change)
         if self.tabManager.selectedTab === tab {
           self.updateToolbarSecureContentState(tab.lastKnownSecureContentState)
         }
@@ -2016,15 +2022,15 @@ public class BrowserViewController: UIViewController {
         tabsBar.updateSelectedTabTitle()
       }
     case .canGoBack, .canGoForward:
-      guard tab === tabManager.selectedTab, let canGoBack = change?[.newKey] as? Bool else {
+      guard tab === tabManager.selectedTab else {
         break
       }
 
-      updateForwardStatusIfNeeded(webView: webView)
+      updateBackForwardActionStatus(for: webView)
     case .hasOnlySecureContent:
       Task {
         await tab.updateSecureContentState()
-        self.logSecureContentState(tab: tab, path: .hasOnlySecureContent)
+        self.logSecureContentState(tab: tab, path: .hasOnlySecureContent, change: change)
         if tabManager.selectedTab === tab {
           self.updateToolbarSecureContentState(tab.lastKnownSecureContentState)
         }
@@ -2032,7 +2038,7 @@ public class BrowserViewController: UIViewController {
     case .serverTrust:
       Task {
         await tab.updateSecureContentState()
-        self.logSecureContentState(tab: tab, path: .serverTrust)
+        self.logSecureContentState(tab: tab, path: .serverTrust, change: change)
         if self.tabManager.selectedTab === tab {
           self.updateToolbarSecureContentState(tab.lastKnownSecureContentState)
         }
@@ -2044,7 +2050,11 @@ public class BrowserViewController: UIViewController {
     }
   }
 
-  func logSecureContentState(tab: Tab, path: KVOConstants? = nil) {
+  func logSecureContentState(
+    tab: Tab,
+    path: KVOConstants? = nil,
+    change: [NSKeyValueChangeKey: Any]? = nil
+  ) {
     var text = """
       Tab URL: \(tab.url?.absoluteString ?? "Empty Tab URL")
        Secure State: \(tab.lastKnownSecureContentState.rawValue)
@@ -2064,10 +2074,16 @@ public class BrowserViewController: UIViewController {
       )
     }
 
+    if let change, path == .serverTrust, let newServerTrust = change[.newKey] {
+      text.append("\n Change: \(newServerTrust != nil ? "present" : "nil")")
+    } else if let change, let value = change[.newKey] {
+      text.append("\n Change: \(String(describing: value))")
+    }
+
     DebugLogger.log(for: .secureState, text: text)
   }
 
-  func updateForwardStatusIfNeeded(webView: WKWebView?) {
+  func updateBackForwardActionStatus(for webView: WKWebView?) {
     guard let webView = webView else { return }
 
     if let forwardListItem = webView.backForwardList.forwardList.first,
@@ -2077,6 +2093,8 @@ public class BrowserViewController: UIViewController {
     } else {
       navigationToolbar.updateForwardStatus(webView.canGoForward)
     }
+
+    navigationToolbar.updateBackStatus(webView.canGoBack)
   }
 
   func updateUIForReaderHomeStateForTab(_ tab: Tab) {
@@ -3288,7 +3306,7 @@ extension BrowserViewController: PreferencesObserver {
       Preferences.Shields.blockImages.key,
       Preferences.Shields.fingerprintingProtection.key,
       Preferences.Shields.useRegionAdBlock.key:
-      tabManager.allTabs.forEach { $0.webView?.reload() }
+      tabManager.reloadSelectedTab()
     case Preferences.General.defaultPageZoomLevel.key:
       tabManager.allTabs.forEach({
         guard let url = $0.webView?.url else { return }
@@ -3322,22 +3340,13 @@ extension BrowserViewController: PreferencesObserver {
     case Preferences.Rewards.hideRewardsIcon.key,
       Preferences.Rewards.rewardsToggledOnce.key:
       updateRewardsButtonState()
-    case Preferences.Playlist.webMediaSourceCompatibility.key:
-      tabManager.allTabs.forEach {
-        $0.setScript(
-          script: .playlistMediaSource,
-          enabled: Preferences.Playlist.webMediaSourceCompatibility.value
-        )
-        $0.webView?.reload()
-      }
-    case Preferences.General.mediaAutoBackgrounding.key:
-      tabManager.allTabs.forEach {
-        $0.setScript(
-          script: .mediaBackgroundPlay,
-          enabled: Preferences.General.mediaAutoBackgrounding.value
-        )
-        $0.webView?.reload()
-      }
+    case Preferences.Playlist.webMediaSourceCompatibility.key,
+      Preferences.General.mediaAutoBackgrounding.key:
+      tabManager.selectedTab?.setScripts(scripts: [
+        .playlistMediaSource: Preferences.Playlist.webMediaSourceCompatibility.value,
+        .mediaBackgroundPlay: Preferences.General.mediaAutoBackgrounding.value,
+      ])
+      tabManager.reloadSelectedTab()
     case Preferences.General.youtubeHighQuality.key:
       tabManager.allTabs.forEach {
         YoutubeQualityScriptHandler.setEnabled(
@@ -3444,6 +3453,34 @@ extension BrowserViewController {
 
     executeAfterSetup {
       NavigationPath.handle(nav: path, with: self)
+    }
+  }
+
+  public func submitSearchText(_ text: String, isBraveSearchPromotion: Bool = false) {
+    var engine = profile.searchEngines.defaultEngine(
+      forType: privateBrowsingManager.isPrivateBrowsing ? .privateMode : .standard
+    )
+
+    if isBraveSearchPromotion {
+      let braveSearchEngine = profile.searchEngines.orderedEngines.first {
+        $0.shortName == OpenSearchEngine.EngineNames.brave
+      }
+
+      if let searchEngine = braveSearchEngine {
+        engine = searchEngine
+      }
+    }
+
+    if let searchURL = engine.searchURLForQuery(
+      text,
+      isBraveSearchPromotion: isBraveSearchPromotion
+    ) {
+      // We couldn't find a matching search keyword, so do a search query.
+      finishEditingAndSubmit(searchURL)
+    } else {
+      // We still don't have a valid URL, so something is broken. Give up.
+      print("Error handling URL entry: \"\(text)\".")
+      assertionFailure("Couldn't generate search URL: \(text)")
     }
   }
 }
@@ -3658,6 +3695,7 @@ extension BrowserViewController {
       braveCore: braveCore,
       webView: webView,
       script: BraveLeoScriptHandler.self,
+      braveTalkScript: self.braveTalkJitsiCoordinator,
       querySubmited: query
     )
 
@@ -3669,5 +3707,15 @@ extension BrowserViewController {
       )
     )
     present(chatController, animated: true)
+  }
+}
+
+extension BraveTalkJitsiCoordinator: AIChatBraveTalkJavascript {
+  @MainActor
+  public func getTranscript() async -> String? {
+    if self.isCallActive {
+      return await jitsiTranscriptProcessor?.getTranscript()
+    }
+    return nil
   }
 }

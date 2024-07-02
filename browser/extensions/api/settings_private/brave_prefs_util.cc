@@ -56,6 +56,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
+#include "brave/components/ai_chat/core/browser/model_service.h"
 #include "brave/components/ai_chat/core/common/pref_names.h"
 #endif
 
@@ -239,6 +240,8 @@ const PrefsUtil::TypedPrefMap& BravePrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::kBoolean;
   (*s_brave_allowlist)[kEnableClosingLastTab] =
       settings_api::PrefType::kBoolean;
+  (*s_brave_allowlist)[kShowFullscreenReminder] =
+      settings_api::PrefType::kBoolean;
   // Hangouts pref
   (*s_brave_allowlist)[kHangoutsEnabled] = settings_api::PrefType::kBoolean;
   // IPFS Companion pref
@@ -284,8 +287,6 @@ const PrefsUtil::TypedPrefMap& BravePrefsUtil::GetAllowlistedKeys() {
 #if BUILDFLAG(ENABLE_AI_CHAT)
   (*s_brave_allowlist)[ai_chat::prefs::kBraveChatAutocompleteProviderEnabled] =
       settings_api::PrefType::kBoolean;
-  (*s_brave_allowlist)[ai_chat::prefs::kDefaultModelKey] =
-      settings_api::PrefType::kString;
   (*s_brave_allowlist)[ai_chat::prefs::kBraveAIChatContextMenuEnabled] =
       settings_api::PrefType::kBoolean;
 #endif

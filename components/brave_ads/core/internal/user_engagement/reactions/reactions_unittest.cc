@@ -34,7 +34,7 @@ class BraveAdsReactionsTest : public UnitTestBase {
     test::MockTokenGenerator(token_generator_mock_, /*count=*/1);
 
     account_ = std::make_unique<Account>(&token_generator_mock_);
-    account_->AddObserver(&observer_mock_);
+    account_->AddObserver(&account_observer_mock_);
 
     reactions_ = std::make_unique<Reactions>(*account_);
 
@@ -42,7 +42,7 @@ class BraveAdsReactionsTest : public UnitTestBase {
   }
 
   void TearDown() override {
-    account_->RemoveObserver(&observer_mock_);
+    account_->RemoveObserver(&account_observer_mock_);
 
     UnitTestBase::TearDown();
   }
@@ -50,7 +50,7 @@ class BraveAdsReactionsTest : public UnitTestBase {
   ::testing::NiceMock<TokenGeneratorMock> token_generator_mock_;
 
   std::unique_ptr<Account> account_;
-  AccountObserverMock observer_mock_;
+  AccountObserverMock account_observer_mock_;
 
   std::unique_ptr<Reactions> reactions_;
 };
@@ -58,7 +58,7 @@ class BraveAdsReactionsTest : public UnitTestBase {
 TEST_F(BraveAdsReactionsTest, LikeAd) {
   // Arrange
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   const NotificationAdInfo ad = BuildNotificationAd(creative_ad);
   HistoryManager::GetInstance().Add(ad, ConfirmationType::kViewedImpression);
 
@@ -67,15 +67,15 @@ TEST_F(BraveAdsReactionsTest, LikeAd) {
   const AdContentInfo& ad_content = history_item.ad_content;
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidProcessDeposit);
-  EXPECT_CALL(observer_mock_, OnFailedToProcessDeposit).Times(0);
+  EXPECT_CALL(account_observer_mock_, OnDidProcessDeposit);
+  EXPECT_CALL(account_observer_mock_, OnFailedToProcessDeposit).Times(0);
   HistoryManager::GetInstance().LikeAd(ad_content);
 }
 
 TEST_F(BraveAdsReactionsTest, DislikeAd) {
   // Arrange
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   const NotificationAdInfo ad = BuildNotificationAd(creative_ad);
   HistoryManager::GetInstance().Add(ad, ConfirmationType::kViewedImpression);
 
@@ -84,15 +84,15 @@ TEST_F(BraveAdsReactionsTest, DislikeAd) {
   const AdContentInfo& ad_content = history_item.ad_content;
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidProcessDeposit);
-  EXPECT_CALL(observer_mock_, OnFailedToProcessDeposit).Times(0);
+  EXPECT_CALL(account_observer_mock_, OnDidProcessDeposit);
+  EXPECT_CALL(account_observer_mock_, OnFailedToProcessDeposit).Times(0);
   HistoryManager::GetInstance().DislikeAd(ad_content);
 }
 
 TEST_F(BraveAdsReactionsTest, MarkAdAsInappropriate) {
   // Arrange
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   const NotificationAdInfo ad = BuildNotificationAd(creative_ad);
   HistoryManager::GetInstance().Add(ad, ConfirmationType::kViewedImpression);
 
@@ -101,15 +101,15 @@ TEST_F(BraveAdsReactionsTest, MarkAdAsInappropriate) {
   const AdContentInfo& ad_content = history_item.ad_content;
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidProcessDeposit);
-  EXPECT_CALL(observer_mock_, OnFailedToProcessDeposit).Times(0);
+  EXPECT_CALL(account_observer_mock_, OnDidProcessDeposit);
+  EXPECT_CALL(account_observer_mock_, OnFailedToProcessDeposit).Times(0);
   HistoryManager::GetInstance().ToggleMarkAdAsInappropriate(ad_content);
 }
 
 TEST_F(BraveAdsReactionsTest, SaveAd) {
   // Arrange
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/true);
   const NotificationAdInfo ad = BuildNotificationAd(creative_ad);
   HistoryManager::GetInstance().Add(ad, ConfirmationType::kViewedImpression);
 
@@ -118,8 +118,8 @@ TEST_F(BraveAdsReactionsTest, SaveAd) {
   const AdContentInfo& ad_content = history_item.ad_content;
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidProcessDeposit);
-  EXPECT_CALL(observer_mock_, OnFailedToProcessDeposit).Times(0);
+  EXPECT_CALL(account_observer_mock_, OnDidProcessDeposit);
+  EXPECT_CALL(account_observer_mock_, OnFailedToProcessDeposit).Times(0);
   HistoryManager::GetInstance().ToggleSaveAd(ad_content);
 }
 

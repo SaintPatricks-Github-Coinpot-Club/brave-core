@@ -245,6 +245,8 @@ export const useReceiveAddressQuery = (
   React.useEffect(() => {
     // skip fetching/polling if not needed
     if (accountId?.address) {
+      setReceiveAddress(accountId.address)
+      setIsFetchingAddress(false)
       return
     }
 
@@ -296,7 +298,7 @@ export const useGetIsRegistryTokenQuery = (
       }
 
       const assetId = res.data?.idsByChainId[arg.chainId].find((id) =>
-        id.toString().includes(arg?.address)
+        id.toString().includes(arg?.address.toLowerCase())
       )
       const asset = assetId ? res.data?.entities[assetId] : undefined
 

@@ -20,8 +20,7 @@ import {
   SupportedOffRampNetworks,
   BraveRewardsInfo,
   WalletStatus,
-  NFTMetadataReturnType,
-  CommonNftMetadata
+  NFTMetadataReturnType
 } from '../../constants/types'
 
 // entities
@@ -90,6 +89,10 @@ export class BaseQueryCache {
   private _nftMetadataRegistry: Record<string, NFTMetadataReturnType> = {}
   public rewardsInfo: BraveRewardsInfo | undefined = undefined
   public balanceScannerSupportedChains: string[] | undefined = undefined
+  public spamNftsForAccountRegistry: Record<
+    string, // accountUniqueId
+    BraveWallet.BlockchainToken[]
+  > = {}
 
   getWalletInfo = async () => {
     if (!this.walletInfo) {
@@ -155,20 +158,20 @@ export class BaseQueryCache {
 
       const visibleIds: string[] = []
       const hiddenIds: string[] = []
-      const idsByCoinType: Record<EntityId, EntityId[]> = {}
+      const visibleIdsByCoinType: Record<EntityId, EntityId[]> = {}
       const hiddenIdsByCoinType: Record<EntityId, string[]> = {}
       const mainnetIds: string[] = []
       const testnetIds: string[] = []
       const onRampIds: string[] = []
       const offRampIds: string[] = []
 
+      const { networks } = await jsonRpcService.getAllNetworks()
+
       // Get all networks for supported coin types
       const networkLists: BraveWallet.NetworkInfo[][] = await mapLimit(
         filteredSupportedCoinTypes,
         10,
         async (coin: BraveWallet.CoinType) => {
-          const { networks } = await jsonRpcService.getAllNetworks(coin)
-
           // hidden networks for coin
           let hiddenNetworkIds: string[] = []
           try {
@@ -194,10 +197,13 @@ export class BaseQueryCache {
             )
           }
 
-          idsByCoinType[coin] = []
+          visibleIdsByCoinType[coin] = []
           hiddenIdsByCoinType[coin] = []
 
-          networks.forEach(({ chainId, coin }) => {
+          networks.forEach(({ chainId, coin: networkCoin }) => {
+            if (networkCoin !== coin) {
+              return
+            }
             const networkId = networkEntityAdapter
               .selectId({
                 chainId,
@@ -216,7 +222,7 @@ export class BaseQueryCache {
               hiddenIds.push(networkId)
             } else {
               // visible networks for coin
-              idsByCoinType[coin].push(networkId)
+              visibleIdsByCoinType[coin].push(networkId)
               visibleIds.push(networkId)
             }
 
@@ -242,7 +248,7 @@ export class BaseQueryCache {
       const normalizedNetworksState = networkEntityAdapter.setAll(
         {
           ...emptyNetworksRegistry,
-          idsByCoinType,
+          visibleIdsByCoinType,
           hiddenIds,
           hiddenIdsByCoinType,
           visibleIds,
@@ -410,58 +416,43 @@ export class BaseQueryCache {
     if (!this._nftMetadataRegistry[tokenId]) {
       const { jsonRpcService } = getAPIProxy()
 
-      const result =
-        tokenArg.coin === BraveWallet.CoinType.ETH
-          ? tokenArg.isErc721
-            ? await jsonRpcService.getERC721Metadata(
-                tokenArg.contractAddress,
-                tokenArg.tokenId,
-                tokenArg.chainId
-              )
-            : await jsonRpcService.getERC1155Metadata(
-                tokenArg.contractAddress,
-                tokenArg.tokenId,
-                tokenArg.chainId
-              )
-          : await jsonRpcService.getSolTokenMetadata(
-              tokenArg.chainId,
-              tokenArg.contractAddress
-            )
+      const lookupArg = {
+        chainId: tokenArg.chainId,
+        contractAddress: tokenArg.contractAddress,
+        tokenId: tokenArg.tokenId
+      }
 
-      if (result.error || result.errorMessage) {
+      const result = await jsonRpcService.getNftMetadatas(tokenArg.coin, [
+        lookupArg
+      ])
+
+      if (result.errorMessage) {
         throw new Error(result.errorMessage)
       }
 
-      if (!result?.response) {
+      if (!result?.metadatas?.length) {
         throw new Error(`Failed to get NFT metadata for token: ${tokenId}`)
       }
 
-      const metadata: CommonNftMetadata = JSON.parse(result.response)
-
-      const attributes = Array.isArray(metadata?.attributes)
-        ? metadata?.attributes.map(
-            (attr: { trait_type: string; value: string }) => ({
-              traitType: attr.trait_type,
-              value: attr.value
-            })
-          )
-        : []
+      const metadata: BraveWallet.NftMetadata = result.metadatas[0]
 
       const tokenNetwork = (await cache.getNetworksRegistry()).entities[
         networkEntityAdapter.selectId(tokenArg)
       ]
 
       const nftMetadata: NFTMetadataReturnType = {
-        metadataUrl: result?.tokenUrl || '',
+        metadataUrl: '',
         chainName: tokenNetwork?.chainName || '',
         tokenType:
           tokenArg.coin === BraveWallet.CoinType.ETH
-            ? 'ERC721'
+            ? tokenArg.isErc721
+              ? 'ERC721'
+              : 'ERC1155'
             : tokenArg.coin === BraveWallet.CoinType.SOL
             ? 'SPL'
             : '',
         tokenID: tokenArg.tokenId,
-        imageURL: metadata?.image || metadata?.image_url || undefined,
+        imageURL: metadata.animationUrl || metadata.image || undefined,
         imageMimeType: 'image/*',
         floorFiatPrice: '',
         floorCryptoPrice: '',
@@ -474,13 +465,50 @@ export class BaseQueryCache {
           logo: '',
           twitter: ''
         },
-        attributes
+        attributes: metadata.attributes
       }
 
       this._nftMetadataRegistry[tokenId] = nftMetadata
     }
 
     return this._nftMetadataRegistry[tokenId]
+  }
+
+  getSpamNftsForAccountId = async (accountId: BraveWallet.AccountId) => {
+    if (!this.spamNftsForAccountRegistry[accountId.uniqueKey]) {
+      const { braveWalletService } = getAPIProxy()
+      const { address, coin } = accountId
+      const networksRegistry = await cache.getNetworksRegistry()
+
+      const chainIds = networksRegistry.ids.map(
+        (network) => networksRegistry.entities[network]!.chainId
+      )
+
+      let currentCursor: string | null = null
+      const accountSpamNfts = []
+
+      do {
+        const {
+          tokens,
+          cursor
+        }: {
+          tokens: BraveWallet.BlockchainToken[]
+          cursor: string | null
+        } = await braveWalletService.getSimpleHashSpamNFTs(
+          address,
+          chainIds,
+          coin,
+          currentCursor
+        )
+
+        accountSpamNfts.push(...tokens)
+        currentCursor = cursor
+      } while (currentCursor)
+
+      this.spamNftsForAccountRegistry[accountId.uniqueKey] = accountSpamNfts
+    }
+
+    return this.spamNftsForAccountRegistry[accountId.uniqueKey]
   }
 
   // Brave Rewards

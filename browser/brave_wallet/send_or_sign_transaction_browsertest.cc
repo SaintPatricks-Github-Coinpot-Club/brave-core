@@ -13,10 +13,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
+#include "brave/browser/brave_wallet/brave_wallet_service_factory.h"
 #include "brave/browser/brave_wallet/brave_wallet_tab_helper.h"
-#include "brave/browser/brave_wallet/json_rpc_service_factory.h"
-#include "brave/browser/brave_wallet/keyring_service_factory.h"
-#include "brave/browser/brave_wallet/tx_service_factory.h"
+#include "brave/components/brave_wallet/browser/brave_wallet_service.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_utils.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
 #include "brave/components/brave_wallet/browser/keyring_service.h"
@@ -104,7 +103,7 @@ class TestTxServiceObserver : public brave_wallet::mojom::TxServiceObserver {
     run_loop_new_unapproved_->Run();
   }
 
-  void WaitForRjectedStatus() {
+  void WaitForRejectedStatus() {
     run_loop_rejected_ = std::make_unique<base::RunLoop>();
     run_loop_rejected_->Run();
   }
@@ -137,9 +136,6 @@ class TestJsonRpcServiceObserver : public mojom::JsonRpcServiceObserver {
   void ChainChangedEvent(const std::string& chain_id,
                          brave_wallet::mojom::CoinType coin,
                          const std::optional<::url::Origin>& origin) override {}
-
-  void OnIsEip1559Changed(const std::string& chain_id,
-                          bool is_eip1559) override {}
 
   ::mojo::PendingRemote<mojom::JsonRpcServiceObserver> GetReceiver() {
     return observer_receiver_.BindNewPipeAndPassRemote();
@@ -182,19 +178,18 @@ class SendOrSignTransactionBrowserTest : public InProcessBrowserTest {
     mock_cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
     host_resolver()->AddRule("*", "127.0.0.1");
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir;
     base::PathService::Get(brave::DIR_TEST_DATA, &test_data_dir);
     test_data_dir = test_data_dir.AppendASCII("brave-wallet");
     https_server_for_files()->ServeFilesFromDirectory(test_data_dir);
     ASSERT_TRUE(https_server_for_files()->Start());
 
-    keyring_service_ =
-        KeyringServiceFactory::GetServiceForContext(browser()->profile());
-    tx_service_ = TxServiceFactory::GetServiceForContext(browser()->profile());
-    json_rpc_service_ =
-        JsonRpcServiceFactory::GetServiceForContext(browser()->profile());
+    auto* wallet_service =
+        BraveWalletServiceFactory::GetServiceForContext(browser()->profile());
+    json_rpc_service_ = wallet_service->json_rpc_service();
     json_rpc_service_->SetSkipEthChainIdValidationForTesting(true);
+    keyring_service_ = wallet_service->keyring_service();
+    tx_service_ = wallet_service->tx_service();
 
     tx_service_->AddObserver(observer()->GetReceiver());
 
@@ -362,7 +357,7 @@ class SendOrSignTransactionBrowserTest : public InProcessBrowserTest {
         mojom::CoinType::ETH, chain_id, tx_meta_id,
         base::BindLambdaForTesting([&](bool success) {
           EXPECT_TRUE(success);
-          observer()->WaitForRjectedStatus();
+          observer()->WaitForRejectedStatus();
           run_loop.Quit();
         }));
     run_loop.Run();

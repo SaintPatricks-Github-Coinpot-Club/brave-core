@@ -144,12 +144,73 @@ export const getPersistedPortfolioTokenBalances = (): TokenBalancesRegistry => {
   }
 }
 
+export const getPersistedPortfolioSpamTokenBalances =
+  (): TokenBalancesRegistry => {
+    try {
+      const registry: TokenBalancesRegistry = JSON.parse(
+        window.localStorage.getItem(LOCAL_STORAGE_KEYS.SPAM_TOKEN_BALANCES) ||
+          JSON.stringify(createEmptyTokenBalancesRegistry())
+      )
+      if (registry.accounts) {
+        return registry
+      }
+      return createEmptyTokenBalancesRegistry()
+    } catch (error) {
+      console.error(error)
+      return createEmptyTokenBalancesRegistry()
+    }
+  }
+
 export const setPersistedPortfolioTokenBalances = (
   registry: TokenBalancesRegistry
 ) => {
   try {
     window.localStorage.setItem(
       LOCAL_STORAGE_KEYS.TOKEN_BALANCES,
+      JSON.stringify(registry)
+    )
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+export const setPersistedPortfolioSpamTokenBalances = (
+  registry: TokenBalancesRegistry
+) => {
+  try {
+    window.localStorage.setItem(
+      LOCAL_STORAGE_KEYS.SPAM_TOKEN_BALANCES,
+      JSON.stringify(registry)
+    )
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+export const getPersistedNftCollectionNamesRegistry = (): Record<
+  string,
+  string
+> => {
+  const emptyRegistry: Record<string, string> = {}
+  try {
+    const registry: Record<string, string> = JSON.parse(
+      window.localStorage.getItem(
+        LOCAL_STORAGE_KEYS.NFT_COLLECTION_NAMES_REGISTRY
+      ) || JSON.stringify(emptyRegistry)
+    )
+    return registry ?? emptyRegistry
+  } catch (error) {
+    console.error(error)
+    return emptyRegistry
+  }
+}
+
+export const setPersistedNftCollectionNamesRegistry = (
+  registry: Record<string, string>
+) => {
+  try {
+    window.localStorage.setItem(
+      LOCAL_STORAGE_KEYS.NFT_COLLECTION_NAMES_REGISTRY,
       JSON.stringify(registry)
     )
   } catch (error) {

@@ -18,7 +18,7 @@ extension BraveWalletJsonRpcService {
     for token: BraveWallet.BlockchainToken,
     in account: BraveWallet.AccountInfo,
     network: BraveWallet.NetworkInfo,
-    decimalFormatStyle: WeiFormatter.DecimalFormatStyle = .balance,
+    decimalFormatStyle: WalletAmountFormatter.DecimalFormatStyle = .balance,
     completion: @escaping (Double?) -> Void
   ) {
     switch network.coin {
@@ -32,7 +32,7 @@ extension BraveWalletJsonRpcService {
             completion(nil)
             return
           }
-          let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+          let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
           if let valueString = formatter.decimalString(
             for: wei.removingHexPrefix,
             radix: .hex,
@@ -54,7 +54,7 @@ extension BraveWalletJsonRpcService {
             completion(nil)
             return
           }
-          let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+          let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
           if let valueString = formatter.decimalString(
             for: "\(lamports)",
             radix: .decimal,
@@ -75,7 +75,7 @@ extension BraveWalletJsonRpcService {
             completion(nil)
             return
           }
-          let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+          let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
           if let valueString = formatter.decimalString(
             for: "\(amount)",
             radix: .decimal,
@@ -96,7 +96,7 @@ extension BraveWalletJsonRpcService {
           completion(nil)
           return
         }
-        let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+        let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
         if let valueString = formatter.decimalString(
           for: "\(amount)",
           radix: .decimal,
@@ -141,7 +141,7 @@ extension BraveWalletJsonRpcService {
     for token: BraveWallet.BlockchainToken,
     in accountAddress: String,
     network: BraveWallet.NetworkInfo,
-    decimalFormatStyle: WeiFormatter.DecimalFormatStyle,
+    decimalFormatStyle: WalletAmountFormatter.DecimalFormatStyle,
     completion: @escaping (BDouble?) -> Void
   ) {
     switch network.coin {
@@ -155,7 +155,7 @@ extension BraveWalletJsonRpcService {
             completion(nil)
             return
           }
-          let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+          let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
           if let valueString = formatter.decimalString(
             for: wei.removingHexPrefix,
             radix: .hex,
@@ -177,7 +177,7 @@ extension BraveWalletJsonRpcService {
             completion(nil)
             return
           }
-          let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+          let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
           if let valueString = formatter.decimalString(
             for: "\(lamports)",
             radix: .decimal,
@@ -198,7 +198,7 @@ extension BraveWalletJsonRpcService {
             completion(nil)
             return
           }
-          let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+          let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
           if let valueString = formatter.decimalString(
             for: "\(amount)",
             radix: .decimal,
@@ -219,7 +219,7 @@ extension BraveWalletJsonRpcService {
           completion(nil)
           return
         }
-        let formatter = WeiFormatter(decimalFormatStyle: decimalFormatStyle)
+        let formatter = WalletAmountFormatter(decimalFormatStyle: decimalFormatStyle)
         if let valueString = formatter.decimalString(
           for: "\(amount)",
           radix: .decimal,
@@ -244,7 +244,7 @@ extension BraveWalletJsonRpcService {
     for token: BraveWallet.BlockchainToken,
     in accountAddress: String,
     network: BraveWallet.NetworkInfo,
-    decimalFormatStyle: WeiFormatter.DecimalFormatStyle
+    decimalFormatStyle: WalletAmountFormatter.DecimalFormatStyle
   ) async -> BDouble? {
     await withCheckedContinuation { continuation in
       balance(
@@ -291,31 +291,6 @@ extension BraveWalletJsonRpcService {
         "Unable to fetch ethereum balance for \(token.symbol) token in account address '\(accountAddress)'"
       completion("", .internalError, errorMessage)
     }
-  }
-
-  /// Returns the total balance for a given token for all of the given accounts
-  @MainActor func fetchTotalBalance(
-    token: BraveWallet.BlockchainToken,
-    network: BraveWallet.NetworkInfo,
-    accounts: [BraveWallet.AccountInfo]
-  ) async -> Double {
-    let balancesForAsset = await withTaskGroup(
-      of: [Double].self,
-      body: { @MainActor group in
-        for account in accounts {
-          group.addTask { @MainActor in
-            let balance = await self.balance(
-              for: token,
-              in: account,
-              network: network
-            )
-            return [balance ?? 0]
-          }
-        }
-        return await group.reduce([Double](), { $0 + $1 })
-      }
-    )
-    return balancesForAsset.reduce(0, +)
   }
 
   /// Returns the total balance for a given account for all of the given network assets
@@ -369,41 +344,36 @@ extension BraveWalletJsonRpcService {
     for coins: [BraveWallet.CoinType],
     respectHiddenNetworksPreference: Bool = true
   ) async -> [BraveWallet.NetworkInfo] {
-    await withTaskGroup(of: [BraveWallet.NetworkInfo].self) {
-      @MainActor [weak self] group -> [BraveWallet.NetworkInfo] in
-      guard let self = self else { return [] }
-      for coinType in coins {
-        group.addTask { @MainActor in
-          let chains = await self.allNetworks(coin: coinType)
-          let hiddenChains = await self.hiddenNetworks(coin: coinType)
-          return chains.filter {
-            if $0.chainId == BraveWallet.LocalhostChainId {
-              // localhost not supported
-              return false
-            }
-            if $0.chainId == BraveWallet.BitcoinTestnet {
-              if respectHiddenNetworksPreference {
-                // check bitcoin testnet is enabled and visibility
-                return Preferences.Wallet.isBitcoinTestnetEnabled.value
-                  && !hiddenChains.contains($0.chainId)
-              } else {
-                return Preferences.Wallet.isBitcoinTestnetEnabled.value
-              }
-            }
-            if respectHiddenNetworksPreference {
-              // filter out hidden networks
-              return !hiddenChains.contains($0.chainId)
-            }
-            return true
-          }
+    let allNetworks = await self.allNetworks().sorted { lhs, rhs in
+      // sort solana chains to the front of the list
+      lhs.coin == .sol && rhs.coin != .sol
+    }
+    var allHiddenChainIds: [String] = []
+    for coin in coins {
+      let hiddenChainIdsForCoin = await self.hiddenNetworks(coin: coin)
+      allHiddenChainIds.append(contentsOf: hiddenChainIdsForCoin)
+    }
+    let filteredNetworks = allNetworks.filter { network in
+      if network.chainId == BraveWallet.LocalhostChainId {
+        // localhost not supported on iOS
+        return false
+      }
+      if network.chainId == BraveWallet.BitcoinTestnet {
+        if respectHiddenNetworksPreference {
+          // check bitcoin testnet is enabled and visibility
+          return Preferences.Wallet.isBitcoinTestnetEnabled.value
+            && !allHiddenChainIds.contains(network.chainId)
+        } else {
+          return Preferences.Wallet.isBitcoinTestnetEnabled.value
         }
       }
-      let allChains = await group.reduce([BraveWallet.NetworkInfo](), { $0 + $1 })
-      return allChains.sorted { lhs, rhs in
-        // sort solana chains to the front of the list
-        lhs.coin == .sol && rhs.coin != .sol
+      if respectHiddenNetworksPreference {
+        // filter out hidden networks
+        return !allHiddenChainIds.contains(network.chainId)
       }
+      return true
     }
+    return filteredNetworks
   }
 
   /// Returns a nullable NFT metadata

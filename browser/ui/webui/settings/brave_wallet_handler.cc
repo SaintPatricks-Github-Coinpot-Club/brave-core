@@ -14,7 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/notreached.h"
 #include "base/values.h"
-#include "brave/browser/brave_wallet/json_rpc_service_factory.h"
+#include "brave/browser/brave_wallet/brave_wallet_service_factory.h"
 #include "brave/components/brave_wallet/browser/blockchain_registry.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_utils.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
@@ -63,7 +63,7 @@ std::optional<brave_wallet::mojom::CoinType> ToCoinType(
       result != brave_wallet::mojom::CoinType::SOL &&
       result != brave_wallet::mojom::CoinType::BTC &&
       result != brave_wallet::mojom::CoinType::ZEC) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return std::nullopt;
   }
   return result;
@@ -241,25 +241,27 @@ void BraveWalletHandler::GetNetworksList(const base::Value::List& args) {
              brave_wallet::GetCurrentChainId(prefs, *coin, std::nullopt));
 
   auto& networks = result.Set("networks", base::Value::List())->GetList();
-  for (const auto& it : brave_wallet::GetAllChains(prefs, *coin)) {
-    networks.Append(brave_wallet::NetworkInfoToValue(*it));
+  for (const auto& it : brave_wallet::GetAllChains(prefs)) {
+    if (it->coin == coin) {
+      networks.Append(brave_wallet::NetworkInfoToValue(*it));
+    }
   }
-  auto& knownNetworks =
+  auto& known_networks =
       result.Set("knownNetworks", base::Value::List())->GetList();
-  for (const auto& it : brave_wallet::GetAllKnownChains(prefs, *coin)) {
-    knownNetworks.Append(it->chain_id);
+  for (const auto& it : brave_wallet::GetAllKnownChains(*coin)) {
+    known_networks.Append(it->chain_id);
   }
 
-  auto& customNetworks =
+  auto& custom_networks =
       result.Set("customNetworks", base::Value::List())->GetList();
   for (const auto& it : brave_wallet::GetAllCustomChains(prefs, *coin)) {
-    customNetworks.Append(it->chain_id);
+    custom_networks.Append(it->chain_id);
   }
 
-  auto& hiddenNetworks =
+  auto& hidden_networks =
       result.Set("hiddenNetworks", base::Value::List())->GetList();
   for (const auto& it : brave_wallet::GetHiddenNetworks(prefs, *coin)) {
-    hiddenNetworks.Append(it);
+    hidden_networks.Append(it);
   }
 
   AllowJavascript();
@@ -302,14 +304,14 @@ void BraveWalletHandler::OnAddChain(base::Value javascript_callback,
 void BraveWalletHandler::AddChain(const base::Value::List& args) {
   CHECK_EQ(args.size(), 2U);
   AllowJavascript();
-  auto* json_rpc_service =
-      brave_wallet::JsonRpcServiceFactory::GetServiceForContext(
+  auto* brave_wallet_service =
+      brave_wallet::BraveWalletServiceFactory::GetServiceForContext(
           Profile::FromWebUI(web_ui()));
 
   brave_wallet::mojom::NetworkInfoPtr chain =
       brave_wallet::ValueToNetworkInfo(args[1]);
 
-  if (!chain || !json_rpc_service) {
+  if (!chain || !brave_wallet_service) {
     base::Value::List result;
     result.Append(false);
     result.Append(l10n_util::GetStringUTF8(
@@ -318,7 +320,7 @@ void BraveWalletHandler::AddChain(const base::Value::List& args) {
     return;
   }
 
-  json_rpc_service->AddChain(
+  brave_wallet_service->json_rpc_service()->AddChain(
       std::move(chain),
       base::BindOnce(&BraveWalletHandler::OnAddChain,
                      weak_ptr_factory_.GetWeakPtr(), args[0].Clone()));
@@ -335,12 +337,13 @@ void BraveWalletHandler::SetDefaultNetwork(const base::Value::List& args) {
   }
 
   AllowJavascript();
-  auto* json_rpc_service =
-      brave_wallet::JsonRpcServiceFactory::GetServiceForContext(
+  auto* brave_wallet_service =
+      brave_wallet::BraveWalletServiceFactory::GetServiceForContext(
           Profile::FromWebUI(web_ui()));
-  auto result = json_rpc_service ? json_rpc_service->SetNetwork(
-                                       *chain_id, *coin, std::nullopt)
-                                 : false;
+  auto result = brave_wallet_service
+                    ? brave_wallet_service->json_rpc_service()->SetNetwork(
+                          *chain_id, *coin, std::nullopt)
+                    : false;
   ResolveJavascriptCallback(args[0], base::Value(result));
 }
 

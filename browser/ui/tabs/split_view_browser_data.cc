@@ -87,7 +87,7 @@ void SplitViewBrowserData::BreakTile(const tabs::TabHandle& tab) {
       observer.OnDidBreakTile(tile_to_break);
     }
   } else {
-    NOTREACHED() << "Tile doesn't exist";
+    NOTREACHED_IN_MIGRATION() << "Tile doesn't exist";
   }
 }
 
@@ -114,6 +114,15 @@ void SplitViewBrowserData::Transfer(SplitViewBrowserData* other,
 
 bool SplitViewBrowserData::IsTabTiled(const tabs::TabHandle& tab) const {
   return base::Contains(tile_index_for_tab_, tab);
+}
+
+void SplitViewBrowserData::SwapTabsInTile(const Tile& tile) {
+  auto iter = FindTile(tile.first);
+  std::swap(iter->first, iter->second);
+
+  for (auto& observer : observers_) {
+    observer.OnSwapTabsInTile(*iter);
+  }
 }
 
 std::optional<SplitViewBrowserData::Tile> SplitViewBrowserData::GetTile(

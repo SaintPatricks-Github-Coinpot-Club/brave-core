@@ -9,7 +9,7 @@
 
 #include "base/time/time.h"
 #include "brave/components/brave_ads/core/internal/ad_units/promoted_content_ad/promoted_content_ad_info.h"
-#include "brave/components/brave_ads/core/internal/creatives/search_result_ads/search_result_ad_info.h"
+#include "brave/components/brave_ads/core/internal/ad_units/search_result_ad/search_result_ad_info.h"
 #include "brave/components/brave_ads/core/internal/deprecated/client/client_state_manager.h"
 #include "brave/components/brave_ads/core/internal/global_state/global_state.h"
 #include "brave/components/brave_ads/core/internal/history/filters/date_range_history_filter.h"
@@ -33,13 +33,15 @@ HistoryManager& HistoryManager::GetInstance() {
   return GlobalState::GetInstance()->GetHistoryManager();
 }
 
-void HistoryManager::AddObserver(HistoryManagerObserver* observer) {
+void HistoryManager::AddObserver(HistoryManagerObserver* const observer) {
   CHECK(observer);
+
   observers_.AddObserver(observer);
 }
 
-void HistoryManager::RemoveObserver(HistoryManagerObserver* observer) {
+void HistoryManager::RemoveObserver(HistoryManagerObserver* const observer) {
   CHECK(observer);
+
   observers_.RemoveObserver(observer);
 }
 

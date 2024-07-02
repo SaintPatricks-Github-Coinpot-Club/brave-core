@@ -30,15 +30,20 @@ TEST_F(BraveAdsCreatedAtTimestampUserDataTest,
   // Arrange
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/true);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/true);
 
-  // Act & Assert
+  // Act
+  const base::Value::Dict user_data =
+      BuildCreatedAtTimestampUserData(transaction);
+
+  // Assert
   EXPECT_EQ(base::test::ParseJsonDict(
                 R"(
                     {
                       "createdAtTimestamp": "2020-11-18T12:00:00.000Z"
                     })"),
-            BuildCreatedAtTimestampUserData(transaction));
+            user_data);
 }
 
 TEST_F(BraveAdsCreatedAtTimestampUserDataTest,
@@ -48,10 +53,15 @@ TEST_F(BraveAdsCreatedAtTimestampUserDataTest,
 
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/true);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/true);
 
-  // Act & Assert
-  EXPECT_TRUE(BuildCreatedAtTimestampUserData(transaction).empty());
+  // Act
+  const base::Value::Dict user_data =
+      BuildCreatedAtTimestampUserData(transaction);
+
+  // Assert
+  EXPECT_THAT(user_data, ::testing::IsEmpty());
 }
 
 }  // namespace brave_ads

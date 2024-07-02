@@ -83,7 +83,7 @@ public class OnboardingBackupWalletFragment extends BaseOnboardingWalletFragment
                     BraveWalletP3a braveWalletP3A = getBraveWalletP3A();
                     if (mIsOnboarding) {
                         if (mOnNextPage != null) {
-                            mOnNextPage.gotoNextPage();
+                            mOnNextPage.incrementPages(1);
                         }
                         if (braveWalletP3A != null) {
                             braveWalletP3A.reportOnboardingAction(OnboardingAction.RECOVERY_SETUP);
@@ -102,7 +102,7 @@ public class OnboardingBackupWalletFragment extends BaseOnboardingWalletFragment
                                     if (result != null && !result.isEmpty()) {
                                         mOnboardingViewModel.setPassword(passwordToUse);
                                         if (mOnNextPage != null) {
-                                            mOnNextPage.gotoNextPage();
+                                            mOnNextPage.incrementPages(1);
                                         }
                                     } else {
                                         showPasswordRelatedControls(true);
@@ -133,8 +133,14 @@ public class OnboardingBackupWalletFragment extends BaseOnboardingWalletFragment
                         braveWalletP3A.reportOnboardingAction(
                                 OnboardingAction.COMPLETE_RECOVERY_SKIPPED);
                     }
-                    if (mOnNextPage != null) {
-                        mOnNextPage.onboardingCompleted();
+                    if (mIsOnboarding) {
+                        if (mOnNextPage != null) {
+                            // Show confirmation screen
+                            // only during onboarding process.
+                            mOnNextPage.incrementPages(3);
+                        }
+                    } else {
+                        requireActivity().finish();
                     }
                 });
         mBiometricBackupWalletImage.setOnClickListener(

@@ -26,7 +26,6 @@
 #include "base/time/time.h"
 #include "brave/components/ai_chat/core/browser/engine/engine_consumer.h"
 #include "brave/components/ai_chat/core/browser/engine/remote_completion_client.h"
-#include "brave/components/ai_chat/core/common/features.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom.h"
 #include "components/grit/brave_components_strings.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -316,19 +315,19 @@ std::string BuildLlamaPrompt(
 namespace ai_chat {
 
 EngineConsumerLlamaRemote::EngineConsumerLlamaRemote(
-    const mojom::Model& model,
+    const mojom::LeoModelOptions& model_options,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     AIChatCredentialManager* credential_manager) {
-  DCHECK(!features::kConversationAPIEnabled.Get());
-  DCHECK(!model.name.empty());
+  DCHECK(!model_options.name.empty());
   base::flat_set<std::string_view> stop_sequences(kStopSequences.begin(),
                                                   kStopSequences.end());
   api_ = std::make_unique<RemoteCompletionClient>(
-      model.name, stop_sequences, url_loader_factory, credential_manager);
+      model_options.name, stop_sequences, url_loader_factory,
+      credential_manager);
 
-  max_page_content_length_ = model.max_page_content_length;
+  max_page_content_length_ = model_options.max_page_content_length;
 
-  is_mixtral_ = base::StartsWith(model.name, "mixtral");
+  is_mixtral_ = base::StartsWith(model_options.name, "mixtral");
 }
 
 EngineConsumerLlamaRemote::~EngineConsumerLlamaRemote() = default;

@@ -39,7 +39,7 @@ class BraveAdsCreateNonRewardConfirmationUrlRequestBuilderTest
 TEST_F(BraveAdsCreateNonRewardConfirmationUrlRequestBuilderTest, BuildUrl) {
   // Arrange
   const std::optional<ConfirmationInfo> confirmation =
-      test::BuildNonRewardConfirmation(/*should_use_random_uuids=*/false);
+      test::BuildNonRewardConfirmation(/*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   CreateNonRewardConfirmationUrlRequestBuilder url_request_builder(
@@ -49,7 +49,8 @@ TEST_F(BraveAdsCreateNonRewardConfirmationUrlRequestBuilderTest, BuildUrl) {
   const mojom::UrlRequestInfoPtr url_request = url_request_builder.Build();
 
   // Assert
-  mojom::UrlRequestInfoPtr expected_url_request = mojom::UrlRequestInfo::New();
+  const mojom::UrlRequestInfoPtr expected_url_request =
+      mojom::UrlRequestInfo::New();
   expected_url_request->url = GURL(kExpectedUrl);
   expected_url_request->headers = {"accept: application/json"};
   expected_url_request->content = kExpectedUrlRequestContent;

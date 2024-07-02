@@ -12,6 +12,7 @@ import BraveUI
 import BraveWallet
 import CertificateUtilities
 import Data
+import Lottie
 import Playlist
 import Preferences
 import Shared
@@ -394,34 +395,6 @@ extension BrowserViewController: TopToolbarDelegate {
     return false
   }
 
-  func submitSearchText(_ text: String, isBraveSearchPromotion: Bool = false) {
-    var engine = profile.searchEngines.defaultEngine(
-      forType: privateBrowsingManager.isPrivateBrowsing ? .privateMode : .standard
-    )
-
-    if isBraveSearchPromotion {
-      let braveSearchEngine = profile.searchEngines.orderedEngines.first {
-        $0.shortName == OpenSearchEngine.EngineNames.brave
-      }
-
-      if let searchEngine = braveSearchEngine {
-        engine = searchEngine
-      }
-    }
-
-    if let searchURL = engine.searchURLForQuery(
-      text,
-      isBraveSearchPromotion: isBraveSearchPromotion
-    ) {
-      // We couldn't find a matching search keyword, so do a search query.
-      finishEditingAndSubmit(searchURL)
-    } else {
-      // We still don't have a valid URL, so something is broken. Give up.
-      print("Error handling URL entry: \"\(text)\".")
-      assertionFailure("Couldn't generate search URL: \(text)")
-    }
-  }
-
   func topToolbarDidEnterOverlayMode(_ topToolbar: TopToolbarView) {
     updateTabsBarVisibility()
     displayFavoritesController()
@@ -490,6 +463,24 @@ extension BrowserViewController: TopToolbarDelegate {
 
       // In 1.6 we "reload" the whole web view state, dumping caches, etc. (reload():BraveWebView.swift:495)
       // BRAVE TODO: Port over proper tab reloading with Shields
+    }
+
+    shields.showShredSettings = { [unowned self] vc in
+      guard let tab = tabManager.selectedTab else { return }
+      guard let url = tab.url else { return }
+
+      vc.dismiss(animated: true) {
+        let viewController = ShredSettingsHostingController(
+          url: url,
+          isPersistent: !tab.isPrivate,
+          presentingView: self.topToolbar.shieldsButton
+        ) { [weak self] in
+          self?.shredData(for: url, in: tab)
+          self?.dismiss(animated: true)
+        }
+
+        self.present(viewController, animated: true)
+      }
     }
 
     shields.showGlobalShieldsSettings = { [unowned self] vc in
@@ -567,6 +558,12 @@ extension BrowserViewController: TopToolbarDelegate {
     popover.present(from: topToolbar.shieldsButton, on: self)
   }
 
+  func shredData(for url: URL, in tab: Tab) {
+    LottieAnimationView.showShredAnimation(on: view) {
+      self.tabManager.shredData(for: url, in: tab)
+    }
+  }
+
   func showSubmitReportView(for url: URL) {
     // Strip fragments and query params from url
     var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
@@ -640,7 +637,7 @@ extension BrowserViewController: TopToolbarDelegate {
 
     func openVoiceSearch(speechRecognizer: SpeechRecognizer) {
       // Pause active playing in PiP when Audio Search is enabled
-      if let pipMediaPlayer = PlaylistCarplayManager.shared.mediaPlayer?.pictureInPictureController?
+      if let pipMediaPlayer = PlaylistCoordinator.shared.mediaPlayer?.pictureInPictureController?
         .playerLayer.player
       {
         pipMediaPlayer.pause()
@@ -1169,7 +1166,7 @@ extension BrowserViewController: UIContextMenuInteractionDelegate {
     let tab = tabManager.selectedTab
     guard let url = self.topToolbar.currentURL else { return nil }
 
-    var children: [UIAction] = [
+    let children: [UIAction] = [
       UIAction(
         title: Strings.copyLinkActionTitle,
         image: UIImage(systemName: "doc.on.doc"),

@@ -24,7 +24,7 @@ class BraveAdsAdEventHandlerUtilTest : public UnitTestBase {};
 TEST_F(BraveAdsAdEventHandlerUtilTest, HasFiredAdEvent) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
   const AdEventInfo ad_event =
@@ -40,7 +40,7 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, HasFiredAdEvent) {
 TEST_F(BraveAdsAdEventHandlerUtilTest, HasNeverFiredAdEvent) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
   const AdEventInfo ad_event = BuildAdEvent(
@@ -55,7 +55,7 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, HasNeverFiredAdEvent) {
 TEST_F(BraveAdsAdEventHandlerUtilTest, HasFiredAdEventWithinTimeWindow) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
   const AdEventInfo ad_event =
@@ -72,7 +72,7 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, HasFiredAdEventWithinTimeWindow) {
 TEST_F(BraveAdsAdEventHandlerUtilTest, HasNeverFiredAdEventWithinTimeWindow) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
   const AdEventInfo ad_event = BuildAdEvent(
@@ -90,11 +90,11 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, HasNeverFiredAdEventWithinTimeWindow) {
 TEST_F(BraveAdsAdEventHandlerUtilTest, WasAdServed) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event);
 
   // Act & Assert
@@ -105,24 +105,20 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, WasAdServed) {
 TEST_F(BraveAdsAdEventHandlerUtilTest, WasAdServedIfNoPreviousEvents) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
-
-  const AdEventList ad_events;
+                                  /*should_generate_random_uuids=*/true);
 
   // Act & Assert
-  EXPECT_TRUE(WasAdServed(ad, ad_events,
+  EXPECT_TRUE(WasAdServed(ad, /*ad_events*/ {},
                           mojom::InlineContentAdEventType::kServedImpression));
 }
 
 TEST_F(BraveAdsAdEventHandlerUtilTest, WasAdNeverServed) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
-
-  const AdEventList ad_events;
+                                  /*should_generate_random_uuids=*/true);
 
   // Act & Assert
-  EXPECT_FALSE(WasAdServed(ad, ad_events,
+  EXPECT_FALSE(WasAdServed(ad, /*ad_events*/ {},
                            mojom::InlineContentAdEventType::kViewedImpression));
 }
 
@@ -134,14 +130,14 @@ TEST_F(BraveAdsAdEventHandlerUtilTest,
       kAdEventFeature, {{"deduplicate_viewed_ad_event_for", "5s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
 
   AdvanceClockBy(kDeduplicateViewedAdEventFor.Get());
@@ -159,14 +155,14 @@ TEST_F(BraveAdsAdEventHandlerUtilTest,
       kAdEventFeature, {{"deduplicate_viewed_ad_event_for", "5s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
 
   AdvanceClockBy(kDeduplicateViewedAdEventFor.Get() + base::Seconds(1));
@@ -183,14 +179,14 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, ShouldAlwaysDeduplicateViewedAdEvent) {
       kAdEventFeature, {{"deduplicate_viewed_ad_event_for", "0s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
 
   AdvanceClockTo(DistantFuture());
@@ -208,11 +204,11 @@ TEST_F(BraveAdsAdEventHandlerUtilTest,
       kAdEventFeature, {{"deduplicate_viewed_ad_event_for", "5s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event);
 
   // Act & Assert
@@ -228,17 +224,17 @@ TEST_F(BraveAdsAdEventHandlerUtilTest,
       kAdEventFeature, {{"deduplicate_clicked_ad_event_for", "5s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
   const AdEventInfo ad_event_3 =
-      BuildAdEvent(ad, ConfirmationType::kClicked, Now());
+      BuildAdEvent(ad, ConfirmationType::kClicked, /*created_at=*/Now());
   ad_events.push_back(ad_event_3);
 
   AdvanceClockBy(kDeduplicateClickedAdEventFor.Get());
@@ -256,17 +252,17 @@ TEST_F(BraveAdsAdEventHandlerUtilTest,
       kAdEventFeature, {{"deduplicate_clicked_ad_event_for", "5s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
   const AdEventInfo ad_event_3 =
-      BuildAdEvent(ad, ConfirmationType::kClicked, Now());
+      BuildAdEvent(ad, ConfirmationType::kClicked, /*created_at=*/Now());
   ad_events.push_back(ad_event_3);
 
   AdvanceClockBy(kDeduplicateClickedAdEventFor.Get() + base::Seconds(1));
@@ -283,17 +279,17 @@ TEST_F(BraveAdsAdEventHandlerUtilTest, ShouldAlwaysDeduplicateClickedAdEvent) {
       kAdEventFeature, {{"deduplicate_clicked_ad_event_for", "0s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
   const AdEventInfo ad_event_3 =
-      BuildAdEvent(ad, ConfirmationType::kClicked, Now());
+      BuildAdEvent(ad, ConfirmationType::kClicked, /*created_at=*/Now());
   ad_events.push_back(ad_event_3);
 
   AdvanceClockTo(DistantFuture());
@@ -311,14 +307,14 @@ TEST_F(BraveAdsAdEventHandlerUtilTest,
       kAdEventFeature, {{"deduplicate_clicked_ad_event_for", "5s"}});
 
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
-  const AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_2 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_2);
 
   // Act & Assert

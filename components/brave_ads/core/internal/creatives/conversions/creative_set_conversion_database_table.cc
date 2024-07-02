@@ -30,7 +30,7 @@ namespace {
 
 constexpr char kTableName[] = "creative_set_conversions";
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -58,6 +58,9 @@ size_t BindParameters(
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid creative set conversion");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid creative set conversion");
+
       continue;
     }
 
@@ -78,7 +81,7 @@ size_t BindParameters(
   return count;
 }
 
-CreativeSetConversionInfo GetFromRecord(mojom::DBRecordInfo* record) {
+CreativeSetConversionInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   CreativeSetConversionInfo creative_set_conversion;
@@ -101,12 +104,13 @@ CreativeSetConversionInfo GetFromRecord(mojom::DBRecordInfo* record) {
   return creative_set_conversion;
 }
 
-void GetCallback(GetConversionsCallback callback,
+void GetCallback(GetCreativeSetConversionsCallback callback,
                  mojom::DBCommandResponseInfoPtr command_response) {
   if (!command_response ||
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get creative set conversions");
+
     return std::move(callback).Run(/*success=*/false,
                                    /*conversion_set_conversions=*/{});
   }
@@ -124,6 +128,9 @@ void GetCallback(GetConversionsCallback callback,
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid creative set conversion");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid creative set conversion");
+
       continue;
     }
 
@@ -133,7 +140,7 @@ void GetCallback(GetConversionsCallback callback,
   std::move(callback).Run(/*success=*/true, creative_set_conversions);
 }
 
-void MigrateToV23(mojom::DBTransactionInfo* transaction) {
+void MigrateToV23(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Recreate table to address a migration problem from older versions.
@@ -160,7 +167,7 @@ void MigrateToV23(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV28(mojom::DBTransactionInfo* transaction) {
+void MigrateToV28(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Create a temporary table:
@@ -202,7 +209,7 @@ void MigrateToV28(mojom::DBTransactionInfo* transaction) {
               "creative_ad_conversions");
 }
 
-void MigrateToV29(mojom::DBTransactionInfo* transaction) {
+void MigrateToV29(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Migrate `expire_at` column from a UNIX timestamp to a WebKit/Chrome
@@ -220,7 +227,7 @@ void MigrateToV29(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV30(mojom::DBTransactionInfo* transaction) {
+void MigrateToV30(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Create a temporary table:
@@ -261,7 +268,7 @@ void MigrateToV30(mojom::DBTransactionInfo* transaction) {
               "creative_set_conversions");
 }
 
-void MigrateToV31(mojom::DBTransactionInfo* transaction) {
+void MigrateToV31(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Create a temporary table:
@@ -293,11 +300,11 @@ void MigrateToV31(mojom::DBTransactionInfo* transaction) {
               "creative_set_conversions");
 }
 
-void MigrateToV35(mojom::DBTransactionInfo* transaction) {
+void MigrateToV35(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Optimize database query for `GetUnexpired`.
-  CreateTableIndex(transaction, "creative_set_conversions",
+  CreateTableIndex(transaction, /*table_name=*/"creative_set_conversions",
                    /*columns=*/{"expire_at"});
 }
 
@@ -318,7 +325,7 @@ void CreativeSetConversions::Save(
 }
 
 void CreativeSetConversions::GetUnexpired(
-    GetConversionsCallback callback) const {
+    GetCreativeSetConversionsCallback callback) const {
   mojom::DBTransactionInfoPtr transaction = mojom::DBTransactionInfo::New();
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
   command->type = mojom::DBCommandInfo::Type::READ;
@@ -366,7 +373,8 @@ std::string CreativeSetConversions::GetTableName() const {
   return kTableName;
 }
 
-void CreativeSetConversions::Create(mojom::DBTransactionInfo* transaction) {
+void CreativeSetConversions::Create(
+    mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();

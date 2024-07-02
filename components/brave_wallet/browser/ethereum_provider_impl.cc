@@ -112,29 +112,26 @@ void RejectMismatchError(base::Value id,
 
 EthereumProviderImpl::EthereumProviderImpl(
     HostContentSettingsMap* host_content_settings_map,
-    JsonRpcService* json_rpc_service,
-    TxService* tx_service,
-    KeyringService* keyring_service,
     BraveWalletService* brave_wallet_service,
     std::unique_ptr<BraveWalletProviderDelegate> delegate,
     PrefService* prefs)
     : host_content_settings_map_(host_content_settings_map),
       delegate_(std::move(delegate)),
-      json_rpc_service_(json_rpc_service),
-      tx_service_(tx_service),
-      keyring_service_(keyring_service),
       brave_wallet_service_(brave_wallet_service),
-      eth_block_tracker_(json_rpc_service),
-      eth_logs_tracker_(json_rpc_service),
+      json_rpc_service_(brave_wallet_service->json_rpc_service()),
+      tx_service_(brave_wallet_service->tx_service()),
+      keyring_service_(brave_wallet_service->keyring_service()),
+      eth_block_tracker_(json_rpc_service_),
+      eth_logs_tracker_(json_rpc_service_),
       prefs_(prefs) {
-  DCHECK(json_rpc_service);
+  DCHECK(json_rpc_service_);
   json_rpc_service_->AddObserver(
       rpc_observer_receiver_.BindNewPipeAndPassRemote());
 
-  DCHECK(tx_service);
+  DCHECK(tx_service_);
   tx_service_->AddObserver(tx_observer_receiver_.BindNewPipeAndPassRemote());
 
-  DCHECK(keyring_service);
+  DCHECK(keyring_service_);
   keyring_service_->AddObserver(
       keyring_observer_receiver_.BindNewPipeAndPassRemote());
   host_content_settings_map_->AddObserver(this);
@@ -287,8 +284,10 @@ void EthereumProviderImpl::SendOrSignTransactionInternal(
     return;
   }
 
-  if (ShouldCreate1559Tx(tx_data_1559.Clone(), chain->is_eip1559,
-                         keyring_service_->GetAllAccountInfos(), account_id)) {
+  if (ShouldCreate1559Tx(
+          tx_data_1559.Clone(),
+          IsEip1559Chain(prefs_, chain->chain_id).value_or(false),
+          keyring_service_->GetAllAccountInfos(), account_id)) {
     // Set chain_id to current chain_id.
     tx_data_1559->chain_id = chain->chain_id;
     tx_service_->AddUnapprovedTransactionWithOrigin(
@@ -415,13 +414,8 @@ void EthereumProviderImpl::SignMessage(const std::string& address,
               base::ASCIIToUTF16(siwe_message->address)),
           std::move(callback));
     }
-    if (bool uri_mismatched = false;
-        delegate_->GetOrigin() != siwe_message->origin ||
-        (uri_mismatched =
-             !siwe_message->origin.IsSameOriginWith(siwe_message->uri))) {
-      const std::string& err_domain = uri_mismatched
-                                          ? siwe_message->uri.spec()
-                                          : siwe_message->origin.Serialize();
+    if (delegate_->GetOrigin() != siwe_message->origin) {
+      const std::string& err_domain = siwe_message->origin.Serialize();
       brave_wallet_service_->AddSignMessageError(mojom::SignMessageError::New(
           GenerateRandomHexString(), MakeOriginInfo(delegate_->GetOrigin()),
           mojom::SignMessageErrorType::kDomainMismatched,
@@ -1212,7 +1206,7 @@ void EthereumProviderImpl::OnRequestEthereumPermissions(
             l10n_util::GetStringUTF8(IDS_WALLET_INTERNAL_ERROR));
         break;
       default:
-        NOTREACHED();
+        NOTREACHED_IN_MIGRATION();
     }
   } else if (method == kRequestPermissionsMethod) {
     formed_response =

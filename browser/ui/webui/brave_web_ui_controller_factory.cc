@@ -18,6 +18,7 @@
 #include "brave/browser/ui/webui/brave_rewards_internals_ui.h"
 #include "brave/browser/ui/webui/brave_rewards_page_ui.h"
 #include "brave/browser/ui/webui/skus_internals_ui.h"
+#include "brave/components/ai_rewriter/common/buildflags/buildflags.h"
 #include "brave/components/brave_federated/features.h"
 #include "brave/components/brave_player/common/buildflags/buildflags.h"
 #include "brave/components/brave_rewards/common/rewards_util.h"
@@ -61,8 +62,9 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "brave/browser/brave_wallet/keyring_service_factory.h"
+#include "brave/browser/brave_wallet/brave_wallet_service_factory.h"
 #include "brave/browser/ui/webui/brave_wallet/android/android_wallet_page_ui.h"
+#include "brave/components/brave_wallet/browser/brave_wallet_service.h"
 #include "brave/components/brave_wallet/browser/keyring_service.h"
 #endif
 
@@ -92,6 +94,11 @@
 #include "brave/browser/ui/webui/brave_player_ui.h"
 #include "brave/components/brave_player/common/features.h"
 #include "brave/components/brave_player/common/url_constants.h"
+#endif
+
+#if BUILDFLAG(ENABLE_AI_REWRITER)
+#include "brave/browser/ui/webui/ai_rewriter/ai_rewriter_ui.h"
+#include "brave/components/ai_rewriter/common/features.h"
 #endif
 
 using content::WebUI;
@@ -198,6 +205,12 @@ WebUIController* NewWebUI(WebUI* web_ui, const GURL& url) {
   } else if (host == brave_player::kBravePlayerHost) {
     return new BravePlayerUI(web_ui);
 #endif  // BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_AI_REWRITER)
+  } else if (host == kRewriterUIHost) {
+    if (ai_rewriter::features::IsAIRewriterEnabled()) {
+      return new ai_rewriter::AIRewriterUI(web_ui);
+    }
+#endif
   }
 
   return nullptr;
@@ -240,8 +253,8 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
       url.host_piece() == kBraveRewardsPanelHost ||
       url.host_piece() == kBraveTipPanelHost ||
       url.host_piece() == kSpeedreaderPanelHost ||
-      // On Android New Tab is a native page implemented in Java, so no need in
-      // WebUI.
+      // On Android New Tab is a native page implemented in Java, so no need
+      // in WebUI.
       url.host_piece() == chrome::kChromeUINewTabHost ||
       url.host_piece() == chrome::kChromeUISettingsHost ||
       ((url.host_piece() == kWelcomeHost ||
@@ -258,6 +271,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #if BUILDFLAG(ENABLE_BRAVE_PLAYER)
       (base::FeatureList::IsEnabled(brave_player::features::kBravePlayer) &&
        url.host_piece() == brave_player::kBravePlayerHost) ||
+#endif
+#if BUILDFLAG(ENABLE_AI_REWRITER)
+      (url.host_piece() == kRewriterUIHost &&
+       ai_rewriter::features::IsAIRewriterEnabled()) ||
 #endif
       url.host_piece() == kRewardsPageHost ||
       url.host_piece() == kRewardsInternalsHost) {
@@ -306,13 +323,15 @@ bool ShouldBlockWalletWebUI(content::BrowserContext* browser_context,
   if (!profile) {
     return false;
   }
-  auto* keyring_service =
-      brave_wallet::KeyringServiceFactory::GetServiceForContext(profile);
+  auto* brave_wallet_service =
+      brave_wallet::BraveWalletServiceFactory::GetServiceForContext(profile);
+  if (!brave_wallet_service) {
+    return true;
+  }
   // Support to unlock Wallet has been extended also through WebUI,
   // so we block only when Wallet hasn't been created yet, as onboarding
   // is offered only via native Andrioid UI.
-  return !keyring_service ||
-         (keyring_service && !keyring_service->IsWalletCreatedSync());
+  return !brave_wallet_service->keyring_service()->IsWalletCreatedSync();
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 }  // namespace

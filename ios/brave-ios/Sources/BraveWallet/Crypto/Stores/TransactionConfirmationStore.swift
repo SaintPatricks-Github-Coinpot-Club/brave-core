@@ -210,6 +210,7 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
 
   func setupObservers() {
     guard !isObserving else { return }
+    self.assetManager.addUserAssetDataObserver(self)
     self.txServiceObserver = TxServiceObserver(
       txService: txService,
       _onNewUnapprovedTx: { _ in
@@ -421,7 +422,7 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
       return
     }
 
-    let formatter = WeiFormatter(decimalFormatStyle: .balance)
+    let formatter = WalletAmountFormatter(decimalFormatStyle: .balance)
     let ownerAddress = parsedTransaction.fromAccountInfo.address
     let (allowance, _, _) = await rpcService.erc20TokenAllowance(
       contract: details.token?.contractAddress(in: selectedChain) ?? "",
@@ -457,7 +458,16 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
         gasBalancesForChain[account.id] = availableBTCBalance
       }
     } else {
-      if let gasTokenBalance = await rpcService.balance(for: token, in: account, network: network) {
+      if let assetBalance = assetManager.getBalances(
+        for: token,
+        account: account.id
+      )?.first(where: { $0.chainId == network.chainId }) {
+        gasBalancesForChain[account.id] = Double(assetBalance.balance) ?? 0
+      } else if let gasTokenBalance = await rpcService.balance(
+        for: token,
+        in: account,
+        network: network
+      ) {
         gasBalancesForChain[account.id] = gasTokenBalance
       }
     }
@@ -475,7 +485,7 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
     let ethTransactions = transactions.filter { $0.coin == .eth }
     guard !ethTransactions.isEmpty else { return }  // we can only fetch unknown Ethereum tokens
     let coin: BraveWallet.CoinType = .eth
-    let allNetworks = await rpcService.allNetworks(coin: coin)
+    let allNetworks = await rpcService.allNetworks().filter({ $0.coin == coin })
     let userAssets = assetManager.getAllUserAssetsInNetworkAssets(
       networks: allNetworks,
       includingUserDeleted: true
@@ -500,13 +510,9 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
   @MainActor private func fetchSolEstimatedTxFees(
     for transactions: [BraveWallet.TransactionInfo]
   ) async {
-    for transaction in transactions where transaction.coin == .sol {
-      let (solEstimatedTxFee, _, _) = await solTxManagerProxy.estimatedTxFee(
-        chainId: transaction.chainId,
-        txMetaId: transaction.id
-      )
-      self.solEstimatedTxFeeCache[transaction.id] = solEstimatedTxFee
-    }
+    let solTxs = transactions.filter { $0.coin == .sol }
+    let txFees = await solTxManagerProxy.solanaTxFeeEstimations(for: solTxs)
+    solEstimatedTxFeeCache.merge(with: txFees)
     updateTransaction(
       with: activeTransaction,
       shouldFetchCurrentAllowance: false,
@@ -544,17 +550,21 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
         gasSymbol = activeParsedTransaction.networkSymbol
         gasAssetRatio = assetRatios[activeParsedTransaction.networkSymbol.lowercased(), default: 0]
 
-        if let gasBalance = gasTokenBalanceCache[network.chainId]?[
+        let gasBalance = gasTokenBalanceCache[network.chainId]?[
           activeParsedTransaction.fromAccountInfo.id
-        ] {
-          if let gasValue = BDouble(gasFee.fee),
-            BDouble(gasBalance) > gasValue
-          {
-            isBalanceSufficient = true
+        ]
+        if let gasBalance,
+          let gasValue = BDouble(gasFee.fee),
+          let fromToken = details.fromToken,
+          let fromValue = BDouble(details.fromAmount)
+        {
+          if network.isNativeAsset(fromToken) {
+            isBalanceSufficient = BDouble(gasBalance) > gasValue + fromValue
           } else {
-            isBalanceSufficient = false
+            isBalanceSufficient = BDouble(gasBalance) > gasValue
           }
-        } else if shouldFetchGasTokenBalance {
+        } else if shouldFetchGasTokenBalance || gasBalance == nil {
+          isBalanceSufficient = false
           if let account = accounts.first(where: {
             $0.id == activeParsedTransaction.fromAccountInfo.id
           }) {
@@ -564,6 +574,8 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
               network: network
             )
           }
+        } else {
+          isBalanceSufficient = true
         }
       }
       if let fromToken = details.fromToken {
@@ -757,9 +769,9 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
           activeParsedTransaction.fromAccountInfo.id
         ] {
           if let gasValue = BDouble(gasFee.fee),
-            BDouble(gasBalance) > gasValue
+            let sendValue = BDouble(details.sendAmount)
           {
-            isBalanceSufficient = true
+            isBalanceSufficient = BDouble(gasBalance) > gasValue + sendValue
           } else {
             isBalanceSufficient = false
           }
@@ -810,7 +822,7 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
     let allAccounts = await keyringService.allAccounts().accounts
     var allNetworksForCoin: [BraveWallet.CoinType: [BraveWallet.NetworkInfo]] = [:]
     for coin in WalletConstants.supportedCoinTypes() {
-      let allNetworks = await rpcService.allNetworks(coin: coin)
+      let allNetworks = await rpcService.allNetworks().filter({ $0.coin == coin })
       allNetworksForCoin[coin] = allNetworks
     }
     return await txService.pendingTransactions(
@@ -988,4 +1000,17 @@ public class TransactionConfirmationStore: ObservableObject, WalletObserverStore
 struct TransactionProviderError {
   let code: Int
   let message: String
+}
+
+extension TransactionConfirmationStore: WalletUserAssetDataObserver {
+  public func cachedBalanceRefreshed() {
+    updateTransaction(
+      with: activeTransaction,
+      shouldFetchCurrentAllowance: false,
+      shouldFetchGasTokenBalance: true
+    )
+  }
+
+  public func userAssetUpdated() {
+  }
 }

@@ -24,22 +24,21 @@ TEST_F(BraveAdsTransactionsUtilTest, GetTransactionsForDateRange) {
 
   const TransactionInfo transaction_1 = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/true);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/true);
   transactions.push_back(transaction_1);
 
   AdvanceClockTo(TimeFromString("25 December 2020"));
 
   const TransactionInfo transaction_2 = test::BuildUnreconciledTransaction(
       /*value=*/0.03, AdType::kNotificationAd, ConfirmationType::kClicked,
-      /*should_use_random_uuids=*/true);
+      /*should_generate_random_uuids=*/true);
   transactions.push_back(transaction_2);
 
-  // Act
-  const TransactionList transactions_for_date_range =
-      GetTransactionsForDateRange(transactions, Now(), DistantFuture());
-
-  // Assert
-  EXPECT_EQ(TransactionList{transaction_2}, transactions_for_date_range);
+  // Act & Assert
+  EXPECT_EQ(TransactionList{transaction_2},
+            GetTransactionsForDateRange(transactions, /*from_time=*/Now(),
+                                        /*to_time=*/DistantFuture()));
 }
 
 TEST_F(BraveAdsTransactionsUtilTest, DoNotGetTransactionsForDateRange) {
@@ -50,22 +49,25 @@ TEST_F(BraveAdsTransactionsUtilTest, DoNotGetTransactionsForDateRange) {
 
   const TransactionInfo transaction_1 = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/true);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/true);
   transactions.push_back(transaction_1);
 
   const TransactionInfo transaction_2 = test::BuildUnreconciledTransaction(
       /*value=*/0.03, AdType::kNotificationAd, ConfirmationType::kClicked,
-      /*should_use_random_uuids=*/true);
+      /*should_generate_random_uuids=*/true);
   transactions.push_back(transaction_2);
 
   AdvanceClockTo(TimeFromString("25 December 2020"));
 
   // Act
   const TransactionList transactions_for_date_range =
-      GetTransactionsForDateRange(transactions, Now(), DistantFuture());
+      GetTransactionsForDateRange(
+          transactions, /*from_time=*/TimeFromString("1 January 2021"),
+          /*to_time=*/TimeFromString("31 December 2021"));
 
   // Assert
-  EXPECT_TRUE(transactions_for_date_range.empty());
+  EXPECT_THAT(transactions_for_date_range, ::testing::IsEmpty());
 }
 
 }  // namespace brave_ads

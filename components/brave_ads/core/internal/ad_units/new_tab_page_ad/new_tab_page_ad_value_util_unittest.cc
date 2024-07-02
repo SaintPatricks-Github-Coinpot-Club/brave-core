@@ -52,22 +52,26 @@ TEST_F(BraveAdsNewTabPageAdValueUtilTest, FromValue) {
   // Arrange
   const base::Value::Dict dict = base::test::ParseJsonDict(kJson);
 
-  // Act & Assert
+  // Act
+  const NewTabPageAdInfo ad = NewTabPageAdFromValue(dict);
+
+  // Assert
   const CreativeNewTabPageAdInfo creative_ad =
-      test::BuildCreativeNewTabPageAd(/*should_use_random_uuids=*/false);
-  const NewTabPageAdInfo expected_ad =
-      BuildNewTabPageAd(creative_ad, kPlacementId);
-  EXPECT_EQ(expected_ad, NewTabPageAdFromValue(dict));
+      test::BuildCreativeNewTabPageAd(/*should_generate_random_uuids=*/false);
+  EXPECT_EQ(BuildNewTabPageAd(creative_ad, kPlacementId), ad);
 }
 
 TEST_F(BraveAdsNewTabPageAdValueUtilTest, ToValue) {
   // Arrange
   const CreativeNewTabPageAdInfo creative_ad =
-      test::BuildCreativeNewTabPageAd(/*should_use_random_uuids=*/false);
+      test::BuildCreativeNewTabPageAd(/*should_generate_random_uuids=*/false);
   const NewTabPageAdInfo ad = BuildNewTabPageAd(creative_ad, kPlacementId);
 
-  // Act & Assert
-  EXPECT_EQ(base::test::ParseJsonDict(kJson), NewTabPageAdToValue(ad));
+  // Act
+  const base::Value::Dict dict = NewTabPageAdToValue(ad);
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonDict(kJson), dict);
 }
 
 }  // namespace brave_ads

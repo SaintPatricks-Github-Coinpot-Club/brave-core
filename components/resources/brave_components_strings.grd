@@ -199,9 +199,6 @@
 
       <message name="IDS_BRAVE_NEW_TAB_PHOTO_BY" desc="Prefix for photographer name">Photo by</message>
       <message name="IDS_BRAVE_NEW_TAB_HIDE" desc="Shown as an option for a widget to hide itself">Hide</message>
-      <message name="IDS_BRAVE_NEW_TAB_PREFERENCES_PAGE_TITLE" desc="Title for preferences page">Edit Preferences</message>
-      <message name="IDS_BRAVE_NEW_TAB_BOOKMARKS_PAGE_TITLE" desc="Title for bookmarks page">View and Manage Bookmarks</message>
-      <message name="IDS_BRAVE_NEW_TAB_HISTORY_PAGE_TITLE" desc="Title for history page">View your browsing history</message>
       <message name="IDS_BRAVE_NEW_TAB_DASHBOARD_SETTINGS_TITLE" desc="Title for dashboard settings">Customize Dashboard</message>
       <message name="IDS_BRAVE_NEW_TAB_CUSTOMIZE" desc="Title for dashboard settings">Customize</message>
       <message name="IDS_BRAVE_NEW_TAB_SHOW_BACKGROUND_IMAGE" desc="Text for settings background option">Show Background Images</message>
@@ -252,6 +249,21 @@
       <message name="IDS_BRAVE_NEW_TAB_SEARCH_CUSTOMIZE_SEARCH_ENGINES">
         Customize available engines
       </message>
+      <message name="IDS_BRAVE_NEW_TAB_SEARCH_HIDE_SEARCH" desc="Message for the menu entry to hide the search box on the NTP">
+        Hide Search
+      </message>
+      <message name="IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_TITLE" desc="Title for the Enable search suggestions prompt">
+        Enable search suggestions?
+      </message>
+      <message name="IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_EXPLANATION" desc="Explanation for the Enable search suggestions prompt">
+        When you search, what you type will be sent to your search engine for better suggestions.
+      </message>
+      <message name="IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_ENABLE" desc="Button for enabling search suggestions">
+        Enable
+      </message>
+      <message name="IDS_BRAVE_NEW_TAB_SEARCH_ENABLE_SEARCH_SUGGESTIONS_DISMISS" desc="Button to dismiss the prompt for enabling search suggestions">
+        No thanks
+      </message>
 
       <message name="IDS_BRAVE_NEW_TAB_SEARCH_PROMOTION_POPUP_TITLE_1" desc="The text for brave search promotion from NTP">
         Want even better privacy?
@@ -260,7 +272,7 @@
         It's time to ditch Google.
       </message>
       <message name="IDS_BRAVE_NEW_TAB_SEARCH_PROMOTION_POPUP_DESC" desc="The text for brave search promotion from NTP">
-        Brave Search doesn't bias or censor results, and it doesn't track you, your queries, or your clicks.
+        Brave Search doesn't bias or censor results, and it doesn't profile you.
       </message>
       <message name="IDS_BRAVE_NEW_TAB_SEARCH_PROMOTION_POPUP_BOTTOM" desc="The text for brave search promotion from NTP">
         Try Brave Search now
@@ -293,10 +305,6 @@
       <message name="IDS_BRAVE_NEW_TAB_GRADIENT_COLOR" desc="Gradient background colors title">Gradients</message>
       <message name="IDS_BRAVE_NEW_TAB_REFRESH_BACKGROUND_ON_NEW_TAB" desc="Label for random toggle button">Refresh on every new tab</message>
       <message name="IDS_BRAVE_NEW_TAB_REWARDS_OPEN_PANEL" desc="Label for menu item to open the Rewards panel">Open Rewards panel</message>
-
-      <message name="IDS_BRAVE_TALK_PROMPT_TITLE" desc="Title for prompt about Brave Talk">
-        You can start a private call in Brave.
-      </message>
 
       <message name="IDS_BRAVE_NEWS_TITLE" translateable="false" desc="Title for Brave News news feed section">
         Brave News
@@ -804,7 +812,7 @@
       <!-- Rewards New Tab Widget resources -->
       <message name="IDS_EDIT_CARDS_TITLE" desc="">Edit Cards</message>
       <message name="IDS_REWARDS_WIDGET_START_USING" desc="">Start using Brave Rewards</message>
-      <message name="IDS_BRAVE_TALK_WIDGET_TITLE" desc="">Brave Talk</message>
+      <message name="IDS_BRAVE_TALK_WIDGET_TITLE" desc="">Talk</message>
       <message name="IDS_BRAVE_TALK_WIDGET_WELCOME_TITLE" desc="">Start a private video call with your friends and colleagues.</message>
       <message name="IDS_BRAVE_TALK_WIDGET_START_BUTTON" desc="">Start call</message>
       <message name="IDS_BRAVE_TALK_WIDGET_ABOUT_DATA" desc="">About your data</message>

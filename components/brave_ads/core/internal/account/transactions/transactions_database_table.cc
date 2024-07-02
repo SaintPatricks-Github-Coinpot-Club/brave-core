@@ -30,7 +30,7 @@ namespace {
 
 constexpr char kTableName[] = "transactions";
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -58,9 +58,22 @@ size_t BindParameters(mojom::DBCommandInfo* command,
     if (!transaction.IsValid()) {
       // TODO(https://github.com/brave/brave-browser/issues/32066): Detect
       // potential defects using `DumpWithoutCrashing`.
+      SCOPED_CRASH_KEY_BOOL("Issue32066", "empty_transaction_id",
+                            transaction.id.empty());
+      SCOPED_CRASH_KEY_BOOL("Issue32066", "empty_creative_instance_id",
+                            transaction.creative_instance_id.empty());
+      SCOPED_CRASH_KEY_STRING64("Issue32066", "ad_type",
+                                ToString(transaction.ad_type));
+      SCOPED_CRASH_KEY_STRING64("Issue32066", "confirmation_type",
+                                ToString(transaction.confirmation_type));
+      SCOPED_CRASH_KEY_BOOL("Issue32066", "undefined_created_at",
+                            !transaction.created_at);
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid transaction");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid transaction");
+
       continue;
     }
 
@@ -83,7 +96,7 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   return count;
 }
 
-TransactionInfo GetFromRecord(mojom::DBRecordInfo* record) {
+TransactionInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   TransactionInfo transaction;
@@ -114,6 +127,7 @@ void GetCallback(GetTransactionsCallback callback,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get transactions");
+
     return std::move(callback).Run(/*success=*/false, /*transactions=*/{});
   }
 
@@ -126,9 +140,22 @@ void GetCallback(GetTransactionsCallback callback,
     if (!transaction.IsValid()) {
       // TODO(https://github.com/brave/brave-browser/issues/32066): Detect
       // potential defects using `DumpWithoutCrashing`.
+      SCOPED_CRASH_KEY_BOOL("Issue32066", "empty_transaction_id",
+                            transaction.id.empty());
+      SCOPED_CRASH_KEY_BOOL("Issue32066", "empty_creative_instance_id",
+                            transaction.creative_instance_id.empty());
+      SCOPED_CRASH_KEY_STRING64("Issue32066", "ad_type",
+                                ToString(transaction.ad_type));
+      SCOPED_CRASH_KEY_STRING64("Issue32066", "confirmation_type",
+                                ToString(transaction.confirmation_type));
+      SCOPED_CRASH_KEY_BOOL("Issue32066", "undefined_created_at",
+                            !transaction.created_at);
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid transaction");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid transaction");
+
       continue;
     }
 
@@ -138,7 +165,7 @@ void GetCallback(GetTransactionsCallback callback,
   std::move(callback).Run(/*success=*/true, transactions);
 }
 
-void MigrateToV18(mojom::DBTransactionInfo* transaction) {
+void MigrateToV18(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
@@ -157,7 +184,7 @@ void MigrateToV18(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV26(mojom::DBTransactionInfo* transaction) {
+void MigrateToV26(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Create a temporary table:
@@ -190,7 +217,7 @@ void MigrateToV26(mojom::DBTransactionInfo* transaction) {
   RenameTable(transaction, "transactions_temp", "transactions");
 }
 
-void MigrateToV29(mojom::DBTransactionInfo* transaction) {
+void MigrateToV29(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   {
@@ -228,7 +255,7 @@ void MigrateToV29(mojom::DBTransactionInfo* transaction) {
   }
 }
 
-void MigrateToV32(mojom::DBTransactionInfo* transaction) {
+void MigrateToV32(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Migrate `confirmation_type` from 'saved' to 'bookmark'.
@@ -245,11 +272,84 @@ void MigrateToV32(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV35(mojom::DBTransactionInfo* transaction) {
+void MigrateToV35(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Optimize database query for `GetForDateRange`.
-  CreateTableIndex(transaction, "transactions", /*columns=*/{"created_at"});
+  CreateTableIndex(transaction, /*table_name=*/"transactions",
+                   /*columns=*/{"created_at"});
+}
+
+void MigrateToV39(mojom::DBTransactionInfo* const transaction) {
+  CHECK(transaction);
+
+  // Delete legacy transactions with an undefined `created_at` timestamp.
+  mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
+  command->type = mojom::DBCommandInfo::Type::EXECUTE;
+  command->sql =
+      R"(
+          DELETE FROM
+            transactions
+          WHERE
+            created_at == 0;)";
+  transaction->commands.push_back(std::move(command));
+}
+
+void MigrateToV40(mojom::DBTransactionInfo* const transaction) {
+  CHECK(transaction);
+
+  {
+    // Delete legacy transactions with an undefined `creative_instance_id`,
+    // `segment` or `ad_type`.
+    mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
+    command->type = mojom::DBCommandInfo::Type::EXECUTE;
+    command->sql =
+        R"(
+          DELETE FROM
+            transactions
+          WHERE
+            COALESCE(creative_instance_id, '') = ''
+            OR COALESCE(segment, '') = ''
+            OR ad_type = '';)";
+    transaction->commands.push_back(std::move(command));
+  }
+
+  {
+    // Create a temporary table:
+    //   - with a new `creative_instance_id` column constraint.
+    //   - with a new `segment` column constraint.
+    //   - with a new `reconciled_at` default value.
+    mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
+    command->type = mojom::DBCommandInfo::Type::EXECUTE;
+    command->sql =
+        R"(
+          CREATE TABLE transactions_temp (
+            id TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE,
+            created_at TIMESTAMP NOT NULL,
+            creative_instance_id TEXT NOT NULL,
+            value DOUBLE NOT NULL,
+            segment TEXT NOT NULL,
+            ad_type TEXT NOT NULL,
+            confirmation_type TEXT NOT NULL,
+            reconciled_at TIMESTAMP DEFAULT 0
+          );)";
+    transaction->commands.push_back(std::move(command));
+
+    // Copy legacy columns to the temporary table, drop the legacy table,
+    // rename the temporary table and create an index.
+    const std::vector<std::string> columns = {
+        "id",      "created_at", "creative_instance_id", "value",
+        "segment", "ad_type",    "confirmation_type",    "reconciled_at"};
+
+    CopyTableColumns(transaction, "transactions", "transactions_temp", columns,
+                     /*should_drop=*/true);
+
+    RenameTable(transaction, "transactions_temp", "transactions");
+  }
+
+  // Optimize database query for `GetForDateRange`.
+  CreateTableIndex(transaction, /*table_name=*/"transactions",
+                   /*columns=*/{"created_at"});
 }
 
 }  // namespace
@@ -265,31 +365,6 @@ void Transactions::Save(const TransactionList& transactions,
   InsertOrUpdate(&*transaction, transactions);
 
   RunTransaction(std::move(transaction), std::move(callback));
-}
-
-void Transactions::GetAll(GetTransactionsCallback callback) const {
-  mojom::DBTransactionInfoPtr transaction = mojom::DBTransactionInfo::New();
-  mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
-  command->type = mojom::DBCommandInfo::Type::READ;
-  command->sql = base::ReplaceStringPlaceholders(
-      R"(
-          SELECT
-            id,
-            created_at,
-            creative_instance_id,
-            value,
-            segment,
-            ad_type,
-            confirmation_type,
-            reconciled_at
-          FROM
-            $1;)",
-      {GetTableName()}, nullptr);
-  BindRecords(&*command);
-  transaction->commands.push_back(std::move(command));
-
-  RunDBTransaction(std::move(transaction),
-                   base::BindOnce(&GetCallback, std::move(callback)));
 }
 
 void Transactions::GetForDateRange(const base::Time from_time,
@@ -375,7 +450,7 @@ std::string Transactions::GetTableName() const {
   return kTableName;
 }
 
-void Transactions::Create(mojom::DBTransactionInfo* transaction) {
+void Transactions::Create(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
@@ -385,12 +460,12 @@ void Transactions::Create(mojom::DBTransactionInfo* transaction) {
           CREATE TABLE transactions (
             id TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE,
             created_at TIMESTAMP NOT NULL,
-            creative_instance_id TEXT,
+            creative_instance_id TEXT NOT NULL,
             value DOUBLE NOT NULL,
-            segment TEXT,
+            segment TEXT NOT NULL,
             ad_type TEXT NOT NULL,
             confirmation_type TEXT NOT NULL,
-            reconciled_at TIMESTAMP
+            reconciled_at TIMESTAMP DEFAULT 0
           );)";
   transaction->commands.push_back(std::move(command));
 
@@ -425,6 +500,16 @@ void Transactions::Migrate(mojom::DBTransactionInfo* transaction,
 
     case 35: {
       MigrateToV35(transaction);
+      break;
+    }
+
+    case 39: {
+      MigrateToV39(transaction);
+      break;
+    }
+
+    case 40: {
+      MigrateToV40(transaction);
       break;
     }
   }

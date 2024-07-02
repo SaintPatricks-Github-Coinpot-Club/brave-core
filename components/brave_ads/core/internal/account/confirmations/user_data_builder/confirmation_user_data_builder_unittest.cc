@@ -6,7 +6,6 @@
 #include "brave/components/brave_ads/core/internal/account/confirmations/user_data_builder/confirmation_user_data_builder.h"
 
 #include <string>
-#include <utility>
 
 #include "base/test/values_test_util.h"
 #include "base/values.h"
@@ -41,9 +40,14 @@ TEST_F(BraveAdsConfirmationUserDataBuilderTest,
   const TransactionInfo transaction = test::BuildTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
       ConfirmationType::kViewedImpression, /*reconciled_at=*/Now(),
-      /*should_use_random_uuids=*/false);
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
+  // Act
+  const UserDataInfo user_data = BuildConfirmationUserData(
+      transaction,
+      /*user_data=*/base::Value::Dict().Set("foo", "bar"));
+
+  // Assert
   UserDataInfo expected_user_data;
   expected_user_data.dynamic = base::test::ParseJsonDict(
       R"(
@@ -64,17 +68,14 @@ TEST_F(BraveAdsConfirmationUserDataBuilderTest,
             "createdAtTimestamp": "2020-11-18T12:00:00.000Z",
             "foo": "bar",
             "platform": "windows",
-            "rotating_hash": "I6KM54gXOrWqRHyrD518LmhePLHpIk4KSgCKOl0e3sc=",
+            "rotatingHash": "I6KM54gXOrWqRHyrD518LmhePLHpIk4KSgCKOl0e3sc=",
             "segment": "untargeted",
             "studies": [],
             "topSegment": [],
             "versionNumber": "1.2.3.4"
           })");
 
-  auto user_data = base::Value::Dict().Set("foo", "bar");
-
-  EXPECT_EQ(expected_user_data,
-            BuildConfirmationUserData(transaction, std::move(user_data)));
+  EXPECT_EQ(expected_user_data, user_data);
 }
 
 TEST_F(BraveAdsConfirmationUserDataBuilderTest,
@@ -85,8 +86,14 @@ TEST_F(BraveAdsConfirmationUserDataBuilderTest,
   const TransactionInfo transaction = test::BuildTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
       ConfirmationType::kViewedImpression, /*reconciled_at=*/Now(),
-      /*should_use_random_uuids=*/false);
+      /*should_generate_random_uuids=*/false);
 
+  // Act
+  const UserDataInfo user_data = BuildConfirmationUserData(
+      transaction,
+      /*user_data=*/base::Value::Dict().Set("foo", "bar"));
+
+  // Assert
   UserDataInfo expected_user_data;
   expected_user_data.fixed = base::test::ParseJsonDict(
       R"(
@@ -94,11 +101,7 @@ TEST_F(BraveAdsConfirmationUserDataBuilderTest,
             "foo": "bar"
           })");
 
-  auto user_data = base::Value::Dict().Set("foo", "bar");
-
-  // Act & Assert
-  EXPECT_EQ(expected_user_data,
-            BuildConfirmationUserData(transaction, std::move(user_data)));
+  EXPECT_EQ(expected_user_data, user_data);
 }
 
 }  // namespace brave_ads

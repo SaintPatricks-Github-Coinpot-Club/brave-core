@@ -33,6 +33,7 @@ void NotificationAdEventHandler::FireEvent(
   if (!ad) {
     BLOG(1, "Failed to fire notification ad event due to missing placement id "
                 << placement_id);
+
     return FailedToFireEvent(placement_id, event_type, std::move(callback));
   }
 
@@ -50,11 +51,8 @@ void NotificationAdEventHandler::FireEventCallback(
     const mojom::NotificationAdEventType event_type,
     FireNotificationAdEventHandlerCallback callback,
     const bool success) const {
-  if (!success) {
-    return FailedToFireEvent(ad.placement_id, event_type, std::move(callback));
-  }
-
-  SuccessfullyFiredEvent(ad, event_type, std::move(callback));
+  success ? SuccessfullyFiredEvent(ad, event_type, std::move(callback))
+          : FailedToFireEvent(ad.placement_id, event_type, std::move(callback));
 }
 
 void NotificationAdEventHandler::SuccessfullyFiredEvent(

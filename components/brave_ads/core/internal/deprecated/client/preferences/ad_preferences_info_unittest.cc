@@ -6,6 +6,7 @@
 #include "brave/components/brave_ads/core/internal/deprecated/client/preferences/ad_preferences_info.h"
 
 #include "brave/components/brave_ads/core/internal/common/unittest/unittest_base.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 // npm run test -- brave_unit_tests --filter=BraveAds*
 
@@ -13,7 +14,7 @@ namespace brave_ads {
 
 namespace {
 
-constexpr char kSampleAdPreferencesInfoJson[] = R"(
+constexpr char kJson[] = R"(
 {
   "filtered_advertisers": [
     {
@@ -45,16 +46,19 @@ void ParseJsonAndCompareWithSampleAdPreferencesInfo(const std::string& json) {
   ASSERT_TRUE(ad_preferences.FromJson(json));
 
   // Assert
-  EXPECT_EQ(1U, ad_preferences.filtered_advertisers.size());
+  ASSERT_THAT(ad_preferences.filtered_advertisers, ::testing::SizeIs(1));
   EXPECT_EQ("filtered_advertiser_id",
             ad_preferences.filtered_advertisers[0].id);
-  EXPECT_EQ(1U, ad_preferences.filtered_categories.size());
+
+  ASSERT_THAT(ad_preferences.filtered_categories, ::testing::SizeIs(1));
   EXPECT_EQ("filtered_category_name",
             ad_preferences.filtered_categories[0].name);
-  EXPECT_EQ(1U, ad_preferences.saved_ads.size());
+
+  ASSERT_THAT(ad_preferences.saved_ads, ::testing::SizeIs(1));
   EXPECT_EQ("creative_instance_id",
             ad_preferences.saved_ads[0].creative_instance_id);
-  EXPECT_EQ(1U, ad_preferences.flagged_ads.size());
+
+  ASSERT_THAT(ad_preferences.flagged_ads, ::testing::SizeIs(1));
   EXPECT_EQ("creative_set_id", ad_preferences.flagged_ads[0].creative_set_id);
 }
 
@@ -90,8 +94,8 @@ TEST_F(BraveAdsAdPreferencesInfoTest, SerializeSampleAdPreferencesInfo) {
 }
 
 TEST_F(BraveAdsAdPreferencesInfoTest, ParseSampleAdPreferencesInfoJson) {
-  const AdPreferencesInfo ad_preferences;
-  ParseJsonAndCompareWithSampleAdPreferencesInfo(kSampleAdPreferencesInfoJson);
+  // Act & Assert
+  ParseJsonAndCompareWithSampleAdPreferencesInfo(kJson);
 }
 
 TEST_F(BraveAdsAdPreferencesInfoTest, ParseEmptyJson) {
@@ -99,13 +103,14 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParseEmptyJson) {
   AdPreferencesInfo ad_preferences;
 
   // Act
-  EXPECT_TRUE(ad_preferences.FromJson("{}"));
+  ASSERT_TRUE(ad_preferences.FromJson("{}"));
 
   // Assert
-  EXPECT_EQ(0U, ad_preferences.filtered_advertisers.size());
-  EXPECT_EQ(0U, ad_preferences.filtered_categories.size());
-  EXPECT_EQ(0U, ad_preferences.saved_ads.size());
-  EXPECT_EQ(0U, ad_preferences.flagged_ads.size());
+  EXPECT_THAT(ad_preferences, ::testing::FieldsAre(
+                                  /*filtered_advertisers*/ ::testing::IsEmpty(),
+                                  /*filtered_categories*/ ::testing::IsEmpty(),
+                                  /*saved_ads*/ ::testing::IsEmpty(),
+                                  /*flagged_ads*/ ::testing::IsEmpty()));
 }
 
 TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
@@ -113,7 +118,6 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
   AdPreferencesInfo ad_preferences;
 
   // Act & Assert
-  // filtered_advertisers
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "filtered_advertisers": [
@@ -122,6 +126,7 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
         }
       ]
   })"));
+
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "filtered_advertisers": [
@@ -131,7 +136,6 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
       ]
   })"));
 
-  // filtered_categories
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "filtered_categories": [
@@ -140,6 +144,7 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
         }
       ]
   })"));
+
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "filtered_categories": [
@@ -149,7 +154,6 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
       ]
   })"));
 
-  // saved_ads
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "saved_ads": [
@@ -158,6 +162,7 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
         }
       ]
   })"));
+
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "saved_ads": [
@@ -167,7 +172,6 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
       ]
   })"));
 
-  // flagged_ads
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "flagged_ads": [
@@ -176,6 +180,7 @@ TEST_F(BraveAdsAdPreferencesInfoTest, ParsePreferencesWithNotValidMembers) {
         }
       ]
   })"));
+
   EXPECT_FALSE(ad_preferences.FromJson(R"({
     {
       "flagged_ads": [

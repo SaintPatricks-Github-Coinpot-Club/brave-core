@@ -33,16 +33,17 @@ TEST_F(BraveAdsConfirmationQueueItemBuilderTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
-  // Act & Assert
-  ConfirmationQueueItemInfo expected_confirmation_queue_item;
-  expected_confirmation_queue_item.confirmation = *confirmation;
-  expected_confirmation_queue_item.process_at = Now();
-  expected_confirmation_queue_item.retry_count = 0;
-  EXPECT_EQ(expected_confirmation_queue_item,
-            BuildConfirmationQueueItem(*confirmation, /*process_at=*/Now()));
+  // Act
+  const ConfirmationQueueItemInfo confirmation_queue_item =
+      BuildConfirmationQueueItem(*confirmation, /*process_at=*/Now());
+
+  // Assert
+  EXPECT_THAT(confirmation_queue_item,
+              ::testing::FieldsAre(*confirmation, /*process_at*/ Now(),
+                                   /*retry_count*/ 0));
 }
 
 TEST_F(BraveAdsConfirmationQueueItemBuilderTest,
@@ -51,16 +52,17 @@ TEST_F(BraveAdsConfirmationQueueItemBuilderTest,
   test::DisableBraveRewards();
 
   const std::optional<ConfirmationInfo> confirmation =
-      test::BuildNonRewardConfirmation(/*should_use_random_uuids=*/false);
+      test::BuildNonRewardConfirmation(/*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
-  // Act & Assert
-  ConfirmationQueueItemInfo expected_confirmation_queue_item;
-  expected_confirmation_queue_item.confirmation = *confirmation;
-  expected_confirmation_queue_item.process_at = Now();
-  expected_confirmation_queue_item.retry_count = 0;
-  EXPECT_EQ(expected_confirmation_queue_item,
-            BuildConfirmationQueueItem(*confirmation, /*process_at=*/Now()));
+  // Act
+  const ConfirmationQueueItemInfo confirmation_queue_item =
+      BuildConfirmationQueueItem(*confirmation, /*process_at=*/Now());
+
+  // Assert
+  EXPECT_THAT(confirmation_queue_item,
+              ::testing::FieldsAre(*confirmation, /*process_at*/ Now(),
+                                   /*retry_count*/ 0));
 }
 
 }  // namespace brave_ads

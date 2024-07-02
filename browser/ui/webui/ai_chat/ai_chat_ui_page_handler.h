@@ -71,6 +71,7 @@ class AIChatUIPageHandler : public ai_chat::mojom::PageHandler,
   void GetSiteInfo(GetSiteInfoCallback callback) override;
   void OpenBraveLeoSettings() override;
   void OpenURL(const GURL& url) override;
+  void OpenLearnMoreAboutBraveSearchWithLeo() override;
   void SetShouldSendPageContents(bool should_send) override;
   void GetShouldSendPageContents(
       GetShouldSendPageContentsCallback callback) override;
@@ -120,7 +121,9 @@ class AIChatUIPageHandler : public ai_chat::mojom::PageHandler,
   void OnHistoryUpdate() override;
   void OnAPIRequestInProgress(bool in_progress) override;
   void OnAPIResponseError(mojom::APIError error) override;
-  void OnModelChanged(const std::string& model_key) override;
+  void OnModelDataChanged(
+      const std::string& model_key,
+      const std::vector<mojom::ModelPtr>& model_list) override;
   void OnSuggestedQuestionsChanged(
       std::vector<std::string> questions,
       mojom::SuggestionGenerationStatus suggestion_generation_status) override;

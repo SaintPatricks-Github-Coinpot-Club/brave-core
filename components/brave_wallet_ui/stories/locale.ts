@@ -107,10 +107,11 @@ provideStrings({
     "It looks like you've entered an ENS address. " +
     "We'll need to use a third-party resolver to resolve this request, " +
     'which may be able to see your IP address and domain.',
-  braveSwapFindingPrice: 'Finding the best quote...',
+  braveWalletFetchingQuote: 'Fetching quote',
   braveWalletReceiveEstimate: 'Receive (est.)',
   braveWalletFromToken: 'From token',
   braveWalletToToken: 'To token',
+  braveWalletNewQuoteIn: 'New quote in $1$3$2',
 
   // Send Tab
   braveWalletChooseAssetToSend: 'Choose asset to send',
@@ -119,7 +120,6 @@ provideStrings({
   braveWalletNotEnoughFunds: 'Not enough funds',
   braveWalletSendHalf: 'HALF',
   braveWalletSendMax: 'MAX',
-  braveSwapReviewOrder: 'Review order',
   braveWalletReviewSend: 'Review send',
   braveWalletNoAvailableTokens: 'No available tokens',
   braveWalletSearchTokens: 'Search by name or paste address',
@@ -138,6 +138,16 @@ provideStrings({
   braveWalletOwned: 'Owned',
   braveWalletNotOwned: 'Not owned',
   braveWalletAmount24H: 'Amount/24h',
+
+  // Bridge
+  braveWalletChooseAssetToBridge: 'Choose asset to bridge',
+  braveWalletBridgingVia: 'Bridging via',
+  braveWalletEstFees: 'Est fees',
+  braveWalletEstTime: 'Est time',
+  braveWalletExchangeRate: 'Exchange rate',
+  braveWalletExchangeFor: '$1 for $2',
+  braveWalletRecipient: 'Recipient',
+  braveWalletReviewBridge: 'Review bridge',
 
   // Create Account Tab
   braveWalletCreateAccountDescription:
@@ -501,8 +511,6 @@ provideStrings({
   braveWalletAccountsDeposit: 'Deposit',
   braveWalletAccountsRemove: 'Remove',
   braveWalletAccountSettings: 'Account settings',
-  braveWalletAccountNameTooLongError:
-    'Account name must be $1 characters or less',
 
   // Empty Token List State
   braveWalletNoAvailableAssets: 'No available assets',
@@ -591,6 +599,8 @@ provideStrings({
   braveWalletSwapReviewHeader: 'Confirm order',
   braveWalletSolanaSwap: 'Solana Swap',
   braveWalletNoRoutesFound: 'No routes found',
+  braveWalletSwappingVia: 'Swapping via',
+  braveWalletReviewSwap: 'Review swap',
 
   // Buy
   braveWalletBuyTitle: 'Test faucet',
@@ -1017,6 +1027,7 @@ provideStrings({
   braveWalletNone: 'None',
   braveWalletNetworks: 'Networks',
   braveWalletPortfolioGroupByTitle: 'Group by',
+  braveWalletGroupByCollection: 'Group by collection',
   braveWalletPortfolioGroupByDescription: 'Group assets by',
 
   // Portfolio Filters
@@ -1043,6 +1054,7 @@ provideStrings({
   braveWalletShowSpamNftsTitle: 'Spam NFTs',
   braveWalletShowSpamNftsDescription: 'Show Spam NFTs',
   braveWalletPortfolioSettings: 'Portfolio Settings',
+  braveWalletHideNotOwnedNfTs: 'Hide not owned NFTs',
 
   // Account Filter
   braveWalletAccountFilterAllAccounts: 'All accounts',
@@ -1261,11 +1273,37 @@ provideStrings({
   braveWalletNftPinningErrorTooltipReasonTwo: 'Internal IPFS node problems',
   braveWalletNftPinningErrorTooltipReasonThree:
     'Not enough space on local node',
-  braveWalletImportNftModalTitle: 'Import NFT',
   braveWalletEditNftModalTitle: 'Edit NFT',
   braveWalletNftMoveToSpam: 'Mark as junk',
   braveWalletNftUnspam: 'Mark as not junk',
   braveWalletNftJunk: 'Junk',
+
+  // Add NFT modal
+  braveWalletAddNftModalTitle: 'Add NFT',
+  braveWalletAddNftModalDescription:
+    "If you can't see an NFT automatically detected by Brave, " +
+    'or want to track one owned by others, you can import it manually.',
+  braveWalletWhatIsAnNftContractAddress:
+    'The contract address when adding an NFT to a wallet is the unique ' +
+    'address on the blockchain where the smart contract ' +
+    'for the NFT collection resides. ' +
+    'You can find the contract address from marketplace, or ' +
+    'blockchain explorers, etc.',
+  braveWalletWhatIsAnNftTokenId:
+    'The unique identifier for the specific NFT within the collection.',
+  braveWalletNftNameFieldExplanation:
+    'The token name for an NFT refers to the specific name given to a ' +
+    'non-fungible token within a particular collection or project. ' +
+    'This name distinguishes one NFT from another within the same collection.',
+  braveWalletNftSymbolFieldExplanation:
+    'The NFT symbol refers to the unique identifier ' +
+    'used to distinguish the NFT collection or project.',
+  braveWalletFetchNftMetadataError: 'Unable to fetch NFT metadata',
+  braveWalletWatchThisNft: 'Watch this NFT',
+  braveWalletUnownedNftAlert:
+    'You do not own this NFT. ' +
+    'While you can still add it to your wallet, ' +
+    'you will not be able to make any transactions with it.',
 
   // Remove NFT modal
   braveWalletRemoveNftModalHeader: 'Remove from Brave Wallet?',
@@ -1332,5 +1370,8 @@ provideStrings({
     'A pending change in your wallet balance.',
   braveWalletTotalBalanceDescription:
     'Your available funds plus any not-yet-confirmed transactions.',
-  braveWalletUnavailableBalances: 'Some balances may be unavailable'
+  braveWalletUnavailableBalances: 'Some balances may be unavailable',
+
+  // Misc. placeholders
+  braveWalletExempliGratia: 'e.g $1'
 })

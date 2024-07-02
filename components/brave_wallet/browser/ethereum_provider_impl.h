@@ -50,9 +50,6 @@ class EthereumProviderImpl final : public mojom::EthereumProvider,
   EthereumProviderImpl(const EthereumProviderImpl&) = delete;
   EthereumProviderImpl& operator=(const EthereumProviderImpl&) = delete;
   EthereumProviderImpl(HostContentSettingsMap* host_content_settings_map,
-                       JsonRpcService* json_rpc_service,
-                       TxService* tx_service,
-                       KeyringService* keyring_service,
                        BraveWalletService* brave_wallet_service,
                        std::unique_ptr<BraveWalletProviderDelegate> delegate,
                        PrefService* prefs);
@@ -186,9 +183,6 @@ class EthereumProviderImpl final : public mojom::EthereumProvider,
                          const std::optional<url::Origin>& origin) override;
   void OnAddEthereumChainRequestCompleted(const std::string& chain_id,
                                           const std::string& error) override;
-  void OnIsEip1559Changed(const std::string& chain_id,
-                          bool is_eip1559) override {}
-
   void OnSwitchEthereumChainRequested(const std::string& chain_id,
                                       const GURL& origin) {}
   void OnSwitchEthereumChainRequestProcessed(bool approved,
@@ -300,10 +294,10 @@ class EthereumProviderImpl final : public mojom::EthereumProvider,
   raw_ptr<HostContentSettingsMap> host_content_settings_map_ = nullptr;
   std::unique_ptr<BraveWalletProviderDelegate> delegate_;
   mojo::Remote<mojom::EventsListener> events_listener_;
+  raw_ptr<BraveWalletService> brave_wallet_service_ = nullptr;
   raw_ptr<JsonRpcService> json_rpc_service_ = nullptr;
   raw_ptr<TxService> tx_service_ = nullptr;
   raw_ptr<KeyringService> keyring_service_ = nullptr;
-  raw_ptr<BraveWalletService> brave_wallet_service_ = nullptr;
   base::flat_map<std::string, RequestCallback> chain_callbacks_;
   base::flat_map<std::string, base::Value> chain_ids_;
   base::flat_map<std::string, RequestCallback> add_tx_callbacks_;

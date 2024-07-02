@@ -6,6 +6,7 @@ import AIChat
 import BraveCore
 import BraveNews
 import BraveShared
+import BraveStore
 import BraveUI
 import BraveVPN
 import BraveWallet
@@ -798,7 +799,8 @@ class SettingsViewController: TableViewController {
         let model = AIChatViewModel(
           braveCore: self.braveCore,
           webView: self.tabManager.selectedTab?.webView,
-          script: BraveLeoScriptHandler.self
+          script: BraveLeoScriptHandler.self,
+          braveTalkScript: nil
         )
 
         let controller = UIHostingController(
@@ -1026,10 +1028,12 @@ class SettingsViewController: TableViewController {
           accessory: .disclosureIndicator
         ),
         Row(
-          text: "Adblock Debug",
+          text: "AdBlock Debugger",
           selection: { [unowned self] in
-            let vc = AdblockDebugMenuTableViewController(style: .grouped)
-            self.navigationController?.pushViewController(vc, animated: true)
+            self.navigationController?.pushViewController(
+              UIHostingController(rootView: AdBlockDebugView()),
+              animated: true
+            )
           },
           accessory: .disclosureIndicator,
           cellClass: MultilineValue1Cell.self
@@ -1131,6 +1135,24 @@ class SettingsViewController: TableViewController {
           text: "Leo Logs",
           selection: { [unowned self] in
             let controller = UIHostingController(rootView: AIChatLeoSkusLogsView())
+            self.navigationController?.pushViewController(controller, animated: true)
+          },
+          accessory: .disclosureIndicator,
+          cellClass: MultilineValue1Cell.self
+        ),
+        Row(
+          text: "Playlist Debug",
+          selection: { [unowned self] in
+            let controller = UIHostingController(rootView: PlaylistDebugView())
+            self.navigationController?.pushViewController(controller, animated: true)
+          },
+          accessory: .disclosureIndicator,
+          cellClass: MultilineValue1Cell.self
+        ),
+        Row(
+          text: "Injected Scripts",
+          selection: { [unowned self] in
+            let controller = UIHostingController(rootView: UserScriptsDebugView())
             self.navigationController?.pushViewController(controller, animated: true)
           },
           accessory: .disclosureIndicator,

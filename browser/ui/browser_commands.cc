@@ -19,6 +19,7 @@
 #include "brave/app/brave_command_ids.h"
 #include "brave/browser/debounce/debounce_service_factory.h"
 #include "brave/browser/ui/bookmark/brave_bookmark_prefs.h"
+#include "brave/browser/ui/brave_browser.h"
 #include "brave/browser/ui/brave_shields_data_controller.h"
 #include "brave/browser/ui/sidebar/sidebar_service_factory.h"
 #include "brave/browser/ui/tabs/brave_tab_prefs.h"
@@ -232,7 +233,7 @@ void OpenBraveVPNUrls(Browser* browser, int command_id) {
           brave_vpn::GetManageUrl(vpn_service->GetCurrentEnvironment());
       break;
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
   }
 
   chrome::AddTabAt(browser, GURL(target_url), -1, true);
@@ -701,6 +702,9 @@ void BringAllTabs(Browser* browser) {
   base::ranges::for_each(browsers, [&detached_pinned_tabs,
                                     &detached_unpinned_tabs, &browsers_to_close,
                                     shared_pinned_tab_enabled](auto* other) {
+    static_cast<BraveBrowser*>(other)
+        ->set_ignore_enable_closing_last_tab_pref();
+
     auto* tab_strip_model = other->tab_strip_model();
     const int pinned_tab_count = tab_strip_model->IndexOfFirstNonPinnedTab();
     for (int i = tab_strip_model->count() - 1; i >= 0; --i) {
@@ -1047,6 +1051,30 @@ bool CanTileTabs(Browser* browser, const std::vector<int>& indices) {
   return base::ranges::none_of(indices, [&](auto index) {
     return split_view_data->IsTabTiled(model->GetTabHandleAt(index));
   });
+}
+
+void SwapTabsInTile(Browser* browser) {
+  auto* split_view_data = SplitViewBrowserData::FromBrowser(browser);
+  if (!split_view_data) {
+    return;
+  }
+
+  if (browser->tab_strip_model()->empty()) {
+    return;
+  }
+
+  if (!IsTabsTiled(browser)) {
+    return;
+  }
+
+  auto* model = browser->tab_strip_model();
+  auto tab = model->GetActiveTab()->GetHandle();
+  auto tile = *split_view_data->GetTile(tab);
+  split_view_data->SwapTabsInTile(tile);
+
+  model->MoveWebContentsAt(model->GetIndexOfTab(tile.second),
+                           model->GetIndexOfTab(tile.first),
+                           /*select_after_move*/ false);
 }
 
 }  // namespace brave

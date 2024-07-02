@@ -916,16 +916,12 @@ BitcoinWalletService::BitcoinWalletService(
     : keyring_service_(keyring_service),
       bitcoin_rpc_(
           std::make_unique<bitcoin_rpc::BitcoinRpc>(prefs,
-                                                    url_loader_factory)) {}
+                                                    url_loader_factory)) {
+  keyring_service_->AddObserver(
+      keyring_service_observer_receiver_.BindNewPipeAndPassRemote());
+}
 
 BitcoinWalletService::~BitcoinWalletService() = default;
-
-mojo::PendingRemote<mojom::BitcoinWalletService>
-BitcoinWalletService::MakeRemote() {
-  mojo::PendingRemote<mojom::BitcoinWalletService> remote;
-  receivers_.Add(this, remote.InitWithNewPipeAndPassReceiver());
-  return remote;
-}
 
 void BitcoinWalletService::Bind(
     mojo::PendingReceiver<mojom::BitcoinWalletService> receiver) {
@@ -973,6 +969,32 @@ void BitcoinWalletService::RunDiscovery(mojom::AccountIdPtr account_id,
                      std::move(callback)));
 }
 
+void BitcoinWalletService::AccountsAdded(
+    std::vector<mojom::AccountInfoPtr> accounts) {
+  for (auto& account : accounts) {
+    if (IsBitcoinImportKeyring(account->account_id->keyring_id)) {
+      auto task = base::MakeRefCounted<DiscoverAccountTask>(
+          weak_ptr_factory_.GetWeakPtr(), account->account_id->keyring_id,
+          account->account_id->account_index,
+          base::BindOnce(&BitcoinWalletService::OnImportedAccountDiscoveryDone,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         account->account_id.Clone()));
+      task->ScheduleWorkOnTask();
+    }
+  }
+}
+
+void BitcoinWalletService::OnImportedAccountDiscoveryDone(
+    mojom::AccountIdPtr account_id,
+    base::expected<DiscoveredBitcoinAccount, std::string> result) {
+  if (!result.has_value()) {
+    return;
+  }
+  keyring_service_->UpdateNextUnusedAddressForBitcoinAccount(
+      account_id, result.value().next_unused_receive_index,
+      result.value().next_unused_change_index);
+}
+
 void BitcoinWalletService::OnRunDiscoveryDone(
     mojom::AccountIdPtr account_id,
     RunDiscoveryCallback callback,
@@ -1005,7 +1027,7 @@ void BitcoinWalletService::GetUtxos(mojom::AccountIdPtr account_id,
 
   auto addresses = keyring_service()->GetBitcoinAddresses(account_id);
   if (!addresses) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     std::move(callback).Run(base::unexpected(InternalErrorString()));
     return;
   }

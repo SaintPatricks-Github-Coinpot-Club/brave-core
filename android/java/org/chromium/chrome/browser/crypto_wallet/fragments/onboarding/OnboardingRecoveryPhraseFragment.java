@@ -86,7 +86,7 @@ public class OnboardingRecoveryPhraseFragment extends BaseOnboardingWalletFragme
                         braveWalletP3A.reportOnboardingAction(OnboardingAction.RECOVERY_SETUP);
                     }
                     if (mOnNextPage != null) {
-                        mOnNextPage.gotoNextPage();
+                        mOnNextPage.incrementPages(1);
                     }
                 });
         CheckBox recoveryPhraseCheckbox = view.findViewById(R.id.recovery_phrase_checkbox);
@@ -108,8 +108,14 @@ public class OnboardingRecoveryPhraseFragment extends BaseOnboardingWalletFragme
                         braveWalletP3A.reportOnboardingAction(
                                 OnboardingAction.COMPLETE_RECOVERY_SKIPPED);
                     }
-                    if (mOnNextPage != null) {
-                        mOnNextPage.onboardingCompleted();
+                    if (mIsOnboarding) {
+                        if (mOnNextPage != null) {
+                            // Show confirmation screen
+                            // only during onboarding process.
+                            mOnNextPage.incrementPages(2);
+                        }
+                    } else {
+                        requireActivity().finish();
                     }
                 });
     }

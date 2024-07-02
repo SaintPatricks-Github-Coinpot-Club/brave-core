@@ -26,20 +26,20 @@ class BraveAdsSiteVisitTest : public UnitTestBase {
     UnitTestBase::SetUp();
 
     site_visit_ = std::make_unique<SiteVisit>();
-    site_visit_->AddObserver(&observer_mock_);
+    site_visit_->AddObserver(&site_visit_observer_mock_);
 
     NotifyBrowserDidEnterForeground();
     NotifyBrowserDidBecomeActive();
   }
 
   void TearDown() override {
-    site_visit_->RemoveObserver(&observer_mock_);
+    site_visit_->RemoveObserver(&site_visit_observer_mock_);
 
     UnitTestBase::TearDown();
   }
 
   std::unique_ptr<SiteVisit> site_visit_;
-  SiteVisitObserverMock observer_mock_;
+  SiteVisitObserverMock site_visit_observer_mock_;
 
   ::testing::InSequence s_;
 };
@@ -55,7 +55,7 @@ TEST_F(BraveAdsSiteVisitTest, DoNotLandOnPageIfTheLastClickedAdIsInvalid) {
       /*is_error_page=*/false, /*is_visible=*/true);
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidLandOnPage).Times(0);
+  EXPECT_CALL(site_visit_observer_mock_, OnDidLandOnPage).Times(0);
   FastForwardClockBy(kPageLandAfter.Get());
 }
 
@@ -63,7 +63,7 @@ TEST_F(BraveAdsSiteVisitTest,
        DoNotLandOnPageIfTheRedirectChainDoesNotMatchTheLastClickedAd) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
   NotifyTabDidChange(
@@ -73,17 +73,17 @@ TEST_F(BraveAdsSiteVisitTest,
       /*is_error_page=*/false, /*is_visible=*/true);
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidLandOnPage).Times(0);
+  EXPECT_CALL(site_visit_observer_mock_, OnDidLandOnPage).Times(0);
   FastForwardClockBy(kPageLandAfter.Get());
 }
 
 TEST_F(BraveAdsSiteVisitTest, DoNotLandOnPageIfTheSameTabIsAlreadyLanding) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -99,7 +99,7 @@ TEST_F(BraveAdsSiteVisitTest, DoNotLandOnPageIfTheSameTabIsAlreadyLanding) {
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -118,10 +118,10 @@ TEST_F(
 
   // Tab 1 (Visible/Start page landing)
   const AdInfo ad_1 = test::BuildAd(AdType::kNotificationAd,
-                                    /*should_use_random_uuids=*/true);
+                                    /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad_1);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad_1, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -132,7 +132,7 @@ TEST_F(
   // Tab 1 (Occluded/Suspend page landing)
   AdvanceClockBy(kPageLandAfter.Get() - base::Seconds(3));
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidSuspendPageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/false,
@@ -149,10 +149,10 @@ TEST_F(
 
   // Tab 2 (Visible/Start page landing)
   const AdInfo ad_2 = test::BuildAd(AdType::kNotificationAd,
-                                    /*should_use_random_uuids=*/true);
+                                    /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad_2);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad_2, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/2, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -163,7 +163,7 @@ TEST_F(
   // Tab 2 (Occluded/Suspend page landing)
   AdvanceClockBy(kPageLandAfter.Get() - base::Seconds(7));
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidSuspendPageLand(
                   TabInfo{/*id=*/2,
                           /*is_visible=*/false,
@@ -178,7 +178,7 @@ TEST_F(
   ASSERT_FALSE(HasPendingTasks());
 
   // Tab 1 (Visible/Resume page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidResumePageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/true,
@@ -193,7 +193,7 @@ TEST_F(
   ASSERT_EQ(1U, GetPendingTaskCount());
 
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -203,7 +203,7 @@ TEST_F(
   FastForwardClockToNextPendingTask();
 
   // Tab 2 (Visible/Resume page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidResumePageLand(
                   TabInfo{/*id=*/2,
                           /*is_visible=*/true,
@@ -219,7 +219,7 @@ TEST_F(
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/2,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -233,12 +233,12 @@ TEST_F(
 TEST_F(
     BraveAdsSiteVisitTest,
     SuspendPageLandWhenBrowserEntersBackgroundThenResumePageLandWhenBrowserEntersForeground) {
-  // Tab (Start page landing)
+  // Tab 1 (Start page landing)
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -249,7 +249,7 @@ TEST_F(
   // Browser (Entered background/Suspend page landing)
   AdvanceClockBy(kPageLandAfter.Get() - base::Seconds(3));
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidSuspendPageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/true,
@@ -262,7 +262,7 @@ TEST_F(
   ASSERT_FALSE(HasPendingTasks());
 
   // Tab 1 (Visible/Resume page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidResumePageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/true,
@@ -276,7 +276,7 @@ TEST_F(
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -290,12 +290,12 @@ TEST_F(
 TEST_F(
     BraveAdsSiteVisitTest,
     SuspendPageLandWhenBrowserResignsActiveThenResumePageLandWhenBrowserBecomesActive) {
-  // Tab (Start page landing)
+  // Tab 1 (Start page landing)
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -306,7 +306,7 @@ TEST_F(
   // Browser (Entered background/Suspend page landing)
   AdvanceClockBy(kPageLandAfter.Get() - base::Seconds(3));
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidSuspendPageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/true,
@@ -319,7 +319,7 @@ TEST_F(
   ASSERT_FALSE(HasPendingTasks());
 
   // Tab 1 (Visible/Resume page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidResumePageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/true,
@@ -333,7 +333,53 @@ TEST_F(
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
+      OnDidLandOnPage(TabInfo{/*id=*/1,
+                              /*is_visible=*/true,
+                              /*redirect_chain=*/{GURL("https://brave.com")},
+                              /*is_error_page=*/false,
+                              /*is_playing_media=*/false},
+                      ad));
+  FastForwardClockToNextPendingTask();
+  EXPECT_FALSE(HasPendingTasks());
+}
+
+TEST_F(BraveAdsSiteVisitTest, DoNotSuspendOrResumePageLand) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeatureWithParameters(
+      brave_ads::kSiteVisitFeature,
+      {{"should_suspend_and_resume_page_land", "false"}});
+
+  // Tab 1 (Start page landing)
+  const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
+                                  /*should_generate_random_uuids=*/true);
+  site_visit_->SetLastClickedAd(ad);
+
+  EXPECT_CALL(site_visit_observer_mock_,
+              OnMaybeLandOnPage(ad, /*after=*/kPageLandAfter.Get()));
+  NotifyTabDidChange(
+      /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
+      /*is_new_navigation=*/true, /*is_restoring=*/false,
+      /*is_error_page=*/false, /*is_visible=*/true);
+  ASSERT_EQ(1U, GetPendingTaskCount());
+
+  // Browser (Entered background/Suspend page landing)
+  AdvanceClockBy(kPageLandAfter.Get() - base::Seconds(3));
+
+  EXPECT_CALL(site_visit_observer_mock_, OnDidSuspendPageLand).Times(0);
+
+  NotifyBrowserDidResignActive();
+  ASSERT_TRUE(HasPendingTasks());
+
+  // Tab 1 (Visible/Resume page landing)
+  EXPECT_CALL(site_visit_observer_mock_, OnDidResumePageLand).Times(0);
+
+  NotifyBrowserDidBecomeActive();
+  ASSERT_EQ(1U, GetPendingTaskCount());
+
+  // Act & Assert
+  EXPECT_CALL(
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -348,10 +394,10 @@ TEST_F(BraveAdsSiteVisitTest,
        LandOnPagesForMultipleSiteVisitsOccurringAtTheSameTime) {
   // Tab 1 (Visible/Start page landing)
   const AdInfo ad_1 = test::BuildAd(AdType::kNotificationAd,
-                                    /*should_use_random_uuids=*/true);
+                                    /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad_1);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad_1, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -360,7 +406,7 @@ TEST_F(BraveAdsSiteVisitTest,
   ASSERT_EQ(1U, GetPendingTaskCount());
 
   // Tab 1 (Occluded/Suspend page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidSuspendPageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/false,
@@ -376,10 +422,10 @@ TEST_F(BraveAdsSiteVisitTest,
 
   // Tab 2 (Visible/Start page landing)
   const AdInfo ad_2 = test::BuildAd(AdType::kNotificationAd,
-                                    /*should_use_random_uuids=*/true);
+                                    /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad_2);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad_2, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/2, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -388,7 +434,7 @@ TEST_F(BraveAdsSiteVisitTest,
   ASSERT_EQ(1U, GetPendingTaskCount());
 
   // Tab 2 (Occluded/Suspend page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidSuspendPageLand(
                   TabInfo{/*id=*/2,
                           /*is_visible=*/false,
@@ -403,7 +449,7 @@ TEST_F(BraveAdsSiteVisitTest,
   ASSERT_FALSE(HasPendingTasks());
 
   // Tab 1 (Visible/Resume page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidResumePageLand(
                   TabInfo{/*id=*/1,
                           /*is_visible=*/true,
@@ -418,7 +464,7 @@ TEST_F(BraveAdsSiteVisitTest,
   ASSERT_EQ(1U, GetPendingTaskCount());
 
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -428,7 +474,7 @@ TEST_F(BraveAdsSiteVisitTest,
   FastForwardClockToNextPendingTask();
 
   // Tab 2 (Visible/Resume page landing)
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnDidResumePageLand(
                   TabInfo{/*id=*/2,
                           /*is_visible=*/true,
@@ -444,7 +490,7 @@ TEST_F(BraveAdsSiteVisitTest,
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/2,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -460,10 +506,10 @@ TEST_F(BraveAdsSiteVisitTest,
        LandOnPageIfTheTabIsVisibleAndTheRedirectChainMatchesTheLastClickedAd) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -473,7 +519,7 @@ TEST_F(BraveAdsSiteVisitTest,
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -488,10 +534,10 @@ TEST_F(
     LandOnPageIfTheTabIsVisibleAndTheRedirectChainMatchesTheLastClickedAdForHttpResponseStatusErrorPage) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
-  EXPECT_CALL(observer_mock_,
+  EXPECT_CALL(site_visit_observer_mock_,
               OnMaybeLandOnPage(ad, /*after=*/kPageLandAfter.Get()));
   NotifyTabDidChange(
       /*tab_id=*/1, /*redirect_chain=*/{GURL("https://brave.com")},
@@ -501,7 +547,7 @@ TEST_F(
 
   // Act & Assert
   EXPECT_CALL(
-      observer_mock_,
+      site_visit_observer_mock_,
       OnDidLandOnPage(TabInfo{/*id=*/1,
                               /*is_visible=*/true,
                               /*redirect_chain=*/{GURL("https://brave.com")},
@@ -514,7 +560,7 @@ TEST_F(
 TEST_F(BraveAdsSiteVisitTest, DoNotLandOnPageIfTheTabIsOccluded) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
   NotifyTabDidChange(
@@ -528,7 +574,7 @@ TEST_F(BraveAdsSiteVisitTest, DoNotLandOnPageIfTheTabIsOccluded) {
       /*is_error_page=*/false, /*is_visible=*/false);
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidLandOnPage).Times(0);
+  EXPECT_CALL(site_visit_observer_mock_, OnDidLandOnPage).Times(0);
   FastForwardClockBy(kPageLandAfter.Get());
 }
 
@@ -537,7 +583,7 @@ TEST_F(
     DoNotLandOnPageIfTheVisibleTabRedirectChainDoesNotMatchTheLastClickedAd) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
   NotifyTabDidChange(
@@ -547,7 +593,7 @@ TEST_F(
       /*is_error_page=*/false, /*is_visible=*/true);
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnDidLandOnPage).Times(0);
+  EXPECT_CALL(site_visit_observer_mock_, OnDidLandOnPage).Times(0);
   FastForwardClockBy(kPageLandAfter.Get());
 }
 
@@ -555,7 +601,7 @@ TEST_F(BraveAdsSiteVisitTest,
        CancelPageLandIfTheRedirectChainNoLongerMatchesTheAdTargetUrl) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
   NotifyTabDidChange(
@@ -564,7 +610,7 @@ TEST_F(BraveAdsSiteVisitTest,
       /*is_error_page=*/false, /*is_visible=*/true);
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnCanceledPageLand(/*tab_id=*/1, ad));
+  EXPECT_CALL(site_visit_observer_mock_, OnCanceledPageLand(/*tab_id=*/1, ad));
   NotifyTabDidChange(
       /*tab_id=*/1,
       /*redirect_chain=*/{GURL("https://basicattentiontoken.org")},
@@ -575,7 +621,7 @@ TEST_F(BraveAdsSiteVisitTest,
 TEST_F(BraveAdsSiteVisitTest, CancelPageLandIfTheTabIsClosed) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
   site_visit_->SetLastClickedAd(ad);
 
   NotifyTabDidChange(
@@ -584,7 +630,7 @@ TEST_F(BraveAdsSiteVisitTest, CancelPageLandIfTheTabIsClosed) {
       /*is_error_page=*/false, /*is_visible=*/true);
 
   // Act & Assert
-  EXPECT_CALL(observer_mock_, OnCanceledPageLand(/*tab_id=*/1, ad));
+  EXPECT_CALL(site_visit_observer_mock_, OnCanceledPageLand(/*tab_id=*/1, ad));
   NotifyDidCloseTab(/*tab_id=*/1);
 }
 

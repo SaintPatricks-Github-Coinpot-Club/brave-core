@@ -38,7 +38,6 @@ class BraveWebAudioFarblingBrowserTest : public InProcessBrowserTest {
     host_resolver()->AddRule("*", "127.0.0.1");
     content::SetupCrossSiteRedirector(embedded_test_server());
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir;
     base::PathService::Get(brave::DIR_TEST_DATA, &test_data_dir);
     test_data_dir = test_data_dir.AppendASCII(kEmbeddedTestServerDirectory);
@@ -114,6 +113,15 @@ IN_PROC_BROWSER_TEST_F(BraveWebAudioFarblingBrowserTest, FarbleWebAudio) {
   // Farbling level: off
   // web audio: original audio data
   AllowFingerprinting();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), farbling_url()));
+  EXPECT_EQ(content::EvalJs(contents(), kTitleScript), "8000");
+
+  // Farbling level: balanced (default), but webcompat exception enabled
+  // web audio: original audio data
+  SetFingerprintingDefault();
+  brave_shields::SetWebcompatFeatureSetting(
+      content_settings(), ContentSettingsType::BRAVE_WEBCOMPAT_AUDIO,
+      ControlType::ALLOW, farbling_url(), nullptr);
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), farbling_url()));
   EXPECT_EQ(content::EvalJs(contents(), kTitleScript), "8000");
 }

@@ -55,12 +55,7 @@ export default function addBraveRoutes(r: Partial<SettingsRoutes>) {
     r.BRAVE_WALLET_NETWORKS = r.BRAVE_WALLET.createChild('/wallet/networks')
   }
   r.BRAVE_NEW_TAB = r.BASIC.createSection('/newTab', 'newTab')
-  if (r.SITE_SETTINGS_SITE_DETAILS) {
-    r.BRAVE_SITE_SETTINGS_COOKIES_DETAILS =
-      r.SITE_SETTINGS_SITE_DETAILS.createChild('/cookies/detail')
-  } else if (!isGuest) {
-    console.error('[Brave Settings Overrides] could not find expected route /content/siteDetails')
-  }
+
   if (pageVisibility.leoAssistant) {
     r.BRAVE_LEO_ASSISTANT =
       r.BASIC.createSection('/leo-assistant', 'leoAssistant')
@@ -109,22 +104,6 @@ export default function addBraveRoutes(r: Partial<SettingsRoutes>) {
   // Delete performance menu - system menu includes it instead.
   if (r.PERFORMANCE) {
     delete r.PERFORMANCE
-  }
-  // Delete safety check
-  if (loadTimeData.getBoolean('enableSafetyHub')) {
-    if (r.SAFETY_HUB) {
-      delete r.SAFETY_HUB
-    } else if (!isGuest) {
-      console.error(
-        '[Brave Settings Overrides] Could not delete safety hub route', r)
-    }
-  } else {
-    if (r.SAFETY_CHECK && r.ADVANCED) {
-      delete r.SAFETY_CHECK
-    } else if (!isGuest) {
-      console.error(
-        '[Brave Settings Overrides] Could not delete safety check route', r)
-    }
   }
   // Delete storage access
   if (r.SITE_SETTINGS_STORAGE_ACCESS) {

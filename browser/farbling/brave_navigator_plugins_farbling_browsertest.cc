@@ -43,7 +43,6 @@ class BraveNavigatorPluginsFarblingBrowserTest : public InProcessBrowserTest {
     host_resolver()->AddRule("*", "127.0.0.1");
     content::SetupCrossSiteRedirector(embedded_test_server());
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir;
     base::PathService::Get(brave::DIR_TEST_DATA, &test_data_dir);
     embedded_test_server()->ServeFilesFromDirectory(test_data_dir);
@@ -137,6 +136,17 @@ IN_PROC_BROWSER_TEST_F(BraveNavigatorPluginsFarblingBrowserTest,
   EXPECT_EQ(content::EvalJs(contents(), "navigator.plugins[1][0].type;"), "");
   EXPECT_EQ(content::EvalJs(contents(), "navigator.plugins[1][0].description;"),
             "pzhQIECgYzCBny4cOuXLFh3Epc1aseXq");
+
+  // Farbling level: default, but webcompat exception enabled
+  // get real length of navigator.plugins
+  SetFingerprintingDefault();
+  brave_shields::SetWebcompatFeatureSetting(
+      content_settings(), ContentSettingsType::BRAVE_WEBCOMPAT_PLUGINS,
+      ControlType::ALLOW, farbling_url(), nullptr);
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), farbling_url()));
+  int off_length2 =
+      content::EvalJs(contents(), kPluginsLengthScript).ExtractInt();
+  EXPECT_EQ(off_length, off_length2);
 }
 
 // Tests that names of built-in plugins get farbled by default

@@ -56,45 +56,53 @@ TEST_F(BraveAdsCreativeSetConversionUtilTest,
       GURL("https://www.qux.com/fred" /*matches creative_set_conversion_2*/),
       GURL("https://quux.com/corge/grault"), GURL("https://garbly.com/waldo")};
 
-  // Act & Assert
+  // Act
+  const CreativeSetConversionList matching_creative_set_conversions =
+      GetMatchingCreativeSetConversions(creative_set_conversions,
+                                        redirect_chain);
+
+  // Assert
   const CreativeSetConversionList expected_matching_creative_set_conversions = {
       creative_set_conversion_1, creative_set_conversion_2,
       creative_set_conversion_4};
   EXPECT_EQ(expected_matching_creative_set_conversions,
-            GetMatchingCreativeSetConversions(creative_set_conversions,
-                                              redirect_chain));
+            matching_creative_set_conversions);
 }
 
 TEST_F(BraveAdsCreativeSetConversionUtilTest, GetCreativeSetConversionCounts) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/true);
+                                  /*should_generate_random_uuids=*/true);
 
   AdEventList ad_events;
 
-  const AdEventInfo ad_event_1 =
-      BuildAdEvent(ad, ConfirmationType::kServedImpression, Now());
+  const AdEventInfo ad_event_1 = BuildAdEvent(
+      ad, ConfirmationType::kServedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_1);
 
   AdEventInfo ad_event_2 =
-      BuildAdEvent(ad, ConfirmationType::kConversion, Now());
+      BuildAdEvent(ad, ConfirmationType::kConversion, /*created_at=*/Now());
   ad_event_2.creative_set_id = "4e83a23c-1194-40f8-8fdc-2f38d7ed75c8";
   ad_events.push_back(ad_event_2);
 
-  const AdEventInfo ad_event_3 =
-      BuildAdEvent(ad, ConfirmationType::kViewedImpression, Now());
+  const AdEventInfo ad_event_3 = BuildAdEvent(
+      ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   ad_events.push_back(ad_event_3);
 
   const AdEventInfo ad_event_4 =
-      BuildAdEvent(ad, ConfirmationType::kConversion, Now());
+      BuildAdEvent(ad, ConfirmationType::kConversion, /*created_at=*/Now());
   ad_events.push_back(ad_event_4);
   ad_events.push_back(ad_event_4);
 
-  // Act & Assert
+  // Act
+  const CreativeSetConversionCountMap creative_set_conversion_counts =
+      GetCreativeSetConversionCounts(ad_events);
+
+  // Assert
   const CreativeSetConversionCountMap expected_creative_set_conversion_counts =
       {{ad_event_2.creative_set_id, 1}, {ad_event_4.creative_set_id, 2}};
   EXPECT_EQ(expected_creative_set_conversion_counts,
-            GetCreativeSetConversionCounts(ad_events));
+            creative_set_conversion_counts);
 }
 
 TEST_F(BraveAdsCreativeSetConversionUtilTest,
@@ -123,24 +131,26 @@ TEST_F(BraveAdsCreativeSetConversionUtilTest,
           /*observation_window=*/base::Days(30));  // Bucket #1
   creative_set_conversions.push_back(creative_set_conversion_3);
 
-  // Act & Assert
-  CreativeSetConversionBucketMap expected_buckets;
-  expected_buckets.insert(  // Bucket #1
+  // Act
+  const CreativeSetConversionBucketMap creative_set_conversion_buckets =
+      SortCreativeSetConversionsIntoBuckets(creative_set_conversions);
+
+  // Assert
+  CreativeSetConversionBucketMap expected_creative_set_conversion_buckets;
+  expected_creative_set_conversion_buckets.insert(  // Bucket #1
       {kCreativeSetId, {creative_set_conversion_1, creative_set_conversion_3}});
-  expected_buckets.insert(  // Bucket #2
+  expected_creative_set_conversion_buckets.insert(  // Bucket #2
       {creative_set_conversion_2.id, {creative_set_conversion_2}});
-  EXPECT_EQ(expected_buckets,
-            SortCreativeSetConversionsIntoBuckets(creative_set_conversions));
+  EXPECT_EQ(expected_creative_set_conversion_buckets,
+            creative_set_conversion_buckets);
 }
 
 TEST_F(BraveAdsCreativeSetConversionUtilTest,
        SortEmptyCreativeSetConversionsIntoBuckets) {
-  // Act
-  const CreativeSetConversionBucketMap buckets =
-      SortCreativeSetConversionsIntoBuckets({});
-
-  // Assert
-  EXPECT_TRUE(buckets.empty());
+  // Act & Assert
+  EXPECT_THAT(
+      SortCreativeSetConversionsIntoBuckets(/*creative_set_conversions=*/{}),
+      ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsCreativeSetConversionUtilTest,
@@ -175,8 +185,9 @@ TEST_F(BraveAdsCreativeSetConversionUtilTest,
       creative_set_conversion_buckets);
 
   // Assert
-  CreativeSetConversionBucketMap expected_creative_set_conversion_buckets = {
-      {creative_set_conversion_1.id, {creative_set_conversion_1}}};
+  const CreativeSetConversionBucketMap
+      expected_creative_set_conversion_buckets = {
+          {creative_set_conversion_1.id, {creative_set_conversion_1}}};
   EXPECT_EQ(expected_creative_set_conversion_buckets,
             creative_set_conversion_buckets);
 }
@@ -213,10 +224,11 @@ TEST_F(BraveAdsCreativeSetConversionUtilTest,
       creative_set_conversion_buckets);
 
   // Assert
-  CreativeSetConversionBucketMap expected_creative_set_conversion_buckets = {
-      {creative_set_conversion_1.id, {creative_set_conversion_1}},
-      {creative_set_conversion_2.id,
-       {creative_set_conversion_2, creative_set_conversion_2}}};
+  const CreativeSetConversionBucketMap
+      expected_creative_set_conversion_buckets = {
+          {creative_set_conversion_1.id, {creative_set_conversion_1}},
+          {creative_set_conversion_2.id,
+           {creative_set_conversion_2, creative_set_conversion_2}}};
   EXPECT_EQ(expected_creative_set_conversion_buckets,
             creative_set_conversion_buckets);
 }
@@ -225,7 +237,7 @@ TEST_F(BraveAdsCreativeSetConversionUtilTest,
        GetCreativeSetConversionsWithinObservationWindow) {
   // Arrange
   const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
-                                  /*should_use_random_uuids=*/false);
+                                  /*should_generate_random_uuids=*/false);
   const AdEventInfo ad_event =
       BuildAdEvent(ad, ConfirmationType::kConversion, /*created_at=*/Now());
 
@@ -249,15 +261,17 @@ TEST_F(BraveAdsCreativeSetConversionUtilTest,
   creative_set_conversions.push_back(creative_set_conversion_2);
 
   // Act
-  const CreativeSetConversionList unexpired_creative_set_conversions =
-      GetCreativeSetConversionsWithinObservationWindow(creative_set_conversions,
-                                                       ad_event);
+  const CreativeSetConversionList
+      creative_set_conversions_within_observation_window =
+          GetCreativeSetConversionsWithinObservationWindow(
+              creative_set_conversions, ad_event);
 
   // Assert
-  const CreativeSetConversionList expected_unexpired_creative_set_conversions =
-      {creative_set_conversion_1};
-  EXPECT_EQ(expected_unexpired_creative_set_conversions,
-            unexpired_creative_set_conversions);
+  const CreativeSetConversionList
+      expected_creative_set_conversions_within_observation_window = {
+          creative_set_conversion_1};
+  EXPECT_EQ(expected_creative_set_conversions_within_observation_window,
+            creative_set_conversions_within_observation_window);
 }
 
 }  // namespace brave_ads

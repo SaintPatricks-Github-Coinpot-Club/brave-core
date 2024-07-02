@@ -244,6 +244,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
 
   func setupObservers() {
     guard !isObserving else { return }
+    self.assetManager.addUserAssetDataObserver(self)
     self.keyringServiceObserver = KeyringServiceObserver(
       keyringService: keyringService,
       _selectedWalletAccountChanged: { [weak self] account in
@@ -302,13 +303,20 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
     }
 
     rpcService.network(coin: token.coin, origin: nil) { [weak self] network in
-      self?.rpcService.balance(
+      if let assetBalance = self?.assetManager.getBalances(
         for: token,
-        in: account.address,
-        network: network,
-        decimalFormatStyle: .decimals(precision: Int(token.decimals))
-      ) { balance in
-        completion(balance)
+        account: account.id
+      )?.first(where: { $0.chainId == network.chainId }) {
+        completion(BDouble(assetBalance.balance))
+      } else {
+        self?.rpcService.balance(
+          for: token,
+          in: account.address,
+          network: network,
+          decimalFormatStyle: .decimals(precision: Int(token.decimals))
+        ) { balance in
+          completion(balance)
+        }
       }
     }
   }
@@ -323,7 +331,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       let buyToken = selectedToToken
     else { return nil }
 
-    let weiFormatter = WeiFormatter(decimalFormatStyle: .decimals(precision: 18))
+    let walletAmountFormatter = WalletAmountFormatter(decimalFormatStyle: .decimals(precision: 18))
     let sellAddress = sellToken.contractAddress(in: network)
     let buyAddress = buyToken.contractAddress(in: network)
     let sellAmountInWei: String
@@ -336,7 +344,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
         return nil
       }
       sellAmountInWei =
-        weiFormatter.weiString(
+        walletAmountFormatter.weiString(
           from: sellAmount.normalizedDecimals,
           radix: .decimal,
           decimals: Int(sellToken.decimals)
@@ -349,7 +357,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       }
       sellAmountInWei = ""
       buyAmountInWei =
-        weiFormatter.weiString(
+        walletAmountFormatter.weiString(
           from: buyAmount.normalizedDecimals,
           radix: .decimal,
           decimals: Int(buyToken.decimals)
@@ -367,7 +375,9 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       toToken: buyAddress,
       toAmount: buyAmountInWei,
       slippagePercentage: "\(slippagePercentage)",
-      routePriority: .recommended
+      routePriority: .recommended,
+      // TODO(stephenheaps): Enable Lifi support https://github.com/brave/brave-browser/issues/36436
+      provider: sellToken.coin == .sol ? .jupiter : .zeroEx
     )
 
     return swapQuoteParams
@@ -396,12 +406,11 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       self.clearAllAmount()
       return false
     }
-    var gasPrice: String?
     var gasLimit: String?
     var to: String?
     var value: String?
     var data: [NSNumber]?
-    let weiFormatter = WeiFormatter(decimalFormatStyle: .decimals(precision: 18))
+    let walletAmountFormatter = WalletAmountFormatter(decimalFormatStyle: .decimals(precision: 18))
 
     if currentSwapQuoteInfo.swapQuote?.zeroExQuote != nil {
       let (swapTransactionUnion, _, _) = await swapService.transaction(
@@ -413,13 +422,11 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
         return false
       }
       // these values are already in wei
-      gasPrice =
-        "0x\(weiFormatter.weiString(from: zeroExQuote.gasPrice, radix: .hex, decimals: 0) ?? "0")"
       gasLimit =
-        "0x\(weiFormatter.weiString(from: zeroExQuote.estimatedGas, radix: .hex, decimals: 0) ?? "0")"
+        "0x\(walletAmountFormatter.weiString(from: zeroExQuote.estimatedGas, radix: .hex, decimals: 0) ?? "0")"
       to = zeroExQuote.to
       value =
-        "0x\(weiFormatter.weiString(from: zeroExQuote.value, radix: .hex, decimals: 0) ?? "0")"
+        "0x\(walletAmountFormatter.weiString(from: zeroExQuote.value, radix: .hex, decimals: 0) ?? "0")"
       data = .init(hexString: zeroExQuote.data) ?? .init()
 
     } else if let lifiQuote = currentSwapQuoteInfo.swapQuote?.lifiQuote {
@@ -439,13 +446,11 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
         return false
       }
       // these values are already in wei
-      gasPrice =
-        "0x\(weiFormatter.weiString(from: evmTransaction.gasPrice, radix: .hex, decimals: 0) ?? "0")"
       gasLimit =
-        "0x\(weiFormatter.weiString(from: evmTransaction.gasLimit, radix: .hex, decimals: 0) ?? "0")"
+        "0x\(walletAmountFormatter.weiString(from: evmTransaction.gasLimit, radix: .hex, decimals: 0) ?? "0")"
       to = evmTransaction.to
       value =
-        "0x\(weiFormatter.weiString(from: evmTransaction.value, radix: .hex, decimals: 0) ?? "0")"
+        "0x\(walletAmountFormatter.weiString(from: evmTransaction.value, radix: .hex, decimals: 0) ?? "0")"
       data = .init(hexString: evmTransaction.data) ?? .init()
     } else {
       assertionFailure("Only ZeroEx and LiFi supported for Ethereum swaps")
@@ -454,8 +459,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       return false
     }
 
-    guard let gasPrice,
-      let gasLimit,
+    guard let gasLimit,
       let to,
       let value,
       let data
@@ -464,41 +468,17 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       self.clearAllAmount()
       return false
     }
-    let success: Bool
-    if network.isEip1559 {
-      let baseData: BraveWallet.TxData = .init(
-        nonce: "",
-        gasPrice: "",  // no gas price in eip1559
-        gasLimit: gasLimit,
-        to: to,
-        value: value,
-        data: data,
-        signOnly: false,
-        signedTransaction: nil
-      )
-      success = await self.makeEIP1559Tx(
-        chainId: network.chainId,
-        baseData: baseData,
-        from: accountInfo
-      )
-    } else {
-      let baseData: BraveWallet.TxData = .init(
-        nonce: "",
-        gasPrice: gasPrice,
-        gasLimit: gasLimit,
-        to: to,
-        value: value,
-        data: data,
-        signOnly: false,
-        signedTransaction: nil
-      )
-      let txDataUnion = BraveWallet.TxDataUnion(ethTxData: baseData)
-      (success, _, _) = await txService.addUnapprovedTransaction(
-        txDataUnion: txDataUnion,
-        chainId: network.chainId,
-        from: accountInfo.accountId
-      )
-    }
+    let params = BraveWallet.NewEvmTransactionParams(
+      chainId: network.chainId,
+      from: accountInfo.accountId,
+      to: to,
+      value: value,
+      gasLimit: gasLimit,
+      data: data
+    )
+    let (success, _, _) = await txService.addUnapprovedEvmTransaction(
+      params: params
+    )
     if !success {
       self.state = .error(Strings.Wallet.unknownError)
       self.clearAllAmount()
@@ -538,80 +518,22 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
     guard success else {
       return false
     }
-    let baseData = BraveWallet.TxData(
-      nonce: "",
-      gasPrice: "",
-      gasLimit: "",
+    let params = BraveWallet.NewEvmTransactionParams(
+      chainId: network.chainId,
+      from: accountInfo.accountId,
       to: fromToken.contractAddress(in: network),
       value: "0x0",
-      data: data,
-      signOnly: false,
-      signedTransaction: nil
+      gasLimit: "",
+      data: data
     )
-    if network.isEip1559 {
-      let success = await self.makeEIP1559Tx(
-        chainId: network.chainId,
-        baseData: baseData,
-        from: accountInfo
-      )
-      if !success {
-        self.state = .error(Strings.Wallet.unknownError)
-        self.clearAllAmount()
-      }
-      return success
-    } else {
-      let txDataUnion = BraveWallet.TxDataUnion(ethTxData: baseData)
-      let (success, _, _) = await txService.addUnapprovedTransaction(
-        txDataUnion: txDataUnion,
-        chainId: network.chainId,
-        from: accountInfo.accountId
-      )
-      if !success {
-        self.state = .error(Strings.Wallet.unknownError)
-        self.clearAllAmount()
-      }
-      return success
-    }
-  }
-
-  @MainActor private func makeEIP1559Tx(
-    chainId: String,
-    baseData: BraveWallet.TxData,
-    from account: BraveWallet.AccountInfo
-  ) async -> Bool {
-    var maxPriorityFeePerGas = ""
-    var maxFeePerGas = ""
-    let gasEstimation = await ethTxManagerProxy.gasEstimation1559(chainId: chainId)
-    if let gasEstimation = gasEstimation {
-      // Bump fast priority fee and max fee by 1 GWei if same as average fees.
-      if gasEstimation.fastMaxPriorityFeePerGas == gasEstimation.avgMaxPriorityFeePerGas {
-        maxPriorityFeePerGas =
-          "0x\(self.bumpFeeByOneGWei(with: gasEstimation.fastMaxPriorityFeePerGas) ?? "0")"
-        maxFeePerGas = "0x\(self.bumpFeeByOneGWei(with: gasEstimation.fastMaxFeePerGas) ?? "0")"
-      } else {
-        // Always suggest fast gas fees as default
-        maxPriorityFeePerGas = gasEstimation.fastMaxPriorityFeePerGas
-        maxFeePerGas = gasEstimation.fastMaxFeePerGas
-      }
-    }
-    let eip1559Data = BraveWallet.TxData1559(
-      baseData: baseData,
-      chainId: chainId,
-      maxPriorityFeePerGas: maxPriorityFeePerGas,
-      maxFeePerGas: maxFeePerGas,
-      gasEstimation: gasEstimation
+    let (addSuccess, _, _) = await txService.addUnapprovedEvmTransaction(
+      params: params
     )
-    let txDataUnion = BraveWallet.TxDataUnion(ethTxData1559: eip1559Data)
-    let (success, _, _) = await txService.addUnapprovedTransaction(
-      txDataUnion: txDataUnion,
-      chainId: chainId,
-      from: account.accountId
-    )
-    if !success {
+    if !addSuccess {
       self.state = .error(Strings.Wallet.unknownError)
       self.clearAllAmount()
     }
-    return success
+    return addSuccess
   }
 
   private func bumpFeeByOneGWei(with value: String) -> String? {
@@ -633,12 +555,12 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       spenderAddress: spenderAddress,
       chainId: network.chainId
     )
-    let weiFormatter = WeiFormatter(
+    let walletAmountFormatter = WalletAmountFormatter(
       decimalFormatStyle: .decimals(precision: Int(fromToken.decimals))
     )
     let allowanceValue =
       BDouble(
-        weiFormatter.decimalString(
+        walletAmountFormatter.decimalString(
           for: allowance.removingHexPrefix,
           radix: .hex,
           decimals: Int(fromToken.decimals)
@@ -723,7 +645,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
     zeroExQuote: BraveWallet.ZeroExQuote
   ) async {
     guard !Task.isCancelled else { return }
-    let weiFormatter = WeiFormatter(decimalFormatStyle: .decimals(precision: 18))
+    let walletAmountFormatter = WalletAmountFormatter(decimalFormatStyle: .decimals(precision: 18))
     switch base {
     case .perSellAsset:
       var decimal = 18
@@ -731,7 +653,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
         decimal = Int(buyToken.decimals)
       }
       let decimalString =
-        weiFormatter.decimalString(for: zeroExQuote.buyAmount, decimals: decimal) ?? ""
+        walletAmountFormatter.decimalString(for: zeroExQuote.buyAmount, decimals: decimal) ?? ""
       if let bv = BDouble(decimalString) {
         buyAmount = bv.decimalDescription
       }
@@ -741,7 +663,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
         decimal = Int(sellToken.decimals)
       }
       let decimalString =
-        weiFormatter.decimalString(for: zeroExQuote.sellAmount, decimals: decimal) ?? ""
+        walletAmountFormatter.decimalString(for: zeroExQuote.sellAmount, decimals: decimal) ?? ""
       if let bv = BDouble(decimalString) {
         sellAmount = bv.decimalDescription
       }
@@ -771,22 +693,29 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
     let network = await rpcService.network(coin: accountInfo.coin, origin: nil)
 
     // Check if balance available to pay for gas
-    let (ethBalanceString, _, _) = await rpcService.balance(
-      address: accountInfo.address,
-      coin: network.coin,
-      chainId: network.chainId
-    )
+    let ethBalance: BDouble
+    if let assetBalance = assetManager.getBalances(
+      for: network.nativeToken,
+      account: accountInfo.id
+    )?.first(where: { $0.chainId == network.chainId }) {
+      ethBalance = BDouble(assetBalance.balance) ?? 0
+    } else {
+      let (ethBalanceString, _, _) = await rpcService.balance(
+        address: accountInfo.address,
+        coin: network.coin,
+        chainId: network.chainId
+      )
+      let balanceFormatter = WalletAmountFormatter(decimalFormatStyle: .balance)
+      ethBalance =
+        BDouble(
+          balanceFormatter.decimalString(
+            for: ethBalanceString.removingHexPrefix,
+            radix: .hex,
+            decimals: 18
+          ) ?? ""
+        ) ?? 0
+    }
     let fee = gasLimit * gasPrice
-    let balanceFormatter = WeiFormatter(decimalFormatStyle: .balance)
-    let ethBalance =
-      BDouble(
-        balanceFormatter.decimalString(
-          for: ethBalanceString.removingHexPrefix,
-          radix: .hex,
-          decimals: 18
-        )
-          ?? ""
-      ) ?? 0
     if fromToken.symbol == network.symbol {
       if ethBalance < fee + sellAmountValue {
         self.state = .error(Strings.Wallet.insufficientFundsForGas)
@@ -818,7 +747,7 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
     _ jupiterQuote: BraveWallet.JupiterQuote
   ) async {
     guard !Task.isCancelled else { return }
-    let formatter = WeiFormatter(decimalFormatStyle: .balance)
+    let formatter = WalletAmountFormatter(decimalFormatStyle: .balance)
     if let selectedToToken {
       buyAmount =
         formatter.decimalString(
@@ -875,19 +804,19 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
       self.state = .error(Strings.Wallet.unknownError)
       return
     }
-    let weiFormatter = WeiFormatter(decimalFormatStyle: .decimals(precision: 18))
+    let walletAmountFormatter = WalletAmountFormatter(decimalFormatStyle: .decimals(precision: 18))
     switch base {
     case .perSellAsset:
       let decimal = Int(route.toToken.decimals)
       let decimalString =
-        weiFormatter.decimalString(for: route.toAmount, decimals: decimal) ?? ""
+        walletAmountFormatter.decimalString(for: route.toAmount, decimals: decimal) ?? ""
       if let bv = BDouble(decimalString) {
         buyAmount = bv.decimalDescription
       }
     case .perBuyAsset:
       let decimal = Int(route.fromToken.decimals)
       let decimalString =
-        weiFormatter.decimalString(for: route.fromAmount, decimals: decimal) ?? ""
+        walletAmountFormatter.decimalString(for: route.fromAmount, decimals: decimal) ?? ""
       if let bv = BDouble(decimalString) {
         sellAmount = bv.decimalDescription
       }
@@ -903,25 +832,33 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
 
     // Check if balance available to pay for gas
     if route.fromToken.coin == .eth {
-      let (ethBalanceString, _, _) = await rpcService.balance(
-        address: accountInfo.address,
-        coin: network.coin,
-        chainId: network.chainId
-      )
-      let ethBalance =
-        BDouble(
-          weiFormatter.decimalString(
-            for: ethBalanceString.removingHexPrefix,
-            radix: .hex,
-            decimals: 18
-          ) ?? ""
-        ) ?? 0
+      let ethBalance: BDouble
+      if let assetBalance = assetManager.getBalances(
+        for: network.nativeToken,
+        account: accountInfo.id
+      )?.first(where: { $0.chainId == network.chainId }) {
+        ethBalance = BDouble(assetBalance.balance) ?? 0
+      } else {
+        let (ethBalanceString, _, _) = await rpcService.balance(
+          address: accountInfo.address,
+          coin: network.coin,
+          chainId: network.chainId
+        )
+        ethBalance =
+          BDouble(
+            walletAmountFormatter.decimalString(
+              for: ethBalanceString.removingHexPrefix,
+              radix: .hex,
+              decimals: 18
+            ) ?? ""
+          ) ?? 0
+      }
       let feeTotal: Double = step.estimate.gasCosts.reduce(Double(0)) { total, cost in
         total + (Double(cost.amount) ?? 0)
       }
       let fee =
         BDouble(
-          weiFormatter.decimalString(
+          walletAmountFormatter.decimalString(
             for: "\(feeTotal)",
             decimals: Int(network.decimals)
           ) ?? ""
@@ -1227,10 +1164,10 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
           self.selectedFromToken = prefilledToken
           continueClosure(network)
         } else {
-          self.rpcService.allNetworks(coin: prefilledToken.coin) { allNetworksForTokenCoin in
+          self.rpcService.allNetworks { allNetworks in
             guard
-              let networkForToken = allNetworksForTokenCoin.first(where: {
-                $0.chainId == prefilledToken.chainId
+              let networkForToken = allNetworks.first(where: {
+                $0.coin == prefilledToken.coin && $0.chainId == prefilledToken.chainId
               })
             else {
               // don't set prefilled token if it belongs to a network we don't know
@@ -1300,4 +1237,17 @@ public class SwapTokenStore: ObservableObject, WalletObserverStore {
     selectedFromToken = .previewToken
   }
   #endif
+}
+
+extension SwapTokenStore: WalletUserAssetDataObserver {
+  public func cachedBalanceRefreshed() {
+    if let token = selectedFromToken {
+      fetchTokenBalance(for: token) { [weak self] balance in
+        self?.selectedFromTokenBalance = balance
+      }
+    }
+  }
+
+  public func userAssetUpdated() {
+  }
 }

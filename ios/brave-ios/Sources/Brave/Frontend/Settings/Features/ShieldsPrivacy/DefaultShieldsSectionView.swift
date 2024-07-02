@@ -124,12 +124,29 @@ struct DefaultShieldsViewView: View {
         toggle: $settings.cookieConsentBlocking
       )
 
+      Picker(selection: $settings.shredLevel) {
+        Text(Strings.Shields.shredNever)
+          .foregroundColor(Color(.secondaryBraveLabel))
+          .tag(nil as SiteShredLevel?)
+
+        ForEach(SiteShredLevel.allCases) { level in
+          Text(level.localizedTitle)
+            .foregroundColor(Color(.secondaryBraveLabel))
+            .tag(level as SiteShredLevel?)
+        }
+      } label: {
+        LabelView(
+          title: Strings.Shields.automaticallyShred,
+          subtitle: nil
+        )
+      }
+
       NavigationLink {
         FilterListsView()
       } label: {
         LabelView(
-          title: Strings.contentFiltering,
-          subtitle: Strings.contentFilteringDescription
+          title: Strings.Shields.contentFiltering,
+          subtitle: Strings.Shields.contentFilteringDescription
         )
       }.listRowBackground(Color(.secondaryBraveGroupedBackground))
     } header: {

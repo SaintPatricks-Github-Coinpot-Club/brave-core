@@ -14,6 +14,7 @@
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/strings/string_number_conversions.h"
+#include "brave/components/brave_ads/core/internal/common/logging_util.h"
 #include "brave/components/brave_ads/core/internal/targeting/behavioral/purchase_intent/purchase_intent_feature.h"
 #include "brave/components/brave_ads/core/internal/targeting/behavioral/purchase_intent/resource/purchase_intent_signal_history_value_util.h"
 #include "brave/components/brave_ads/core/public/history/history_item_value_util.h"
@@ -34,11 +35,10 @@ ClientInfo& ClientInfo::operator=(ClientInfo&& other) noexcept = default;
 ClientInfo::~ClientInfo() = default;
 
 base::Value::Dict ClientInfo::ToValue() const {
-  base::Value::Dict dict;
-
-  dict.Set("adPreferences", ad_preferences.ToValue());
-
-  dict.Set("adsShownHistory", HistoryItemsToValue(history_items));
+  base::Value::Dict dict =
+      base::Value::Dict()
+          .Set("adPreferences", ad_preferences.ToValue())
+          .Set("adsShownHistory", HistoryItemsToValue(history_items));
 
   const base::TimeDelta time_window = kPurchaseIntentTimeWindow.Get();
 
@@ -61,12 +61,12 @@ base::Value::Dict ClientInfo::ToValue() const {
   for (const auto& item : text_classification_probabilities) {
     base::Value::List probabilities_list;
 
-    for (const auto& [segmemt, page_score] : item) {
-      CHECK(!segmemt.empty());
+    for (const auto& [segment, page_score] : item) {
+      CHECK(!segment.empty());
 
       probabilities_list.Append(
           base::Value::Dict()
-              .Set("segment", segmemt)
+              .Set("segment", segment)
               .Set("pageScore", base::NumberToString(page_score)));
     }
 
@@ -95,7 +95,7 @@ bool ClientInfo::FromValue(const base::Value::Dict& dict) {
 
   if (const auto* const value = dict.FindDict("purchaseIntentSignalHistory")) {
     for (const auto [segment, history] : *value) {
-      const auto* items = history.GetIfList();
+      const auto* const items = history.GetIfList();
       if (!items) {
         continue;
       }
@@ -176,6 +176,8 @@ bool ClientInfo::FromJson(const std::string& json) {
     SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                               "Malformed client JSON state");
     base::debug::DumpWithoutCrashing();
+
+    BLOG(0, "Malformed client JSON state");
 
     return false;
   }

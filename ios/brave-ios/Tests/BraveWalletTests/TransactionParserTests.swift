@@ -21,7 +21,7 @@ extension BraveWallet.AccountInfo {
         keyringId: coin.keyringIds.first ?? .default,
         kind: .derived,
         address: address,
-        bitcoinAccountIndex: 0,
+        accountIndex: 0,
         uniqueKey: address
       ),
       address: address,
@@ -762,7 +762,8 @@ class TransactionParserTests: XCTestCase {
       staticAccountKeys: [],
       addressTableLookups: [],
       send: .init(maxRetries: .init(maxRetries: 1), preflightCommitment: nil, skipPreflight: nil),
-      signTransactionParam: nil
+      signTransactionParam: nil,
+      feeEstimation: nil
     )
     let transaction = BraveWallet.TransactionInfo(
       id: "7",
@@ -868,7 +869,8 @@ class TransactionParserTests: XCTestCase {
       staticAccountKeys: [],
       addressTableLookups: [],
       send: .init(maxRetries: .init(maxRetries: 1), preflightCommitment: nil, skipPreflight: nil),
-      signTransactionParam: nil
+      signTransactionParam: nil,
+      feeEstimation: nil
     )
     let transaction = BraveWallet.TransactionInfo(
       id: "7",
@@ -957,7 +959,8 @@ class TransactionParserTests: XCTestCase {
       staticAccountKeys: [],
       addressTableLookups: [],
       send: .init(maxRetries: .init(maxRetries: 1), preflightCommitment: nil, skipPreflight: nil),
-      signTransactionParam: nil
+      signTransactionParam: nil,
+      feeEstimation: nil
     )
     let transaction = BraveWallet.TransactionInfo(
       id: "7",

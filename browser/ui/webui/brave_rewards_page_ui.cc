@@ -26,6 +26,7 @@
 #include "brave/components/brave_ads/core/public/prefs/pref_names.h"
 #include "brave/components/brave_ads/core/public/targeting/geographical/subdivision/supported_subdivisions.h"
 #include "brave/components/brave_news/common/pref_names.h"
+#include "brave/components/brave_rewards/browser/rewards_p3a.h"
 #include "brave/components/brave_rewards/browser/rewards_service.h"
 #include "brave/components/brave_rewards/browser/rewards_service_observer.h"
 #include "brave/components/brave_rewards/common/mojom/rewards.mojom.h"
@@ -1119,6 +1120,8 @@ void RewardsDOMHandler::GetAdsHistory(const base::Value::List& args) {
   const base::Time from_time = now - base::Days(kDaysOfAdsHistory - 1);
   const base::Time from_time_at_local_midnight = from_time.LocalMidnight();
 
+  brave_rewards::p3a::RecordAdsHistoryView();
+
   ads_service_->GetHistory(from_time_at_local_midnight, now,
                            base::BindOnce(&RewardsDOMHandler::OnGetAdsHistory,
                                           weak_factory_.GetWeakPtr()));
@@ -1141,7 +1144,7 @@ void RewardsDOMHandler::ToggleAdThumbUp(const base::Value::List& args) {
 
   const base::Value::Dict* dict = args[0].GetIfDict();
   if (!dict) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1169,7 +1172,7 @@ void RewardsDOMHandler::ToggleAdThumbDown(const base::Value::List& args) {
 
   const base::Value::Dict* dict = args[0].GetIfDict();
   if (!dict) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1197,7 +1200,7 @@ void RewardsDOMHandler::ToggleAdOptIn(const base::Value::List& args) {
 
   const base::Value::Dict* dict = args[0].GetIfDict();
   if (!dict) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1225,7 +1228,7 @@ void RewardsDOMHandler::ToggleAdOptOut(const base::Value::List& args) {
 
   const base::Value::Dict* dict = args[0].GetIfDict();
   if (!dict) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1253,7 +1256,7 @@ void RewardsDOMHandler::ToggleSavedAd(const base::Value::List& args) {
 
   const base::Value::Dict* dict = args[0].GetIfDict();
   if (!dict) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1281,7 +1284,7 @@ void RewardsDOMHandler::ToggleFlaggedAd(const base::Value::List& args) {
 
   const base::Value::Dict* dict = args[0].GetIfDict();
   if (!dict) {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return;
   }
 
@@ -1669,7 +1672,7 @@ void RewardsDOMHandler::EnableRewards(const base::Value::List& args) {
 #else
   // On Android, a native onboarding modal is displayed when the user navigates
   // to the Rewards page. This message handler should not be called.
-  NOTREACHED();
+  NOTREACHED_IN_MIGRATION();
 #endif
 }
 

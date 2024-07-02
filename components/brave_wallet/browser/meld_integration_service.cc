@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/task/thread_pool.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_constants.h"
+#include "brave/components/brave_wallet/browser/brave_wallet_utils.h"
 #include "brave/components/brave_wallet/browser/json_rpc_requests_helper.h"
 #include "brave/components/brave_wallet/browser/meld_integration_response_parser.h"
 #include "brave/components/brave_wallet/common/buildflags.h"
@@ -105,6 +106,10 @@ GURL AppendFilterParams(
   if (filter->crypto_currencies) {
     url = net::AppendQueryParameter(url, "cryptoCurrencies",
                                     *filter->crypto_currencies);
+  }
+  if (filter->crypto_chains) {
+    url =
+        net::AppendQueryParameter(url, "cryptoChains", *filter->crypto_chains);
   }
   if (filter->service_providers) {
     url = net::AppendQueryParameter(url, "serviceProviders",

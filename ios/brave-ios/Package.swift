@@ -29,6 +29,7 @@ var package = Package(
     .library(name: "BraveVPN", targets: ["BraveVPN"]),
     .library(name: "BraveNews", targets: ["BraveNews"]),
     .library(name: "AIChat", targets: ["AIChat"]),
+    .library(name: "BraveStore", targets: ["BraveStore"]),
     .library(name: "Favicon", targets: ["Favicon"]),
     .library(name: "FaviconModels", targets: ["FaviconModels"]),
     .library(name: "SpeechRecognition", targets: ["SpeechRecognition"]),
@@ -43,6 +44,7 @@ var package = Package(
     .library(name: "Playlist", targets: ["Playlist"]),
     .library(name: "UserAgent", targets: ["UserAgent"]),
     .library(name: "CredentialProviderUI", targets: ["CredentialProviderUI"]),
+    .library(name: "PlaylistUI", targets: ["PlaylistUI"]),
     .executable(name: "LeoAssetCatalogGenerator", targets: ["LeoAssetCatalogGenerator"]),
     .plugin(name: "IntentBuilderPlugin", targets: ["IntentBuilderPlugin"]),
     .plugin(name: "LoggerPlugin", targets: ["LoggerPlugin"]),
@@ -52,7 +54,7 @@ var package = Package(
     .package(url: "https://github.com/SnapKit/SnapKit", from: "5.0.1"),
     .package(url: "https://github.com/cezheng/Fuzi", from: "3.1.3"),
     .package(url: "https://github.com/SwiftyJSON/SwiftyJSON", from: "5.0.0"),
-    .package(url: "https://github.com/airbnb/lottie-ios", from: "3.1.9"),
+    .package(url: "https://github.com/airbnb/lottie-spm", from: "4.4.3"),
     .package(url: "https://github.com/SDWebImage/SDWebImage", exact: "5.10.3"),
     .package(url: "https://github.com/SDWebImage/SDWebImageSwiftUI", from: "2.2.0"),
     .package(url: "https://github.com/nmdias/FeedKit", from: "9.1.2"),
@@ -64,7 +66,7 @@ var package = Package(
     .package(url: "https://github.com/siteline/SwiftUI-Introspect", from: "0.1.3"),
     .package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0"),
     .package(url: "https://github.com/devxoul/Then", from: "2.7.0"),
-    .package(url: "https://github.com/mkrd/Swift-BigInt", from: "2.0.0"),
+    .package(url: "https://github.com/mkrd/Swift-BigInt", from: "2.3.0"),
     .package(url: "https://github.com/GuardianFirewall/GuardianConnect", exact: "1.9.1"),
     .package(url: "https://github.com/pointfreeco/swift-custom-dump", from: "0.6.0"),
     .package(
@@ -129,7 +131,7 @@ var package = Package(
         "Static",
         "Preferences",
         "Shared",
-        .product(name: "Lottie", package: "lottie-ios"),
+        .product(name: "Lottie", package: "lottie-spm"),
       ],
       plugins: ["LoggerPlugin"]
     ),
@@ -200,13 +202,14 @@ var package = Package(
     .target(
       name: "BraveVPN",
       dependencies: [
+        "BraveStore",
         "BraveStrings",
         "SnapKit",
         "Then",
         "Data",
         "GuardianConnect",
         "BraveUI",
-        .product(name: "Lottie", package: "lottie-ios"),
+        .product(name: "Lottie", package: "lottie-spm"),
       ],
       resources: [.copy("vpncheckmark.json")],
       plugins: ["LoggerPlugin"]
@@ -232,7 +235,7 @@ var package = Package(
         "Then",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Introspect", package: "SwiftUI-Introspect"),
-        .product(name: "Lottie", package: "lottie-ios"),
+        .product(name: "Lottie", package: "lottie-spm"),
       ],
       resources: [
         .copy("Lottie Assets/brave-today-welcome-graphic.json")
@@ -244,6 +247,7 @@ var package = Package(
       dependencies: [
         "BraveCore",
         "BraveShared",
+        "BraveStore",
         "BraveStrings",
         "BraveUI",
         "DesignSystem",
@@ -254,7 +258,7 @@ var package = Package(
         "SpeechRecognition",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Introspect", package: "SwiftUI-Introspect"),
-        .product(name: "Lottie", package: "lottie-ios"),
+        .product(name: "Lottie", package: "lottie-spm"),
       ],
       resources: [
         .copy("Components/Markdown/Code Highlight/Themes/atom-one-dark.min.css"),
@@ -272,6 +276,19 @@ var package = Package(
         .copy("Components/Markdown/Code Highlight/Scripts/highlight.min.js"),
       ]
     ),
+    .target(
+      name: "BraveStore",
+      dependencies: [
+        "BraveCore",
+        "BraveShared",
+        "BraveUI",
+        "DesignSystem",
+        "Preferences",
+        .product(name: "Collections", package: "swift-collections"),
+        .product(name: "Introspect", package: "SwiftUI-Introspect"),
+      ],
+      plugins: ["LoggerPlugin"]
+    ),
     .target(name: "Preferences", dependencies: ["Shared"], plugins: ["LoggerPlugin"]),
     .target(
       name: "Onboarding",
@@ -282,7 +299,7 @@ var package = Package(
         "BraveUI",
         "DesignSystem",
         "Growth",
-        .product(name: "Lottie", package: "lottie-ios"),
+        .product(name: "Lottie", package: "lottie-spm"),
         "Preferences",
         "Shared",
         "SnapKit",
@@ -392,6 +409,20 @@ var package = Package(
       name: "GrowthTests",
       dependencies: ["Growth", "Shared", "BraveShared", "BraveVPN"]
     ),
+    .target(
+      name: "PlaylistUI",
+      dependencies: [
+        "Favicon", "Data", "DesignSystem", "Playlist", "SDWebImage", "SnapKit", "Strings",
+        "CodableHelpers", .product(name: "Algorithms", package: "swift-algorithms"), "BraveStrings",
+        .product(name: "OrderedCollections", package: "swift-collections"), "BraveUI",
+      ],
+      resources: [.copy("Resources/oembed_providers.json")]
+    ),
+    .testTarget(
+      name: "PlaylistUITests",
+      dependencies: ["PlaylistUI", "Playlist", "Preferences", "Data", "TestHelpers"],
+      resources: [.copy("Resources/Big_Buck_Bunny_360_10s_1MB.mp4")]
+    ),
     .plugin(name: "IntentBuilderPlugin", capability: .buildTool()),
     .plugin(name: "LoggerPlugin", capability: .buildTool()),
     .plugin(
@@ -426,6 +457,7 @@ var braveTarget: PackageDescription.Target = .target(
     "BraveVPN",
     "BraveNews",
     "AIChat",
+    "BraveStore",
     "Onboarding",
     "Growth",
     "SpeechRecognition",
@@ -435,8 +467,9 @@ var braveTarget: PackageDescription.Target = .target(
     "CertificateUtilities",
     "Playlist",
     "UserAgent",
-    .product(name: "Lottie", package: "lottie-ios"),
+    .product(name: "Lottie", package: "lottie-spm"),
     .product(name: "Collections", package: "swift-collections"),
+    "PlaylistUI",
   ],
   exclude: [
     "Frontend/UserContent/UserScripts/AllFrames",
@@ -492,6 +525,7 @@ var braveTarget: PackageDescription.Target = .target(
     .copy("Assets/Interstitial Pages/Styles/NetworkError.css"),
     .copy("Assets/Interstitial Pages/Styles/Web3Domain.css"),
     .copy("Assets/Interstitial Pages/Styles/IPFSPreference.css"),
+    .copy("Assets/Lottie/shred.json"),
     .copy("Assets/SearchPlugins"),
     .copy("Frontend/Reader/Reader.css"),
     .copy("Frontend/Reader/Reader.html"),
@@ -590,7 +624,13 @@ if isNativeTalkEnabled {
       dependencies: ["Shared", "Preferences", "JitsiMeet"],
       plugins: ["LoggerPlugin"]
     ),
-    .testTarget(name: "BraveTalkTests", dependencies: ["BraveTalk", "Shared"]),
+    .testTarget(
+      name: "BraveTalkTests",
+      dependencies: [
+        "BraveTalk", "Shared", "TestHelpers",
+        .product(name: "Collections", package: "swift-collections"),
+      ]
+    ),
   ])
 }
 

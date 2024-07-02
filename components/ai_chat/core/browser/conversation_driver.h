@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "base/gtest_prod_util.h"
@@ -17,9 +18,11 @@
 #include "base/memory/ref_counted.h"
 #include "base/observer_list.h"
 #include "base/one_shot_event.h"
+#include "base/scoped_observation.h"
 #include "brave/components/ai_chat/core/browser/ai_chat_credential_manager.h"
 #include "brave/components/ai_chat/core/browser/ai_chat_feedback_api.h"
 #include "brave/components/ai_chat/core/browser/engine/engine_consumer.h"
+#include "brave/components/ai_chat/core/browser/model_service.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom-forward.h"
 #include "brave/components/ai_chat/core/common/mojom/ai_chat.mojom.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -32,8 +35,10 @@ FORWARD_DECLARE_TEST(AIChatUIBrowserTest, PrintPreviewFallback);
 namespace ai_chat {
 class AIChatMetrics;
 
-class ConversationDriver {
+class ConversationDriver : public ModelService::Observer {
  public:
+  using GeneratedTextCallback =
+      base::RepeatingCallback<void(const std::string& text)>;
   // |invalidation_token| is an optional parameter that will be passed back on
   // the next call to |GetPageContent| so that the implementer may determine if
   // the page content is static or if it needs to be fetched again. Most page
@@ -50,7 +55,9 @@ class ConversationDriver {
     virtual void OnHistoryUpdate() {}
     virtual void OnAPIRequestInProgress(bool in_progress) {}
     virtual void OnAPIResponseError(mojom::APIError error) {}
-    virtual void OnModelChanged(const std::string& model_key) {}
+    virtual void OnModelDataChanged(
+        const std::string& model_key,
+        const std::vector<mojom::ModelPtr>& model_list) {}
     virtual void OnSuggestedQuestionsChanged(
         std::vector<std::string> questions,
         mojom::SuggestionGenerationStatus suggestion_generation_status) {}
@@ -62,12 +69,21 @@ class ConversationDriver {
   ConversationDriver(
       PrefService* profile_prefs,
       PrefService* local_state,
+      ModelService* model_service,
       AIChatMetrics* ai_chat_metrics,
       base::RepeatingCallback<mojo::PendingRemote<skus::mojom::SkusService>()>
           skus_service_getter,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
       std::string_view channel_string);
-  virtual ~ConversationDriver();
+  ConversationDriver(
+      PrefService* profile_prefs,
+      PrefService* local_state,
+      ModelService* model_service,
+      AIChatMetrics* ai_chat_metrics,
+      std::unique_ptr<AIChatCredentialManager> credential_manager,
+      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
+      std::string_view channel_string);
+  ~ConversationDriver() override;
 
   ConversationDriver(const ConversationDriver&) = delete;
   ConversationDriver& operator=(const ConversationDriver&) = delete;
@@ -76,7 +92,7 @@ class ConversationDriver {
   std::string GetDefaultModel();
   void SetDefaultModel(const std::string& model_key);
   const mojom::Model& GetCurrentModel();
-  std::vector<mojom::ModelPtr> GetModels();
+  const std::vector<mojom::ModelPtr>& GetModels();
   const std::vector<mojom::ConversationTurnPtr>& GetConversationHistory();
   std::vector<mojom::ConversationTurnPtr> GetVisibleConversationHistory();
   // Whether the UI for this conversation is open or not. Determines
@@ -101,8 +117,7 @@ class ConversationDriver {
   void ClearConversationHistory();
   mojom::APIError GetCurrentAPIError();
   mojom::ConversationTurnPtr ClearErrorAndGetFailedMessage();
-  void GetPremiumStatus(
-      mojom::PageHandler::GetPremiumStatusCallback callback);
+  void GetPremiumStatus(mojom::PageHandler::GetPremiumStatusCallback callback);
   bool GetCanShowPremium();
   void DismissPremiumPrompt();
   bool HasUserOptedIn();
@@ -119,10 +134,16 @@ class ConversationDriver {
   void SubmitSelectedText(
       const std::string& selected_text,
       mojom::ActionType action_type,
-      EngineConsumer::GenerationDataCallback received_callback =
-          base::NullCallback(),
+      GeneratedTextCallback received_callback = base::NullCallback(),
       EngineConsumer::GenerationCompletedCallback completed_callback =
           base::NullCallback());
+
+  void SubmitSelectedTextWithQuestion(
+      const std::string& selected_text,
+      const std::string& question,
+      mojom::ActionType action_type,
+      GeneratedTextCallback received_callback,
+      EngineConsumer::GenerationCompletedCallback completed_callback);
 
   void RateMessage(bool is_liked,
                    uint32_t turn_id,
@@ -197,12 +218,11 @@ class ConversationDriver {
   bool MaybePopPendingRequests();
   void MaybeSeedOrClearSuggestions();
 
-  void PerformAssistantGeneration(
-      const std::string& input,
-      int64_t current_navigation_id,
-      std::string page_content = "",
-      bool is_video = false,
-      std::string invalidation_token = "");
+  void PerformAssistantGeneration(const std::string& input,
+                                  int64_t current_navigation_id,
+                                  std::string page_content = "",
+                                  bool is_video = false,
+                                  std::string invalidation_token = "");
 
   void GeneratePageContent(GetPageContentCallback callback);
   void OnGeneratePageContentComplete(int64_t navigation_id,
@@ -231,6 +251,10 @@ class ConversationDriver {
 
   void CleanUp();
 
+  // ModelService::Observer
+  void OnModelListUpdated() override;
+  void OnModelRemoved(const std::string& removed_key) override;
+
   raw_ptr<PrefService> pref_service_;
   raw_ptr<AIChatMetrics> ai_chat_metrics_;
   std::unique_ptr<AIChatCredentialManager> credential_manager_;
@@ -240,9 +264,12 @@ class ConversationDriver {
 
   PrefChangeRegistrar pref_change_registrar_;
   base::ObserverList<Observer> observers_;
+  base::ScopedObservation<ModelService, ModelService::Observer>
+      models_observer_{this};
 
   // TODO(nullhook): Abstract the data model
   std::string model_key_;
+  raw_ptr<ModelService> model_service_;
   std::vector<mojom::ConversationTurnPtr> chat_history_;
   bool is_conversation_active_ = false;
 

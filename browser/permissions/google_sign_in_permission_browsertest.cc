@@ -71,7 +71,6 @@ class GoogleSignInBrowserTest : public InProcessBrowserTest {
     host_resolver()->AddRule("*", "127.0.0.1");
     current_browser_ = InProcessBrowserTest::browser();
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir;
     base::PathService::Get(brave::DIR_TEST_DATA, &test_data_dir);
 
@@ -220,8 +219,8 @@ class GoogleSignInBrowserTest : public InProcessBrowserTest {
                   ContentSettingsType::BRAVE_GOOGLE_SIGN_IN),
               content_setting);
     EXPECT_EQ(cookie_settings()->GetCookieSetting(
-                  GURL(kAccountsGoogleUrl), embedding_url_,
-                  net::CookieSettingOverrides(), nullptr),
+                  GURL(kAccountsGoogleUrl), net::SiteForCookies(),
+                  embedding_url_, net::CookieSettingOverrides(), nullptr),
               cookie_setting);
   }
 

@@ -10,13 +10,24 @@ import { BraveWallet, NFTMetadataReturnType } from '../../../constants/types'
 import { WalletApiEndpointBuilderParams } from '../api-base.slice'
 
 // utils
-import { getAssetIdKey } from '../../../utils/asset-utils'
+import {
+  getAssetCollectionIdKey,
+  getAssetIdKey,
+  tokenNameToNftCollectionName
+} from '../../../utils/asset-utils'
 import { handleEndpointError } from '../../../utils/api-utils'
-import { BaseQueryCache } from '../../async/base-query-cache'
+import {
+  BaseQueryCache, //
+  baseQueryFunction
+} from '../../async/base-query-cache'
 import {
   IPFS_PROTOCOL,
   stripERC20TokenImageURL
 } from '../../../utils/string-utils'
+import {
+  getPersistedNftCollectionNamesRegistry,
+  setPersistedNftCollectionNamesRegistry
+} from '../../../utils/local-storage-utils'
 
 export const nftsEndpoints = ({
   query,
@@ -70,12 +81,6 @@ export const nftsEndpoints = ({
 
           const nftMetadata = await cache.getNftMetadata(arg)
 
-          nftMetadata.imageURL = nftMetadata.imageURL?.startsWith('data:image/')
-            ? nftMetadata.imageURL
-            : (await cache.getIpfsGatewayTranslatedNftUrl(
-                nftMetadata.imageURL || ''
-              )) || undefined
-
           return {
             data: nftMetadata
           }
@@ -91,6 +96,134 @@ export const nftsEndpoints = ({
         err
           ? ['NftMetadata']
           : [{ type: 'NftMetadata', id: getAssetIdKey(arg) }]
+    }),
+    /**
+     * Fetches a registry of NFT collection names by collection asset id.
+     * Uses local storage to load the initial data and
+     * then fetches the latest data from the token contract or NFT metadata
+     */
+    getNftCollectionNameRegistry: query<
+      /** collection names by collection asset id */
+      { registry: Record<string, string>; isStreaming: boolean },
+      /** asset id keys */
+      BraveWallet.BlockchainToken[]
+    >({
+      queryFn(_arg, api, _extraOptions, baseQuery) {
+        return {
+          data: {
+            isStreaming: true,
+            registry: getPersistedNftCollectionNamesRegistry()
+          }
+        }
+      },
+      async onCacheEntryAdded(
+        arg,
+        { updateCachedData, cacheDataLoaded, cacheEntryRemoved }
+      ) {
+        try {
+          // wait for the initial query to resolve before proceeding
+          const {
+            data: { registry: persistedRegistry }
+          } = await cacheDataLoaded
+
+          try {
+            const {
+              cache,
+              data: { jsonRpcService }
+            } = baseQueryFunction()
+
+            const registry: Record<string, string> = {}
+
+            // prevent looking up token info multiple times
+            const uniqueTokenChainIdAndContractAddresses: string[] = []
+            const uniqueTokens: BraveWallet.BlockchainToken[] = arg.filter(
+              (t) => {
+                const key = `${t.chainId}_${t.contractAddress}`
+                if (uniqueTokenChainIdAndContractAddresses.includes(key)) {
+                  return false
+                }
+                uniqueTokenChainIdAndContractAddresses.push(key)
+                return true
+              }
+            )
+
+            for (const token of uniqueTokens) {
+              let collectionName = ''
+
+              // EVM lookup using contract info
+              if (token.coin === BraveWallet.CoinType.ETH) {
+                const {
+                  token: tokenInfo,
+                  error,
+                  errorMessage
+                } = await jsonRpcService.getEthTokenInfo(
+                  token.contractAddress,
+                  token.chainId
+                )
+
+                if (error !== BraveWallet.ProviderError.kSuccess) {
+                  throw new Error(errorMessage)
+                }
+
+                collectionName = tokenInfo?.name || ''
+              }
+
+              // use NFT metadata to find collection name if it could not be
+              // found in the EVM token info
+              let nftMetadata = null
+              if (!collectionName) {
+                try {
+                  nftMetadata = await cache.getNftMetadata(token)
+                  collectionName =
+                    nftMetadata?.collection?.name ||
+                    // guess the collection name
+                    // if no contract or metadata could be found
+                    tokenNameToNftCollectionName(token)
+                } catch (error) {
+                  handleEndpointError(
+                    'getNftCollectionNameRegistry -> cache.getNftMetadata',
+                    `Error fetching NFT metadata for token: ${
+                      token.name
+                    } (${getAssetIdKey(token)})`,
+                    error
+                  )
+                }
+              }
+
+              // update the registry
+              const collectionId = getAssetCollectionIdKey(token)
+              registry[collectionId] = collectionName
+            }
+
+            updateCachedData((draft) => {
+              // rules of `immer` apply here:
+              // https://redux-toolkit.js.org/usage/immer-reducers#immer-usage-patterns
+              draft.isStreaming = false
+              draft.registry = registry
+            })
+
+            // update local-storage with the latest data
+            setPersistedNftCollectionNamesRegistry({
+              ...persistedRegistry,
+              ...registry
+            })
+          } catch (error) {
+            handleEndpointError(
+              'getNftCollectionNameRegistry.onCacheEntryAdded',
+              'Error fetching NFT collection name registry',
+              error
+            )
+          }
+        } catch {
+          // cacheDataLoaded` will throw if
+          // `cacheEntryRemoved` resolves before `cacheDataLoaded`
+        }
+        // cacheEntryRemoved will resolve when the cache subscription is no
+        // longer active
+      },
+      providesTags: (_result, err, arg) => [
+        { type: 'NftMetadata', id: 'COLLECTION_NAMES_REGISTRY' }
+      ]
     }),
     getNftPinningStatus: query<
       BraveWallet.TokenPinStatus | undefined,
@@ -206,46 +339,25 @@ export const nftsEndpoints = ({
         }
       }
     }),
-    getSimpleHashSpamNfts: query<BraveWallet.BlockchainToken[], void>({
-      queryFn: async (_arg, { endpoint }, _extraOptions, baseQuery) => {
+
+    /** will get spam for all accounts if accounts arg is not provided */
+    getSimpleHashSpamNfts: query<
+      BraveWallet.BlockchainToken[],
+      void | undefined | { accounts: BraveWallet.AccountInfo[] }
+    >({
+      queryFn: async (arg, { endpoint }, _extraOptions, baseQuery) => {
         try {
-          const { data: api, cache } = baseQuery(undefined)
-          const { braveWalletService } = api
+          const { cache } = baseQuery(undefined)
 
-          const networksRegistry = await cache.getNetworksRegistry()
+          const lookupAccounts =
+            arg?.accounts ?? (await cache.getAllAccounts()).accounts
 
-          const chainIds = networksRegistry.ids.map(
-            (network) => networksRegistry.entities[network]!.chainId
-          )
-
-          const { accounts } = await cache.getAllAccounts()
           const spamNfts = (
             await mapLimit(
-              accounts,
+              lookupAccounts,
               10,
               async (account: BraveWallet.AccountInfo) => {
-                let currentCursor: string | null = null
-                const accountSpamNfts = []
-
-                do {
-                  const {
-                    tokens,
-                    cursor
-                  }: {
-                    tokens: BraveWallet.BlockchainToken[]
-                    cursor: string | null
-                  } = await braveWalletService.getSimpleHashSpamNFTs(
-                    account.address,
-                    chainIds,
-                    account.accountId.coin,
-                    currentCursor
-                  )
-
-                  accountSpamNfts.push(...tokens)
-                  currentCursor = cursor
-                } while (currentCursor)
-
-                return accountSpamNfts
+                return await cache.getSpamNftsForAccountId(account.accountId)
               }
             )
           ).flat(1)

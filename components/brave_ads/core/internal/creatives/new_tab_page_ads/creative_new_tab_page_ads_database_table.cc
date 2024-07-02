@@ -39,7 +39,7 @@ constexpr char kTableName[] = "creative_new_tab_page_ads";
 
 constexpr int kDefaultBatchSize = 50;
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -100,7 +100,7 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   return count;
 }
 
-CreativeNewTabPageAdInfo GetFromRecord(mojom::DBRecordInfo* record) {
+CreativeNewTabPageAdInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   CreativeNewTabPageAdInfo creative_ad;
@@ -194,6 +194,7 @@ void GetForCreativeInstanceIdCallback(
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get creative new tab page ad");
+
     return std::move(callback).Run(/*success=*/false, creative_instance_id,
                                    /*creative_ads=*/{});
   }
@@ -203,6 +204,7 @@ void GetForCreativeInstanceIdCallback(
 
   if (creative_ads.size() != 1) {
     BLOG(0, "Failed to get creative new tab page ad");
+
     return std::move(callback).Run(/*success=*/false, creative_instance_id,
                                    /*creative_ads=*/{});
   }
@@ -219,6 +221,7 @@ void GetForSegmentsCallback(const SegmentList& segments,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get creative new tab page ads");
+
     return std::move(callback).Run(/*success=*/false, segments,
                                    /*creative_ads=*/{});
   }
@@ -235,6 +238,7 @@ void GetAllCallback(GetCreativeNewTabPageAdsCallback callback,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get all creative new tab page ads");
+
     return std::move(callback).Run(/*success=*/false, /*segments=*/{},
                                    /*creative_ads=*/{});
   }
@@ -477,7 +481,8 @@ std::string CreativeNewTabPageAds::GetTableName() const {
   return kTableName;
 }
 
-void CreativeNewTabPageAds::Create(mojom::DBTransactionInfo* transaction) {
+void CreativeNewTabPageAds::Create(
+    mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
@@ -510,7 +515,7 @@ void CreativeNewTabPageAds::Migrate(mojom::DBTransactionInfo* transaction,
 ///////////////////////////////////////////////////////////////////////////////
 
 void CreativeNewTabPageAds::MigrateToV35(
-    mojom::DBTransactionInfo* transaction) {
+    mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // We can safely recreate the table because it will be repopulated after

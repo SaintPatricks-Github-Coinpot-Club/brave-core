@@ -17,7 +17,6 @@
 #include "brave/components/brave_ads/core/internal/user_engagement/conversions/conversion/conversion_builder.h"
 #include "brave/components/brave_ads/core/internal/user_engagement/conversions/conversion/conversion_info.h"
 #include "brave/components/brave_ads/core/internal/user_engagement/conversions/types/verifiable_conversion/verifiable_conversion_unittest_constants.h"
-#include "third_party/re2/src/re2/re2.h"
 
 // npm run test -- brave_unit_tests --filter=BraveAds*
 
@@ -28,31 +27,34 @@ class BraveAdsConversionUserDataBuilderTest : public UnitTestBase {};
 TEST_F(BraveAdsConversionUserDataBuilderTest,
        BuildConversionUserDataForRewardsUser) {
   // Arrange
-  const AdInfo ad =
-      test::BuildAd(AdType::kNotificationAd, /*should_use_random_uuids=*/false);
+  const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
+                                  /*should_generate_random_uuids=*/false);
   const AdEventInfo ad_event = BuildAdEvent(
       ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   const ConversionInfo conversion =
       BuildConversion(ad_event, /*verifiable_conversion=*/std::nullopt);
 
-  // Act & Assert
-  const base::Value::Dict expected_user_data = base::test::ParseJsonDict(
-      R"(
-          {
-            "conversion": [
-              {
-                "action": "view"
-              }
-            ]
-          })");
-  EXPECT_EQ(expected_user_data, BuildConversionUserData(conversion));
+  // Act
+  const base::Value::Dict user_data = BuildConversionUserData(conversion);
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonDict(
+                R"(
+                    {
+                      "conversion": [
+                        {
+                          "action": "view"
+                        }
+                      ]
+                    })"),
+            user_data);
 }
 
 TEST_F(BraveAdsConversionUserDataBuilderTest,
        BuildVerifiableConversionUserDataForRewardsUser) {
   // Arrange
-  const AdInfo ad =
-      test::BuildAd(AdType::kNotificationAd, /*should_use_random_uuids=*/false);
+  const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
+                                  /*should_generate_random_uuids=*/false);
   const AdEventInfo ad_event =
       BuildAdEvent(ad, ConfirmationType::kClicked, /*created_at=*/Now());
   const ConversionInfo conversion = BuildConversion(
@@ -60,13 +62,17 @@ TEST_F(BraveAdsConversionUserDataBuilderTest,
       VerifiableConversionInfo{kVerifiableConversionId,
                                kVerifiableConversionAdvertiserPublicKey});
 
-  // Act & Assert
+  // Act
+  const base::Value::Dict user_data = BuildConversionUserData(conversion);
+
+  // Assert
   std::string json;
-  ASSERT_TRUE(
-      base::JSONWriter::Write(BuildConversionUserData(conversion), &json));
-  const std::string pattern =
-      R"({"conversion":\[{"action":"click"},{"envelope":{"alg":"crypto_box_curve25519xsalsa20poly1305","ciphertext":".{64}","epk":".{44}","nonce":".{32}"}}]})";
-  EXPECT_TRUE(RE2::FullMatch(json, pattern));
+  ASSERT_TRUE(base::JSONWriter::Write(user_data, &json));
+
+  EXPECT_THAT(
+      json,
+      ::testing::MatchesRegex(
+          R"({"conversion":\[{"action":"click"},{"envelope":{"alg":"crypto_box_curve25519xsalsa20poly1305","ciphertext":".{64}","epk":".{44}","nonce":".{32}"}}]})"));
 }
 
 TEST_F(BraveAdsConversionUserDataBuilderTest,
@@ -74,24 +80,27 @@ TEST_F(BraveAdsConversionUserDataBuilderTest,
   // Arrange
   test::DisableBraveRewards();
 
-  const AdInfo ad =
-      test::BuildAd(AdType::kNotificationAd, /*should_use_random_uuids=*/false);
+  const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
+                                  /*should_generate_random_uuids=*/false);
   const AdEventInfo ad_event = BuildAdEvent(
       ad, ConfirmationType::kViewedImpression, /*created_at=*/Now());
   const ConversionInfo conversion =
       BuildConversion(ad_event, /*verifiable_conversion=*/std::nullopt);
 
-  // Act & Assert
-  const base::Value::Dict expected_user_data = base::test::ParseJsonDict(
-      R"(
-          {
-            "conversion": [
-              {
-                "action": "view"
-              }
-            ]
-          })");
-  EXPECT_EQ(expected_user_data, BuildConversionUserData(conversion));
+  // Act
+  const base::Value::Dict user_data = BuildConversionUserData(conversion);
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonDict(
+                R"(
+                    {
+                      "conversion": [
+                        {
+                          "action": "view"
+                        }
+                      ]
+                    })"),
+            user_data);
 }
 
 TEST_F(BraveAdsConversionUserDataBuilderTest,
@@ -99,8 +108,8 @@ TEST_F(BraveAdsConversionUserDataBuilderTest,
   // Arrange
   test::DisableBraveRewards();
 
-  const AdInfo ad =
-      test::BuildAd(AdType::kNotificationAd, /*should_use_random_uuids=*/false);
+  const AdInfo ad = test::BuildAd(AdType::kNotificationAd,
+                                  /*should_generate_random_uuids=*/false);
   const AdEventInfo ad_event =
       BuildAdEvent(ad, ConfirmationType::kClicked, /*created_at=*/Now());
   const ConversionInfo conversion = BuildConversion(
@@ -108,13 +117,17 @@ TEST_F(BraveAdsConversionUserDataBuilderTest,
       VerifiableConversionInfo{kVerifiableConversionId,
                                kVerifiableConversionAdvertiserPublicKey});
 
-  // Act & Assert
+  // Act
+  const base::Value::Dict user_data = BuildConversionUserData(conversion);
+
+  // Assert
   std::string json;
-  ASSERT_TRUE(
-      base::JSONWriter::Write(BuildConversionUserData(conversion), &json));
-  const std::string pattern =
-      R"({"conversion":\[{"action":"click"},{"envelope":{"alg":"crypto_box_curve25519xsalsa20poly1305","ciphertext":".{64}","epk":".{44}","nonce":".{32}"}}]})";
-  EXPECT_TRUE(RE2::FullMatch(json, pattern));
+  ASSERT_TRUE(base::JSONWriter::Write(user_data, &json));
+
+  EXPECT_THAT(
+      json,
+      ::testing::MatchesRegex(
+          R"({"conversion":\[{"action":"click"},{"envelope":{"alg":"crypto_box_curve25519xsalsa20poly1305","ciphertext":".{64}","epk":".{44}","nonce":".{32}"}}]})"));
 }
 
 }  // namespace brave_ads

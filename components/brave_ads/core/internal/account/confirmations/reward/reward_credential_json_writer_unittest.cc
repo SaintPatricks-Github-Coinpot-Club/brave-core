@@ -9,6 +9,7 @@
 #include "brave/components/brave_ads/core/internal/account/confirmations/confirmation_info.h"
 #include "brave/components/brave_ads/core/internal/account/confirmations/reward/reward_confirmation_unittest_util.h"
 #include "brave/components/brave_ads/core/internal/account/confirmations/reward/reward_confirmation_util.h"
+#include "brave/components/brave_ads/core/internal/account/confirmations/reward/reward_info.h"
 #include "brave/components/brave_ads/core/internal/account/tokens/confirmation_tokens/confirmation_tokens_unittest_util.h"
 #include "brave/components/brave_ads/core/internal/account/tokens/token_generator_mock.h"
 #include "brave/components/brave_ads/core/internal/account/tokens/token_generator_unittest_util.h"
@@ -31,13 +32,15 @@ TEST_F(BraveAdsRewardCredentialJsonWriterTest, WriteRewardCredential) {
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
+
+  const RewardInfo reward = test::BuildReward(*confirmation);
 
   // Act
   const std::optional<std::string> reward_credential =
       json::writer::WriteRewardCredential(
-          test::BuildReward(*confirmation),
+          reward,
           /*payload=*/"definition: the weight of a payload");
   ASSERT_TRUE(reward_credential);
 

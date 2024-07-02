@@ -62,14 +62,11 @@ base::Value::Dict TransactionReceiptToValue(
 std::optional<TransactionReceipt> ValueToTransactionReceipt(
     const base::Value::Dict& value);
 
-std::vector<mojom::NetworkInfoPtr> GetAllKnownChains(PrefService* prefs,
-                                                     mojom::CoinType coin);
+std::vector<mojom::NetworkInfoPtr> GetAllKnownChains(mojom::CoinType coin);
 std::vector<mojom::NetworkInfoPtr> GetAllCustomChains(PrefService* prefs,
                                                       mojom::CoinType coin);
-std::vector<mojom::NetworkInfoPtr> GetAllChains(PrefService* prefs,
-                                                mojom::CoinType coin);
-mojom::NetworkInfoPtr GetKnownChain(PrefService* prefs,
-                                    const std::string& chain_id,
+std::vector<mojom::NetworkInfoPtr> GetAllChains(PrefService* prefs);
+mojom::NetworkInfoPtr GetKnownChain(const std::string& chain_id,
                                     mojom::CoinType coin);
 mojom::NetworkInfoPtr GetCustomChain(PrefService* prefs,
                                      const std::string& chain_id,
@@ -86,14 +83,13 @@ std::vector<std::string> CustomChainsExist(
     const std::vector<std::string>& custom_chain_ids,
     mojom::CoinType coin);
 
+bool IsEndpointUsingBraveWalletProxy(const GURL& url);
+base::flat_map<std::string, std::string> MakeBraveServicesKeyHeaders();
+
 GURL GetNetworkURL(PrefService* prefs,
                    const std::string& chain_id,
                    mojom::CoinType coin);
-GURL GetInfuraURLForKnownChainId(const std::string& chain_id);
-std::string GetInfuraEndpointForKnownChainId(const std::string& chain_id);
 std::string GetInfuraSubdomainForKnownChainId(const std::string& chain_id);
-GURL AddInfuraProjectId(const GURL& url);
-GURL MaybeAddInfuraProjectId(const GURL& url);
 
 void SetDefaultEthereumWallet(PrefService* prefs,
                               mojom::DefaultWallet default_wallet);
@@ -114,11 +110,17 @@ GURL GetEnsRpcUrl();
 std::string GetEnsRegistryContractAddress(const std::string& chain_id);
 GURL GetSnsRpcUrl();
 
+std::optional<bool> IsEip1559Chain(PrefService* prefs,
+                                   const std::string& chain_id);
+void SetEip1559ForCustomChain(PrefService* prefs,
+                              const std::string& chain_id,
+                              std::optional<bool> is_eip1559);
+
 // Append chain value to kBraveWalletCustomNetworks dictionary pref.
 void AddCustomNetwork(PrefService* prefs, const mojom::NetworkInfo& chain);
 
 void RemoveCustomNetwork(PrefService* prefs,
-                         const std::string& chain_id_to_remove,
+                         const std::string& chain_id,
                          mojom::CoinType coin);
 
 std::vector<std::string> GetHiddenNetworks(PrefService* prefs,
@@ -144,6 +146,14 @@ bool SetCurrentChainId(PrefService* prefs,
                        const std::optional<url::Origin>& origin,
                        const std::string& chain_id);
 
+mojom::BlockchainTokenPtr GetUserAsset(PrefService* prefs,
+                                       mojom::CoinType coin,
+                                       const std::string& chain_id,
+                                       const std::string& address,
+                                       const std::string& token_id,
+                                       bool is_erc721,
+                                       bool is_erc1155);
+
 std::vector<mojom::BlockchainTokenPtr> GetAllUserAssets(PrefService* prefs);
 mojom::BlockchainTokenPtr AddUserAsset(PrefService* prefs,
                                        mojom::BlockchainTokenPtr token);
@@ -155,6 +165,11 @@ bool SetUserAssetVisible(PrefService* prefs,
 bool SetAssetSpamStatus(PrefService* prefs,
                         const mojom::BlockchainTokenPtr& token,
                         bool is_spam);
+bool SetAssetSPLTokenProgram(PrefService* prefs,
+                             const mojom::BlockchainTokenPtr& token,
+                             mojom::SPLTokenProgram program);
+bool SetAssetCompressed(PrefService* prefs,
+                        const mojom::BlockchainTokenPtr& token);
 base::Value::List GetDefaultUserAssets();
 
 std::string GetPrefKeyForCoinType(mojom::CoinType coin);
@@ -198,6 +213,8 @@ void SetTransactionSimulationOptInStatus(
     const mojom::BlowfishOptInStatus& status);
 
 bool IsRetriableStatus(mojom::TransactionStatus status);
+
+std::string SPLTokenProgramToProgramID(mojom::SPLTokenProgram program);
 
 }  // namespace brave_wallet
 

@@ -112,7 +112,7 @@ class NewTabPageViewController: UIViewController {
 
   private let layout = NewTabPageFlowLayout()
   private let collectionView: NewTabCollectionView
-  private weak var tab: Tab?
+  private weak var browserTab: Tab?
   private let rewards: BraveRewards
 
   private var background: NewTabPageBackground
@@ -155,7 +155,7 @@ class NewTabPageViewController: UIViewController {
     privateBrowsingManager: PrivateBrowsingManager,
     p3aHelper: NewTabPageP3AHelper
   ) {
-    self.tab = tab
+    self.browserTab = tab
     self.rewards = rewards
     self.feedDataSource = feedDataSource
     self.privateBrowsingManager = privateBrowsingManager
@@ -642,7 +642,9 @@ class NewTabPageViewController: UIViewController {
     _ event: BraveAds.NewTabPageAdEventType,
     completion: ((_ success: Bool) -> Void)? = nil
   ) {
-    if let tab = tab, case .sponsoredImage(let sponsoredBackground) = background.currentBackground {
+    if let tab = browserTab,
+      case .sponsoredImage(let sponsoredBackground) = background.currentBackground
+    {
       let eventType: NewTabPageP3AHelper.EventType? = {
         switch event {
         case .clicked: return .tapped
@@ -786,7 +788,6 @@ class NewTabPageViewController: UIViewController {
     case .optInCardAction(.turnOnBraveNewsButtonTapped):
       preventReloadOnBraveNewsEnabledChange = true
       Preferences.BraveNews.userOptedIn.value = true
-      Preferences.BraveNews.isShowingOptIn.value = false
       Preferences.BraveNews.isEnabled.value = true
       rewards.ads.initialize { [weak self] _ in
         // Initialize ads if it hasn't already been done
@@ -904,6 +905,9 @@ class NewTabPageViewController: UIViewController {
     guard let section = layout.braveNewsSection, parent != nil else { return }
 
     func _completeLoading() {
+      if Preferences.BraveNews.isShowingOptIn.value {
+        Preferences.BraveNews.isShowingOptIn.value = false
+      }
       UIView.animate(
         withDuration: 0.2,
         animations: {
@@ -1265,6 +1269,10 @@ extension NewTabPageViewController {
 
     // Weekly usage
     recordBraveNewsWeeklyUsageCountP3A()
+
+    // General Usage
+    UmaHistogramBoolean("Brave.Today.UsageDaily", true)
+    UmaHistogramBoolean("Brave.Today.UsageMonthly", true)
   }
 
   private func recordBraveNewsWeeklyUsageCountP3A() {

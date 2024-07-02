@@ -33,15 +33,19 @@ TEST_F(BraveAdsRotatingHashUserDataTest,
 
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/false);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
+  // Act
+  const base::Value::Dict user_data = BuildRotatingHashUserData(transaction);
+
+  // Assert
   EXPECT_EQ(base::test::ParseJsonDict(
                 R"(
                     {
-                      "rotating_hash": "j9D7eKSoPLYNfxkG2Mx+SbgKJ9hcKg1QwDB8B5qxlpk="
+                      "rotatingHash": "j9D7eKSoPLYNfxkG2Mx+SbgKJ9hcKg1QwDB8B5qxlpk="
                     })"),
-            BuildRotatingHashUserData(transaction));
+            user_data);
 }
 
 TEST_F(BraveAdsRotatingHashUserDataTest,
@@ -53,10 +57,14 @@ TEST_F(BraveAdsRotatingHashUserDataTest,
 
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/false);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
-  EXPECT_TRUE(BuildRotatingHashUserData(transaction).empty());
+  // Act
+  const base::Value::Dict user_data = BuildRotatingHashUserData(transaction);
+
+  // Assert
+  EXPECT_THAT(user_data, ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsRotatingHashUserDataTest,
@@ -64,10 +72,14 @@ TEST_F(BraveAdsRotatingHashUserDataTest,
   // Arrange
   const TransactionInfo transaction = test::BuildUnreconciledTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
-      ConfirmationType::kViewedImpression, /*should_use_random_uuids=*/false);
+      ConfirmationType::kViewedImpression,
+      /*should_generate_random_uuids=*/false);
 
-  // Act & Assert
-  EXPECT_EQ(base::Value::Dict(), BuildRotatingHashUserData(transaction));
+  // Act
+  const base::Value::Dict user_data = BuildRotatingHashUserData(transaction);
+
+  // Assert
+  EXPECT_THAT(user_data, ::testing::IsEmpty());
 }
 
 }  // namespace brave_ads

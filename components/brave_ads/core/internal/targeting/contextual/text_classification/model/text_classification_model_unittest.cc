@@ -25,13 +25,6 @@ class BraveAdsTextClassificationModelTest : public UnitTestBase {
     resource_ = std::make_unique<TextClassificationResource>();
   }
 
-  bool LoadResource() {
-    NotifyDidUpdateResourceComponent(kLanguageComponentManifestVersion,
-                                     kLanguageComponentId);
-    task_environment_.RunUntilIdle();
-    return resource_->IsInitialized();
-  }
-
   std::unique_ptr<TextClassificationResource> resource_;
 };
 
@@ -43,39 +36,48 @@ TEST_F(BraveAdsTextClassificationModelTest,
   task_environment_.RunUntilIdle();
 
   // Act
-  const SegmentList segments = GetTextClassificationSegments();
+  const SegmentList text_classification_segments =
+      GetTextClassificationSegments();
 
   // Assert
-  EXPECT_TRUE(segments.empty());
+  EXPECT_THAT(text_classification_segments, ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsTextClassificationModelTest, DoNotGetSegmentsForEmptyText) {
   // Arrange
-  ASSERT_TRUE(LoadResource());
+  NotifyDidUpdateResourceComponent(kLanguageComponentManifestVersion,
+                                   kLanguageComponentId);
+  ASSERT_TRUE(resource_->IsLoaded());
 
-  const std::string text;
   TextClassificationProcessor processor(*resource_);
-  processor.Process(text);
+  processor.Process(/*text=*/"");
   task_environment_.RunUntilIdle();
 
   // Act
-  const SegmentList segments = GetTextClassificationSegments();
+  const SegmentList text_classification_segments =
+      GetTextClassificationSegments();
 
   // Assert
-  EXPECT_TRUE(segments.empty());
+  EXPECT_THAT(text_classification_segments, ::testing::IsEmpty());
 }
 
 TEST_F(BraveAdsTextClassificationModelTest,
        GetSegmentsForPreviouslyClassifiedText) {
   // Arrange
-  ASSERT_TRUE(LoadResource());
+  NotifyDidUpdateResourceComponent(kLanguageComponentManifestVersion,
+                                   kLanguageComponentId);
+  ASSERT_TRUE(resource_->IsLoaded());
 
   TextClassificationProcessor processor(*resource_);
   processor.Process(/*text=*/"Some content about technology & computing");
   task_environment_.RunUntilIdle();
 
-  // Act & Assert
-  const SegmentList expected_segments = {
+  // Act
+  const SegmentList text_classification_segments =
+      GetTextClassificationSegments();
+
+  // Assert
+  const SegmentList expected_text_classification_segments = {
       "technology & computing-technology & computing",
       "technology & computing-unix",
       "science-geology",
@@ -132,13 +134,16 @@ TEST_F(BraveAdsTextClassificationModelTest,
       "science-science",
       "arts & entertainment-animation",
       "personal finance-insurance"};
-  EXPECT_EQ(expected_segments, GetTextClassificationSegments());
+  EXPECT_EQ(expected_text_classification_segments,
+            text_classification_segments);
 }
 
 TEST_F(BraveAdsTextClassificationModelTest,
        GetSegmentsForPreviouslyClassifiedTexts) {
   // Arrange
-  ASSERT_TRUE(LoadResource());
+  NotifyDidUpdateResourceComponent(kLanguageComponentManifestVersion,
+                                   kLanguageComponentId);
+  ASSERT_TRUE(resource_->IsLoaded());
 
   const std::vector<std::string> texts = {
       "Some content about cooking food", "Some content about finance & banking",
@@ -148,10 +153,16 @@ TEST_F(BraveAdsTextClassificationModelTest,
   for (const auto& text : texts) {
     processor.Process(text);
   }
+
+  // Run the task environment until idle to ensure all tasks are processed.
   task_environment_.RunUntilIdle();
 
-  // Act & Assert
-  const SegmentList expected_segments = {
+  // Act
+  const SegmentList text_classification_segments =
+      GetTextClassificationSegments();
+
+  // Assert
+  const SegmentList expected_text_classification_segments = {
       "technology & computing-technology & computing",
       "personal finance-banking",
       "food & drink-cooking",
@@ -249,18 +260,22 @@ TEST_F(BraveAdsTextClassificationModelTest,
       "hobbies & interests-dance",
       "travel-adventure travel",
       "food & drink-pasta"};
-  EXPECT_EQ(expected_segments, GetTextClassificationSegments());
+  EXPECT_EQ(expected_text_classification_segments,
+            text_classification_segments);
 }
 
 TEST_F(BraveAdsTextClassificationModelTest, DoNotGetSegmentsIfNeverProcessed) {
   // Arrange
-  ASSERT_TRUE(LoadResource());
+  NotifyDidUpdateResourceComponent(kLanguageComponentManifestVersion,
+                                   kLanguageComponentId);
+  ASSERT_TRUE(resource_->IsLoaded());
 
   // Act
-  const SegmentList segments = GetTextClassificationSegments();
+  const SegmentList text_classification_segments =
+      GetTextClassificationSegments();
 
   // Assert
-  EXPECT_TRUE(segments.empty());
+  EXPECT_THAT(text_classification_segments, ::testing::IsEmpty());
 }
 
 }  // namespace brave_ads

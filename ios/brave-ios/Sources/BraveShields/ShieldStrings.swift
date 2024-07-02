@@ -257,6 +257,113 @@ extension Strings.Shields {
   )
 }
 
+// MARK: - Forget Me
+
+extension Strings.Shields {
+  /// A toggle option that deletes website content when the site is closed
+  public static let forgetMeLabel = NSLocalizedString(
+    "ForgetMeLabel",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Forget Me When I Close This Site",
+    comment: "A toggle option that deletes website content when the site is closed"
+  )
+
+  /// A description of what the Enable GPC toggle does
+  public static let forgetMeDescription = NSLocalizedString(
+    "ForgetMeDescription",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Clears cookies and other site data when you close a site",
+    comment: "A description of what the forget me toggle does"
+  )
+}
+
+// MARK: - Shred
+
+extension Strings.Shields {
+  /// A list row label for accessing the shred settings screen
+  public static let shredSitesData = NSLocalizedString(
+    "ShredSitesData",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Shred Site's Data",
+    comment: "A list row label for accessing the shred settings screen"
+  )
+
+  /// A button title that shreds site data immediately
+  public static let shredSitesDataNow = NSLocalizedString(
+    "ShredSitesDataNow",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Shred Site's Data Now",
+    comment: "A button title that shreds site data immediately"
+  )
+
+  /// A picker title for selecting a automatic shred setting option
+  public static let automaticallyShred = NSLocalizedString(
+    "AutomaticallyShred",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Automatically Shred",
+    comment: "A picker title for selecting a automatic shred setting option"
+  )
+
+  /// An option setting for never automatically shreding site data
+  public static let shredNever = NSLocalizedString(
+    "ShredNever",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Never",
+    comment: "An option setting for never automatically shreding site data"
+  )
+
+  /// An option setting for shredding when the site is closed
+  public static let shredWhenSiteClosed = NSLocalizedString(
+    "ShredWhenSiteClosed",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "When Site Closed",
+    comment: "An option setting for automatically shredding when the site is closed"
+  )
+
+  /// An option setting for shredding only when the app is closed
+  public static let shredOnAppExitOnly = NSLocalizedString(
+    "ShredOnAppExitOnly",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "App Exit Only",
+    comment: "An option setting for automatically shredding only when the app is closed"
+  )
+
+  /// A title for a confirmation window that appears when a user clicks on 'Shred Data'
+  public static let shredThisSitesDataConfirmationTitle = NSLocalizedString(
+    "ShredThisSitesDataConfirmationTitle",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Shred This Site's Data?",
+    comment: "A title for a confirmation window that appears when a user clicks on 'Shred Data'"
+  )
+
+  /// An option setting for shredding only when the app is closed
+  public static let shredThisSitesDataConfirmationMessage = NSLocalizedString(
+    "ShredThisSitesDataConfirmationMessage",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Are you sure you want to delete this website's data? This action cannot be undone.",
+    comment: "A message for a confirmation window that appears when a user clicks on 'Shred Data'"
+  )
+
+  /// A list row label for accessing the shred settings screen
+  public static let shredDataButtonTitle = NSLocalizedString(
+    "ShredDataButtonTitle",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Shred Data",
+    comment: "A button title when confirming to shred website data"
+  )
+}
+
 // MARK: - Blocked Page
 
 extension Strings.Shields {
@@ -315,6 +422,210 @@ extension Strings.Shields {
     value: "Go Back",
     comment:
       "Text for a button in a blocked page info screen that takes you back where you came from"
+  )
+}
+
+// MARK: - Filter lists
+
+extension Strings.Shields {
+  public static let contentFiltering = NSLocalizedString(
+    "ContentFiltering",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Content Filtering",
+    comment:
+      "A title to the content filtering page under global shield settings and the title on the Content filtering page"
+  )
+  public static let blockMobileAnnoyances = NSLocalizedString(
+    "blockMobileAnnoyances",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Block 'Switch to App' Notices",
+    comment: "A title for setting which blocks 'switch to app' popups"
+  )
+  public static let contentFilteringDescription = NSLocalizedString(
+    "ContentFilteringDescription",
+    tableName: "BraveShared",
+    bundle: .module,
+    value:
+      "Enable custom filters that block regional and language-specific trackers and Annoyances",
+    comment: "A description of the content filtering page."
+  )
+  public static let defaultFilterLists = NSLocalizedString(
+    "DefaultFilterLists",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Default Filter Lists",
+    comment:
+      "A section title that contains default (predefined) filter lists a user can enable/diable."
+  )
+  public static let filterListsDescription = NSLocalizedString(
+    "FilterListsDescription",
+    tableName: "BraveShared",
+    bundle: .module,
+    value:
+      "Additional popular community lists. Note that enabling too many filters will degrade browsing speeds.",
+    comment: "A description on the content filtering screen for the filter lists section."
+  )
+  public static let addFilterByURL = NSLocalizedString(
+    "AddFilterByURL",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Add Filter By URL",
+    comment: "A title within a cell where a user can navigate to an add screen."
+  )
+  public static let customFilterList = NSLocalizedString(
+    "CustomFilterList",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Custom Filter List",
+    comment: "Title for the custom filter list add screen found in the navigation bar."
+  )
+  public static let externalFilterLists = NSLocalizedString(
+    "ExternalFilterLists",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "External Filter Lists",
+    comment: "A title for a section that contains all external filter lists"
+  )
+  public static let customFilterListURL = NSLocalizedString(
+    "CustomFilterListsURL",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Custom Filter List URL",
+    comment: "A section heading above a cell that allows you to enter a filter list URL."
+  )
+  public static let addCustomFilterListDescription = NSLocalizedString(
+    "AddCustomFilterListDescription",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Add additional lists created and maintained by your trusted community.",
+    comment:
+      "A description of a section in a list that allows you to add custom filter lists found in the footer of the add custom url screen"
+  )
+  public static let addCustomFilterListWarning = NSLocalizedString(
+    "AddCustomFilterListWarning",
+    tableName: "BraveShared",
+    bundle: .module,
+    value:
+      "**Only subscribe to lists from entities you trust**. Your browser will periodically check for list updates from the URL you enter.",
+    comment: "Warning text found in the footer of the add custom filter list url screen."
+  )
+  public static let filterListsLastUpdated = NSLocalizedString(
+    "FilterListsLastUpdatedLabel",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Last updated %@",
+    comment:
+      "A label that shows when the filter list was last updated. Do not translate the '%@' placeholder. The %@ will be replaced with a relative date. For example, '5 minutes ago' or '1 hour ago'. So the full string will read something like 'Last updated 5 minutes ago'."
+  )
+  public static let filterListsDownloadPending = NSLocalizedString(
+    "FilterListsDownloadPending",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Pending download",
+    comment:
+      "If a filter list is not yet downloaded this label shows up instead of a last download date, signifying that the download is still pending."
+  )
+  public static let filterListsEnterFilterListURL = NSLocalizedString(
+    "FilterListsEnterFilterListURL",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Enter filter list URL",
+    comment: "This is a placeholder for an input field that takes a custom filter list URL."
+  )
+  public static let filterListsAdd = NSLocalizedString(
+    "FilterListsAdd",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Add",
+    comment:
+      "This is a button on the top navigation that takes the user to an add custom filter list url to the list"
+  )
+  public static let filterListsEdit = NSLocalizedString(
+    "FilterListsEdit",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Edit",
+    comment:
+      "This is a button on the top navigation that takes the user to an add custom filter list url to the list"
+  )
+  public static let filterListURLTextFieldPlaceholder = NSLocalizedString(
+    "FilterListURLTextFieldPlaceholder",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Enter filter list URL here ",
+    comment:
+      "This is a placeholder for the custom filter list url text field where a user may enter a custom filter list URL"
+  )
+  public static let filterListsDownloadFailed = NSLocalizedString(
+    "FilterListsDownloadFailed",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Download failed",
+    comment: "This is a generic error message when downloading a filter list fails."
+  )
+  public static let filterListAddInvalidURLError = NSLocalizedString(
+    "FilterListAddInvalidURLError",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "The URL entered is invalid",
+    comment:
+      "This is an error message when a user tries to enter an invalid URL into the custom filter list URL text field."
+  )
+  public static let filterListAddOnlyHTTPSAllowedError = NSLocalizedString(
+    "FilterListAddOnlyHTTPSAllowedError",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Only secure (https) URLs are allowed for custom filter lists",
+    comment:
+      "This is an error message when a user tries to enter a non-https scheme URL into the 'add custom filter list URL' input field"
+  )
+}
+
+// MARK: - Create custom filters
+
+extension Strings.Shields {
+  public static let customFilters = NSLocalizedString(
+    "CustomFilters",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Custom Filters",
+    comment: "A title for a section that allows a user to insert custom filter list text"
+  )
+  public static let customFiltersDescription = NSLocalizedString(
+    "CustomFiltersDescription",
+    tableName: "BraveShared",
+    bundle: .module,
+    value:
+      "Add custom filters here. Be sure to use the Adblock filter syntax.",
+    comment: "A description of the custom filters section"
+  )
+  /// A placeholder when custom filter lists are empty
+  public static let customFiltersPlaceholder = NSLocalizedString(
+    "CustomFiltersPlaceholder",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Add your custom filters here, one per line.",
+    comment: "A placeholder when custom filter lists are empty"
+  )
+  /// An error message telling the user that they crossed the line limit
+  public static let customFiltersTooManyLinesError = NSLocalizedString(
+    "CustomFiltersTooManyLinesError",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Custom filters do not support more than %i lines",
+    comment:
+      "An error message telling the user that they crossed the line limit"
+  )
+  /// An error message telling the user that they crossed the line limit
+  public static let customFiltersInvalidRuleError = NSLocalizedString(
+    "CustomFiltersInvalidRuleError",
+    tableName: "BraveShared",
+    bundle: .module,
+    value: "Invalid rule `%@` on line %i",
+    comment:
+      "An error message telling the user that a rule is invalid"
   )
 }
 

@@ -38,6 +38,7 @@
 #include "chrome/browser/ui/views/tabs/tab_strip_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_observer.h"
 #include "chrome/browser/ui/views/tabs/tab_strip_scroll_container.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
@@ -174,6 +175,7 @@ void BraveTabStrip::MaybeStartDrag(
           tab_strip_model->GetIndexOfTab(tile->first));
       new_selection.AddIndexToSelection(
           tab_strip_model->GetIndexOfTab(tile->second));
+      new_selection.set_active(tab_strip_model->active_index());
       tab_strip_model->SetSelectionFromModel(new_selection);
     }
   }
@@ -303,7 +305,7 @@ void BraveTabStrip::UpdateTabContainer() {
       base::FeatureList::IsEnabled(features::kSplitTabStrip);
   const bool is_using_compound_tab_container =
       views::IsViewClass<BraveCompoundTabContainer>(
-          std::to_address(tab_container_));
+          base::to_address(tab_container_));
 
   base::ScopedClosureRunner layout_lock;
   if (should_use_compound_tab_container != is_using_compound_tab_container) {
@@ -313,7 +315,7 @@ void BraveTabStrip::UpdateTabContainer() {
 
     // Resets TabContainer to use.
     auto original_container = RemoveChildViewT(
-        static_cast<TabContainer*>(std::to_address(tab_container_)));
+        static_cast<TabContainer*>(base::to_address(tab_container_)));
 
     if (should_use_compound_tab_container) {
       // Container should be attached before TabDragContext so that dragged
@@ -352,6 +354,9 @@ void BraveTabStrip::UpdateTabContainer() {
     auto* model = GetBrowser()->tab_strip_model();
     for (int i = 0; i < model->count(); i++) {
       auto* tab = original_container->GetTabAtModelIndex(i);
+      // At this point, we don't have group views in the container. So before
+      // restoring groups, clears group for tabs.
+      tab->set_group(std::nullopt);
       tab_container_->AddTab(
           tab->parent()->RemoveChildViewT(tab), i,
           tab->data().pinned ? TabPinned::kPinned : TabPinned::kUnpinned);

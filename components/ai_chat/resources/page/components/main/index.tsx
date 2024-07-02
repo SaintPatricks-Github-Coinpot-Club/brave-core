@@ -46,7 +46,7 @@ function Main() {
     hasAcceptedAgreement &&
     !context.isPremiumStatusFetching && // Avoid flash of content
     !context.isPremiumUser &&
-    context.currentModel?.access === mojom.ModelAccess.PREMIUM
+    context.currentModel?.options.leoModelOptions?.access === mojom.ModelAccess.PREMIUM
 
   const shouldShowPremiumSuggestionStandalone =
     hasAcceptedAgreement &&
@@ -110,7 +110,7 @@ function Main() {
       <div className={styles.header}>
         <div className={styles.logo}>
           <Icon name='product-brave-leo' />
-          <div className={styles.logoTitle}>leo ai</div>
+          <div className={styles.logoTitle}>Leo AI</div>
           {context.isPremiumUser && <div className={styles.badgePremium}>PREMIUM</div>}
         </div>
         <div className={styles.actions}>
@@ -210,8 +210,8 @@ function Main() {
             <PageContextToggle />
           </div>
         )}
-        <ToolsButtonMenu>
-          <InputBox />
+        <ToolsButtonMenu {...context}>
+          <InputBox {...context} />
         </ToolsButtonMenu>
       </div>
     </main>

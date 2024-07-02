@@ -11,6 +11,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "brave/components/brave_wallet/browser/brave_wallet_constants.h"
+#include "brave/components/brave_wallet/browser/json_rpc_response_parser.h"
 #include "brave/components/brave_wallet/browser/json_rpc_service.h"
 #include "brave/components/brave_wallet/browser/swap_request_helper.h"
 #include "brave/components/brave_wallet/browser/swap_response_parser.h"
@@ -99,67 +100,13 @@ std::string GetAffiliateAddress(const std::string& chain_id) {
   return "";
 }
 
-mojom::SwapFeesPtr GetJupiterSwapFee(const mojom::SwapQuoteParams& params) {
+mojom::SwapFeesPtr GetZeroSwapFee() {
   mojom::SwapFeesPtr response = mojom::SwapFees::New();
-  bool has_fees = HasJupiterFeesForTokenMint(
-      params.to_token.empty() ? kWrappedSolanaMintAddress : params.to_token);
-
-  auto fee_pct = kSolanaBuyTokenFeePercentage;
-  response->fee_pct = base::NumberToString(fee_pct);
-
-  auto discount = has_fees ? 0.0 : 100.0;
-  response->discount_pct = base::NumberToString(discount);
-
-  auto effective_fee_pct = (100.0 - discount) / 100.0 * fee_pct;
-  response->effective_fee_pct = base::NumberToString(effective_fee_pct);
-
-  // Jupiter swap fee is specified in basis points
-  response->fee_param =
-      effective_fee_pct != 0.0
-          ? base::NumberToString(static_cast<int>(effective_fee_pct * 100.0))
-          : "";
-
-  response->discount_code =
-      has_fees ? mojom::SwapDiscountCode::kNone
-               : mojom::SwapDiscountCode::kUnknownJupiterOutputMint;
-
-  return response;
-}
-
-mojom::SwapFeesPtr GetLiFiSwapFee() {
-  mojom::SwapFeesPtr response = mojom::SwapFees::New();
-
-  response->fee_pct = base::NumberToString(kLiFiFeePercentage);
-
-  // We currently do not offer discounts on LiFi Brave fees.
+  response->fee_pct = "0";
   response->discount_pct = "0";
+  response->effective_fee_pct = "0";
+  response->fee_param = "";
   response->discount_code = mojom::SwapDiscountCode::kNone;
-  response->effective_fee_pct = response->fee_pct;
-
-  // LiFi swap fee is specified as a multiplier
-  response->fee_param = response->effective_fee_pct != "0"
-                            ? base::NumberToString(kLiFiFeePercentage / 100.0)
-                            : "";
-
-  return response;
-}
-
-mojom::SwapFeesPtr GetZeroExSwapFee() {
-  mojom::SwapFeesPtr response = mojom::SwapFees::New();
-
-  response->fee_pct = base::NumberToString(kZeroExBuyTokenFeePercentage);
-
-  // We currently do not offer discounts on 0x Brave fees.
-  response->discount_pct = "0";
-  response->discount_code = mojom::SwapDiscountCode::kNone;
-  response->effective_fee_pct = response->fee_pct;
-
-  // 0x swap fee is specified as a multiplier
-  response->fee_param =
-      response->effective_fee_pct != "0"
-          ? base::NumberToString(kZeroExBuyTokenFeePercentage / 100.0)
-          : "";
-
   return response;
 }
 
@@ -227,9 +174,11 @@ GURL AppendJupiterQuoteParams(const GURL& swap_url,
 
   if (!params.from_amount.empty()) {
     url = net::AppendQueryParameter(url, "amount", params.from_amount);
+    url = net::AppendQueryParameter(url, "swapMode", "ExactIn");
+  } else if (!params.to_amount.empty()) {
+    url = net::AppendQueryParameter(url, "amount", params.to_amount);
+    url = net::AppendQueryParameter(url, "swapMode", "ExactOut");
   }
-
-  url = net::AppendQueryParameter(url, "swapMode", "ExactIn");
 
   double slippage_percentage = 0.0;
   if (base::StringToDouble(params.slippage_percentage, &slippage_percentage)) {
@@ -283,13 +232,9 @@ std::string GetBaseSwapURL(const std::string& chain_id) {
 }  // namespace
 
 SwapService::SwapService(
-    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    JsonRpcService* json_rpc_service)
-    : api_request_helper_(GetNetworkTrafficAnnotationTag(), url_loader_factory),
-      json_rpc_service_(json_rpc_service),
-      weak_ptr_factory_(this) {
-  DCHECK(json_rpc_service_);
-}
+    scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
+    : api_request_helper_(GetNetworkTrafficAnnotationTag(),
+                          url_loader_factory) {}
 
 SwapService::~SwapService() = default;
 
@@ -381,11 +326,23 @@ void SwapService::IsSwapSupported(const std::string& chain_id,
 
 void SwapService::GetQuote(mojom::SwapQuoteParamsPtr params,
                            GetQuoteCallback callback) {
-  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString);
+  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString, "");
 
-  if (params->from_chain_id == params->to_chain_id &&
-      IsNetworkSupportedByZeroEx(params->from_chain_id)) {
-    auto swap_fee = GetZeroExSwapFee();
+  auto has_zero_ex_support = params->from_chain_id == params->to_chain_id &&
+                             IsNetworkSupportedByZeroEx(params->from_chain_id);
+  auto has_jupiter_support = params->from_chain_id == params->to_chain_id &&
+                             IsNetworkSupportedByJupiter(params->from_chain_id);
+  auto has_lifi_support = IsNetworkSupportedByLiFi(params->from_chain_id) &&
+                          IsNetworkSupportedByLiFi(params->to_chain_id) &&
+                          // LiFi does not support ExactOut swaps.
+                          !params->from_amount.empty();
+
+  // EVM swaps are served via 0x only if the provider is set to kZeroEx.
+  if ((params->provider == mojom::SwapProvider::kZeroEx &&
+       has_zero_ex_support) ||
+      (params->provider == mojom::SwapProvider::kAuto && has_zero_ex_support &&
+       !has_lifi_support)) {
+    auto swap_fee = GetZeroSwapFee();
     auto fee_param = swap_fee->fee_param;
 
     auto internal_callback = base::BindOnce(
@@ -400,9 +357,11 @@ void SwapService::GetQuote(mojom::SwapQuoteParamsPtr params,
     return;
   }
 
-  if (params->from_chain_id == params->to_chain_id &&
-      IsNetworkSupportedByJupiter(params->from_chain_id)) {
-    auto swap_fee = GetJupiterSwapFee(*params);
+  // If the provider is set to Auto, Solana swaps are served via Jupiter.
+  if ((params->provider == mojom::SwapProvider::kJupiter ||
+       params->provider == mojom::SwapProvider::kAuto) &&
+      has_jupiter_support) {
+    auto swap_fee = GetZeroSwapFee();
     auto fee_param = swap_fee->fee_param;
 
     auto internal_callback = base::BindOnce(
@@ -417,9 +376,11 @@ void SwapService::GetQuote(mojom::SwapQuoteParamsPtr params,
     return;
   }
 
-  if (IsNetworkSupportedByLiFi(params->from_chain_id) &&
-      IsNetworkSupportedByLiFi(params->to_chain_id)) {
-    auto swap_fee = GetLiFiSwapFee();
+  // EVM swaps are served via LiFi if the provider is set to kLiFi or kAuto.
+  if ((params->provider == mojom::SwapProvider::kLiFi ||
+       params->provider == mojom::SwapProvider::kAuto) &&
+      has_lifi_support) {
+    auto swap_fee = GetZeroSwapFee();
     auto fee_param = swap_fee->fee_param;
 
     auto encoded_params = lifi::EncodeQuoteParams(std::move(params), fee_param);
@@ -545,10 +506,10 @@ void SwapService::OnGetLiFiQuote(mojom::SwapFeesPtr swap_fee,
 
 void SwapService::GetTransaction(mojom::SwapTransactionParamsUnionPtr params,
                                  GetTransactionCallback callback) {
-  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString);
+  auto conversion_callback = base::BindOnce(&ConvertAllNumbersToString, "");
 
   if (params->is_zero_ex_transaction_params()) {
-    auto swap_fee = GetZeroExSwapFee();
+    auto swap_fee = GetZeroSwapFee();
 
     auto internal_callback =
         base::BindOnce(&SwapService::OnGetZeroExTransaction,

@@ -37,6 +37,7 @@ import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkImageFetcher;
@@ -45,8 +46,9 @@ import org.chromium.chrome.browser.bookmarks.BookmarkMoveSnackbarManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkOpener;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs;
 import org.chromium.chrome.browser.bookmarks.BookmarkUndoController;
-import org.chromium.chrome.browser.browser_controls.BrowserControlsSizer;
+import org.chromium.chrome.browser.browser_controls.BottomControlsStacker;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.browser_controls.BrowserControlsVisibilityManager;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.compositor.CompositorViewHolder;
@@ -65,6 +67,7 @@ import org.chromium.chrome.browser.findinpage.FindToolbarManager;
 import org.chromium.chrome.browser.fullscreen.BrowserControlsManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenManager;
 import org.chromium.chrome.browser.identity_disc.IdentityDiscController;
+import org.chromium.chrome.browser.keyboard_accessory.ManualFillingComponentSupplier;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.logo.CachedTintedBitmap;
@@ -75,6 +78,7 @@ import org.chromium.chrome.browser.new_tab_url.DseNewTabUrlManager;
 import org.chromium.chrome.browser.ntp.NewTabPageUma;
 import org.chromium.chrome.browser.omnibox.BackKeyBehaviorDelegate;
 import org.chromium.chrome.browser.omnibox.BraveLocationBarMediator;
+import org.chromium.chrome.browser.omnibox.DeferredIMEWindowInsetApplicationCallback;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.LocationBarEmbedderUiOverrides;
 import org.chromium.chrome.browser.omnibox.LocationBarLayout;
@@ -89,6 +93,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.SuggestionHost;
 import org.chromium.chrome.browser.omnibox.suggestions.basic.BasicSuggestionProcessor.BookmarkState;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
+import org.chromium.chrome.browser.suggestions.tile.MostVisitedTilesLayout;
 import org.chromium.chrome.browser.suggestions.tile.TileRenderer;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
@@ -119,7 +124,6 @@ import org.chromium.chrome.browser.ui.native_page.NativePageHost;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController;
 import org.chromium.chrome.browser.ui.system.StatusBarColorController.StatusBarColorProvider;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
-import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.site_settings.ContentSettingException;
 import org.chromium.components.browser_ui.site_settings.PermissionInfo;
@@ -144,6 +148,7 @@ import org.chromium.components.permissions.PermissionDialogController;
 import org.chromium.components.signin.base.AccountInfo;
 import org.chromium.content_public.browser.BrowserContextHandle;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.InsetObserver;
 import org.chromium.ui.ViewProvider;
 import org.chromium.ui.base.ActivityWindowAndroid;
 import org.chromium.ui.base.EventOffsetHandler;
@@ -172,7 +177,7 @@ import java.util.function.Function;
  * should be whitelisted in 'brave/android/java/apk_for_test.flags'.
  */
 @Batch(Batch.PER_CLASS)
-@RunWith(ChromeJUnit4ClassRunner.class)
+@RunWith(BaseJUnit4ClassRunner.class)
 public class BytecodeTest {
     enum MethodModifier {
         REGULAR,
@@ -331,6 +336,8 @@ public class BytecodeTest {
         Assert.assertTrue(
                 classExists("org/chromium/chrome/browser/multiwindow/MultiInstanceManagerApi31"));
         Assert.assertTrue(classExists("org/chromium/chrome/browser/multiwindow/MultiWindowUtils"));
+        Assert.assertTrue(
+                classExists("org/chromium/chrome/browser/password_manager/settings/ExportFlow"));
     }
 
     @Test
@@ -380,13 +387,6 @@ public class BytecodeTest {
                         MethodModifier.REGULAR,
                         false,
                         null));
-        Assert.assertTrue(
-                methodExists(
-                        "org/chromium/chrome/browser/ntp/NewTabPageLayout",
-                        "isScrollableMvtEnabled",
-                        MethodModifier.REGULAR,
-                        true,
-                        boolean.class));
         Assert.assertTrue(
                 methodExists(
                         "org/chromium/chrome/browser/ntp/NewTabPageLayout",
@@ -810,6 +810,13 @@ public class BytecodeTest {
                         true,
                         String.class,
                         int.class));
+        Assert.assertTrue(
+                methodExists(
+                        "org/chromium/chrome/browser/password_manager/settings/ExportFlow",
+                        "runSharePasswordsIntent",
+                        MethodModifier.REGULAR,
+                        true,
+                        void.class));
     }
 
     @Test
@@ -982,6 +989,21 @@ public class BytecodeTest {
                         float.class,
                         float.class,
                         boolean.class));
+        Assert.assertTrue(
+                methodExists(
+                        "org/chromium/chrome/browser/password_manager/settings/ExportFlow",
+                        "runCreateFileOnDiskIntent",
+                        MethodModifier.REGULAR,
+                        true,
+                        void.class));
+        Assert.assertTrue(
+                methodExists(
+                        "org/chromium/chrome/browser/omnibox/suggestions/editurl/EditUrlSuggestionProcessor",
+                        "onCopyLink",
+                        MethodModifier.REGULAR,
+                        true,
+                        void.class,
+                        AutocompleteMatch.class));
         // NOTE: Add new checks above. For each new check in this method add proguard exception in
         // `brave/android/java/proguard.flags` file under `Add methods for invocation below`
         // section. Both test and regular apks should have the same exceptions.
@@ -1027,7 +1049,8 @@ public class BytecodeTest {
                         "org/chromium/chrome/browser/toolbar/ToolbarManager",
                         "org/chromium/chrome/browser/toolbar/BraveToolbarManager",
                         AppCompatActivity.class,
-                        BrowserControlsSizer.class,
+                        BottomControlsStacker.class,
+                        BrowserControlsVisibilityManager.class,
                         FullscreenManager.class,
                         ObservableSupplier.class,
                         ToolbarControlContainer.class,
@@ -1080,7 +1103,7 @@ public class BytecodeTest {
                         "org/chromium/chrome/browser/toolbar/bottom/BraveBottomControlsMediator",
                         WindowAndroid.class,
                         PropertyModel.class,
-                        BrowserControlsSizer.class,
+                        BottomControlsStacker.class,
                         FullscreenManager.class,
                         TabObscuringHandler.class,
                         int.class,
@@ -1160,6 +1183,7 @@ public class BytecodeTest {
                         Activity.class,
                         BrowserControlsStateProvider.class,
                         Supplier.class,
+                        ModalDialogManager.class,
                         SnackbarManager.class,
                         ActivityLifecycleDispatcher.class,
                         TabModelSelector.class,
@@ -1259,7 +1283,8 @@ public class BytecodeTest {
                         OmniboxActionDelegate.class,
                         ActivityLifecycleDispatcher.class,
                         OmniboxSuggestionsDropdownEmbedder.class,
-                        WindowAndroid.class));
+                        WindowAndroid.class,
+                        DeferredIMEWindowInsetApplicationCallback.class));
         Assert.assertTrue(
                 constructorsMatch(
                         "org/chromium/chrome/browser/multiwindow/MultiInstanceManagerApi31",
@@ -1304,11 +1329,10 @@ public class BytecodeTest {
                         "org/chromium/chrome/browser/suggestions/tile/BraveMostVisitedTilesMediator",
                         Resources.class,
                         UiConfig.class,
-                        ViewGroup.class,
+                        MostVisitedTilesLayout.class,
                         ViewStub.class,
                         TileRenderer.class,
                         PropertyModel.class,
-                        boolean.class,
                         boolean.class,
                         Runnable.class,
                         Runnable.class));
@@ -1363,7 +1387,6 @@ public class BytecodeTest {
                         Supplier.class,
                         OmniboxActionDelegate.class,
                         BrowserStateBrowserControlsVisibilityDelegate.class,
-                        Callback.class,
                         BackPressManager.class,
                         OmniboxSuggestionsDropdownScrollListener.class,
                         ObservableSupplier.class,
@@ -1482,8 +1505,7 @@ public class BytecodeTest {
                         StatusBarColorProvider.class,
                         ObservableSupplierImpl.class,
                         IntentRequestTracker.class,
-                        int.class,
-                        Supplier.class,
+                        InsetObserver.class,
                         Function.class,
                         OneshotSupplier.class,
                         boolean.class,
@@ -1491,7 +1513,8 @@ public class BytecodeTest {
                         Bundle.class,
                         MultiInstanceManager.class,
                         ObservableSupplier.class,
-                        View.class));
+                        View.class,
+                        ManualFillingComponentSupplier.class));
         Assert.assertTrue(
                 constructorsMatch(
                         "org/chromium/chrome/browser/bookmarks/BookmarkToolbar",
@@ -1514,7 +1537,8 @@ public class BytecodeTest {
                         BookmarkUiPrefs.class,
                         ModalDialogManager.class,
                         Runnable.class,
-                        BookmarkMoveSnackbarManager.class));
+                        BookmarkMoveSnackbarManager.class,
+                        BooleanSupplier.class));
         Assert.assertTrue(
                 constructorsMatch(
                         "org/chromium/chrome/browser/bookmarks/BookmarkManagerCoordinator",
@@ -1651,6 +1675,10 @@ public class BytecodeTest {
                         Optional.class,
                         Supplier.class,
                         Supplier.class));
+        Assert.assertTrue(
+                constructorsMatch(
+                        "org/chromium/chrome/browser/password_manager/settings/ExportFlow",
+                        "org/chromium/chrome/browser/password_manager/settings/BraveExportFlow"));
     }
 
     @Test
@@ -1717,7 +1745,7 @@ public class BytecodeTest {
         Assert.assertTrue(
                 fieldExists(
                         "org/chromium/chrome/browser/toolbar/ToolbarManager",
-                        "mBrowserControlsSizer"));
+                        "mBottomControlsStacker"));
         Assert.assertTrue(
                 fieldExists(
                         "org/chromium/chrome/browser/toolbar/ToolbarManager",
@@ -1854,7 +1882,7 @@ public class BytecodeTest {
         Assert.assertTrue(
                 fieldExists(
                         "org/chromium/chrome/browser/toolbar/bottom/BottomControlsMediator",
-                        "mBrowserControlsSizer"));
+                        "mBottomControlsStacker"));
         Assert.assertTrue(
                 fieldExists(
                         "org/chromium/chrome/browser/toolbar/IncognitoToggleTabLayout",
@@ -1938,6 +1966,8 @@ public class BytecodeTest {
         Assert.assertTrue(
                 fieldExists(
                         "org/chromium/chrome/browser/ntp/NewTabPageLayout", "mLogoCoordinator"));
+        Assert.assertTrue(
+                fieldExists("org/chromium/chrome/browser/ntp/NewTabPageLayout", "mInitialTileNum"));
         Assert.assertTrue(
                 fieldExists("org/chromium/chrome/browser/dom_distiller/ReaderModeManager", "mTab"));
         Assert.assertTrue(
@@ -2027,85 +2057,134 @@ public class BytecodeTest {
     @Test
     @SmallTest
     public void testSuperNames() throws Exception {
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/ChromeApplicationImpl",
-                "org/chromium/chrome/browser/BraveApplicationImplBase"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/settings/MainSettings",
-                "org/chromium/chrome/browser/settings/BraveMainPreferencesBase"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/ntp/NewTabPageLayout", "android/widget/FrameLayout"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/password_manager/settings/PasswordSettings",
-                "org/chromium/chrome/browser/password_manager/settings/BravePasswordSettingsBase"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/ChromeApplicationImpl",
+                        "org/chromium/chrome/browser/BraveApplicationImplBase"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/settings/MainSettings",
+                        "org/chromium/chrome/browser/settings/BraveMainPreferencesBase"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/ntp/NewTabPageLayout",
+                        "android/widget/FrameLayout"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/password_manager/settings/PasswordSettings",
+                        "org/chromium/chrome/browser/password_manager/settings/BravePasswordSettingsBase")); // presubmit: ignore-long-line
         Assert.assertTrue(
                 checkSuperName(
                         "org/chromium/chrome/browser/search_engines/settings/SearchEngineAdapter",
-                        "org/chromium/chrome/browser/search_engines/settings/BraveBaseSearchEngineAdapter"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/components/browser_ui/site_settings/SingleCategorySettings",
-                "org/chromium/components/browser_ui/site_settings/BraveSingleCategorySettings"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/ChromeTabbedActivity",
-                "org/chromium/chrome/browser/app/BraveActivity"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/tabbed_mode/TabbedAppMenuPropertiesDelegate",
-                "org/chromium/chrome/browser/app/appmenu/BraveAppMenuPropertiesDelegateImpl"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/customtabs/CustomTabAppMenuPropertiesDelegate",
-                "org/chromium/chrome/browser/app/appmenu/BraveAppMenuPropertiesDelegateImpl"));
+                        "org/chromium/chrome/browser/search_engines/settings/BraveBaseSearchEngineAdapter")); // presubmit: ignore-long-line
         Assert.assertTrue(
-                checkSuperName("org/chromium/chrome/browser/suggestions/tile/SuggestionsTileView",
+                checkSuperName(
+                        "org/chromium/components/browser_ui/site_settings/SingleCategorySettings",
+                        "org/chromium/components/browser_ui/site_settings/BraveSingleCategorySettings")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/ChromeTabbedActivity",
+                        "org/chromium/chrome/browser/app/BraveActivity"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/tabbed_mode/TabbedAppMenuPropertiesDelegate",
+                        "org/chromium/chrome/browser/app/appmenu/BraveAppMenuPropertiesDelegateImpl")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/customtabs/CustomTabAppMenuPropertiesDelegate",
+                        "org/chromium/chrome/browser/app/appmenu/BraveAppMenuPropertiesDelegateImpl")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/suggestions/tile/SuggestionsTileView",
                         "org/chromium/chrome/browser/suggestions/tile/BraveTileView"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/customtabs/features/toolbar/CustomTabToolbar",
-                "org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/toolbar/top/ToolbarPhone",
-                "org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/toolbar/top/ToolbarTablet",
-                "org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/components/browser_ui/site_settings/SingleCategorySettings",
-                "org/chromium/components/browser_ui/site_settings/BraveSingleCategorySettings"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/components/browser_ui/site_settings/SingleWebsiteSettings",
-                "org/chromium/components/browser_ui/site_settings/BraveSingleWebsiteSettings"));
-        Assert.assertTrue(checkSuperName("org/chromium/components/browser_ui/site_settings/Website",
-                "org/chromium/components/browser_ui/site_settings/BraveWebsite"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/customtabs/features/toolbar/CustomTabToolbar",
+                        "org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/toolbar/top/ToolbarPhone",
+                        "org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/toolbar/top/ToolbarTablet",
+                        "org/chromium/chrome/browser/toolbar/top/BraveToolbarLayoutImpl"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/components/browser_ui/site_settings/SingleCategorySettings",
+                        "org/chromium/components/browser_ui/site_settings/BraveSingleCategorySettings")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/components/browser_ui/site_settings/SingleWebsiteSettings",
+                        "org/chromium/components/browser_ui/site_settings/BraveSingleWebsiteSettings")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/components/browser_ui/site_settings/Website",
+                        "org/chromium/components/browser_ui/site_settings/BraveWebsite"));
         Assert.assertTrue(
                 checkSuperName(
                         "org/chromium/components/browser_ui/site_settings/SiteSettings",
                         "org/chromium/components/browser_ui/site_settings/BraveSiteSettingsPreferencesBase"));
         Assert.assertTrue(
-                checkSuperName("org/chromium/chrome/browser/infobar/TranslateCompactInfoBar",
+                checkSuperName(
+                        "org/chromium/chrome/browser/infobar/TranslateCompactInfoBar",
                         "org/chromium/chrome/browser/infobar/BraveTranslateCompactInfoBarBase"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/download/DownloadMessageUiControllerImpl",
-                "org/chromium/chrome/browser/download/BraveDownloadMessageUiControllerImpl"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/omnibox/suggestions/AutocompleteCoordinator",
-                "org/chromium/chrome/browser/omnibox/suggestions/BraveAutocompleteCoordinator"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/omnibox/suggestions/AutocompleteMediator",
-                "org/chromium/chrome/browser/omnibox/suggestions/BraveAutocompleteMediatorBase"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/omnibox/LocationBarPhone",
-                "org/chromium/chrome/browser/omnibox/BraveLocationBarLayout"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/omnibox/LocationBarTablet",
-                "org/chromium/chrome/browser/omnibox/BraveLocationBarLayout"));
-        Assert.assertTrue(checkSuperName(
-                "org/chromium/chrome/browser/searchwidget/SearchActivityLocationBarLayout",
-                "org/chromium/chrome/browser/omnibox/BraveLocationBarLayout"));
         Assert.assertTrue(
-                checkSuperName("org/chromium/chrome/browser/document/ChromeLauncherActivity",
+                checkSuperName(
+                        "org/chromium/chrome/browser/download/DownloadMessageUiControllerImpl",
+                        "org/chromium/chrome/browser/download/BraveDownloadMessageUiControllerImpl")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/omnibox/suggestions/AutocompleteCoordinator",
+                        "org/chromium/chrome/browser/omnibox/suggestions/BraveAutocompleteCoordinator")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/omnibox/suggestions/AutocompleteMediator",
+                        "org/chromium/chrome/browser/omnibox/suggestions/BraveAutocompleteMediatorBase")); // presubmit: ignore-long-line
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/omnibox/LocationBarPhone",
+                        "org/chromium/chrome/browser/omnibox/BraveLocationBarLayout"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/omnibox/LocationBarTablet",
+                        "org/chromium/chrome/browser/omnibox/BraveLocationBarLayout"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/searchwidget/SearchActivityLocationBarLayout",
+                        "org/chromium/chrome/browser/omnibox/BraveLocationBarLayout"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/document/ChromeLauncherActivity",
                         "org/chromium/chrome/browser/document/BraveLauncherActivity"));
         Assert.assertTrue(
-                checkSuperName("org/chromium/components/permissions/PermissionDialogDelegate",
+                checkSuperName(
+                        "org/chromium/components/permissions/PermissionDialogDelegate",
                         "org/chromium/components/permissions/BravePermissionDialogDelegate"));
         Assert.assertTrue(
-                checkSuperName("org/chromium/chrome/browser/tracing/settings/DeveloperSettings",
+                checkSuperName(
+                        "org/chromium/chrome/browser/tracing/settings/DeveloperSettings",
                         "org/chromium/chrome/browser/settings/BravePreferenceFragment"));
-        Assert.assertTrue(checkSuperName("org/chromium/chrome/browser/bookmarks/BookmarkModel",
-                "org/chromium/chrome/browser/bookmarks/BraveBookmarkBridge"));
         Assert.assertTrue(
-                checkSuperName("org/chromium/chrome/browser/tasks/tab_groups/TabGroupModelFilter",
+                checkSuperName(
+                        "org/chromium/chrome/browser/bookmarks/BookmarkModel",
+                        "org/chromium/chrome/browser/bookmarks/BraveBookmarkBridge"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/tasks/tab_groups/TabGroupModelFilter",
                         "org/chromium/chrome/browser/tasks/tab_groups/BraveTabGroupModelFilter"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/media/PictureInPictureActivity",
+                        "org/chromium/chrome/browser/media/BravePictureInPictureActivity"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/suggestions/tile/MostVisitedTilesLayout",
+                        "org/chromium/chrome/browser/suggestions/tile/BraveMostVisitedTilesLayoutBase"));
+        Assert.assertTrue(
+                checkSuperName(
+                        "org/chromium/chrome/browser/omnibox/suggestions/editurl/EditUrlSuggestionProcessor",
+                        "org/chromium/chrome/browser/omnibox/suggestions/editurl/BraveEditUrlSuggestionProcessorBase"));
     }
 
     private boolean classExists(String className) {

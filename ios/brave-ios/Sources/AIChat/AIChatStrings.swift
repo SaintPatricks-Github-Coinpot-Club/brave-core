@@ -17,12 +17,28 @@ extension Strings {
       comment:
         "The title shown on limit reached error view, which is suggesting user to change default model"
     )
+    public static let accountSessionExpiredDescription = NSLocalizedString(
+      "aichat.accountSessionExpiredDescription",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value:
+        "Your Brave account session has expired. Please visit your account page to refresh, then come back to use premium features.",
+      comment:
+        "The description for the error message when the user's session has expired"
+    )
     public static let newChatActionTitle = NSLocalizedString(
       "aichat.newChatActionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "New Chat",
       comment: "The title for button that starts a new chat"
+    )
+    public static let refreshCredentialsActionTitle = NSLocalizedString(
+      "aichat.refreshCredentialsActionTitle",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value: "Refresh",
+      comment: "The title for button that refreshes user credentials"
     )
     public static let networkErrorViewTitle = NSLocalizedString(
       "aichat.networkErrorViewTitle",
@@ -38,6 +54,14 @@ extension Strings {
       bundle: .module,
       value: "Retry",
       comment: "The title for button for re-try"
+    )
+    public static let busyErrorDescription = NSLocalizedString(
+      "aichat.busyErrorDescription",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value: "Leo is too busy right now. Please try again in a few minutes.",
+      comment:
+        "The title for view that shows when leo is too busy (active disconnected) and the user is premium"
     )
     public static let feedbackSuccessAnswerLikedTitle = NSLocalizedString(
       "aichat.feedbackSuccessAnswerLikedTitle",
@@ -199,9 +223,9 @@ extension Strings {
       "aichat.introMessageLlamaModelDescription",
       tableName: "BraveLeo",
       bundle: .module,
-      value: "Llama 2 13b by Meta",
+      value: "Llama 3 8b by Meta",
       comment:
-        "The model and creator for intro message - Llama 2 13b is the model name -- Meta is the creator"
+        "The model and creator for intro message - Llama 3 8b is the model name -- Meta is the creator"
     )
     public static let introMessageMixtralModelDescription = NSLocalizedString(
       "aichat.introMessageMixtralModelDescription",
@@ -210,14 +234,6 @@ extension Strings {
       value: "Mixtral by Mistral AI",
       comment:
         "The model and creator for intro message - Mixstral is the model name -- Mistral AI is the creator"
-    )
-    public static let introMessageClaudeInstantModelDescription = NSLocalizedString(
-      "aichat.introMessageClaudeInstantModelDescription",
-      tableName: "BraveLeo",
-      bundle: .module,
-      value: "Claude Instant by Anthropic",
-      comment:
-        "The model and creator for intro message - Claude Instant is the model -- Anthropic is the creator"
     )
     public static let introMessageClaudeHaikuModelDescription = NSLocalizedString(
       "aichat.introMessageClaudeHaikuModelDescription",
@@ -251,14 +267,6 @@ extension Strings {
       comment:
         "The model's purpose - Describes what it can do best"
     )
-    public static let introMessageClaudeInstantModelPurposeDescription = NSLocalizedString(
-      "aichat.introMessageClaudeInstantModelPurposeDescription",
-      tableName: "BraveLeo",
-      bundle: .module,
-      value: "Conversation and text generation",
-      comment:
-        "The model's purpose - Describes what it can do best"
-    )
     public static let introMessageClaudeHaikuModelPurposeDescription = NSLocalizedString(
       "aichat.introMessageClaudeHaikuModelPurposeDescription",
       tableName: "BraveLeo",
@@ -280,7 +288,7 @@ extension Strings {
       tableName: "BraveLeo",
       bundle: .module,
       value:
-        "Hi, I'm Leo. I'm a fully hosted AI assistant by Brave. I'm powered by Llama 13B, a model created by Meta to be performant and applicable to many use cases.",
+        "Hi, I'm Leo. I'm a fully hosted AI assistant by Brave. I'm powered by Llama 3 8B, a model created by Meta to be performant and applicable to many use cases.",
       comment: "The model intro message when you first enter the chat assistant"
     )
     public static let introMessageMixtralMessageDescription = NSLocalizedString(
@@ -289,14 +297,6 @@ extension Strings {
       bundle: .module,
       value:
         "Hi, I'm Leo. I'm a fully hosted AI assistant by Brave. I'm powered by Mixtral 8x7B, a model created by Mistral AI to handle advanced tasks.",
-      comment: "The model intro message when you first enter the chat assistant"
-    )
-    public static let introMessageClaudeInstantMessageDescription = NSLocalizedString(
-      "aichat.introMessageClaudeInstantMessageDescription",
-      tableName: "BraveLeo",
-      bundle: .module,
-      value:
-        "Hi, I'm Leo. I'm proxied by Brave and powered by Claude Instant, a model created by Anthropic to power conversational and text processing tasks.",
       comment: "The model intro message when you first enter the chat assistant"
     )
     public static let introMessageClaudeHaikuMessageDescription = NSLocalizedString(
@@ -499,7 +499,7 @@ extension Strings {
       "aichat.leoNavigationTitle",
       tableName: "BraveLeo",
       bundle: .module,
-      value: "Leo",
+      value: "Leo AI",
       comment: "The title of the advanced settings view"
     )
     public static let manageSubscriptionsButtonTitle = NSLocalizedString(
@@ -629,70 +629,77 @@ extension Strings {
       comment: "The description for the error whre leo data reset"
     )
     public static let resetLeoDataAlertButtonTitle = NSLocalizedString(
-      "wallet.resetLeoDataAlertButtonTitle",
+      "aichat.resetLeoDataAlertButtonTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Reset",
       comment: "The title of a button that will reset data for leo"
     )
     public static let defaultModelViewTitle = NSLocalizedString(
-      "wallet.defaultModelViewTitle",
+      "aichat.defaultModelViewTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Default Model",
       comment: "The title of the menu where user can change the default model"
     )
     public static let defaultModelChatSectionTitle = NSLocalizedString(
-      "wallet.defaultModelChatSectionTitle",
+      "aichat.defaultModelChatSectionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Chat",
       comment: "The title of the section where chat models are displayed as a list."
     )
+    public static let customModelChatSectionTitle = NSLocalizedString(
+      "aichat.customModelChatSectionTitle",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value: "Custom Models",
+      comment: "The title of the section where custom models are displayed as a list."
+    )
     public static let unlimitedModelStatusTitle = NSLocalizedString(
-      "wallet.unlimitedModelStatusTitle",
+      "aichat.unlimitedModelStatusTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Unlimited",
       comment: "The title of the badge where a model which can be used unlimited"
     )
-    public static let limitedModelStatusTitle = NSLocalizedString(
-      "wallet.limitedModelStatusTitle",
+    public static let premiumModelStatusTitle = NSLocalizedString(
+      "aichat.premiumModelStatusTitle",
       tableName: "BraveLeo",
       bundle: .module,
-      value: "Limited",
+      value: "Premium",
       comment: "The title of the badge where a model which can be used limited"
     )
     public static let defaultModelLanguageSectionTitle = NSLocalizedString(
-      "wallet.defaultModelLanguageSectionTitle",
+      "aichat.defaultModelLanguageSectionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "LANGUAGE MODELS",
       comment: "The title of the section where language models are displayed as a list."
     )
     public static let quickMenuNewChatActionTitle = NSLocalizedString(
-      "wallet.quickMenuNewChatActionTitle",
+      "aichat.quickMenuNewChatActionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "New Chat",
       comment: "The title of action for quick menu which starts a new chat"
     )
     public static let quickMenuGoPremiumActionTitle = NSLocalizedString(
-      "wallet.quickMenuGoPremiumActionTitle",
+      "aichat.quickMenuGoPremiumActionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Go Premium",
       comment: "The title of action for quick menu which presents payment screen for premium"
     )
     public static let quickMenuManageSubscriptionActionTitle = NSLocalizedString(
-      "wallet.quickMenuManageSubscriptionActionTitle",
+      "aichat.quickMenuManageSubscriptionActionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Manage Subscriptions",
       comment: "The title of action for quick menu which display subscription management view"
     )
     public static let quickMenuAdvancedSettingsActionTitle = NSLocalizedString(
-      "wallet.quickMenuAdvancedSettingsActionTitle",
+      "aichat.quickMenuAdvancedSettingsActionTitle",
       tableName: "BraveLeo",
       bundle: .module,
       value: "Advanced Settings",
@@ -831,6 +838,13 @@ extension Strings {
       value: "Chat",
       comment: "The title for the chat section in the menu"
     )
+    public static let customModelsMenuSectionTitle = NSLocalizedString(
+      "aichat.customModelsMenuSectionTitle",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value: "Custom Models",
+      comment: "The title for the custom models section in the menu"
+    )
     public static let askLeoSearchSuggestionTitle = NSLocalizedString(
       "aichat.askLeoSearchSuggestionTitle",
       tableName: "BraveLeo",
@@ -861,6 +875,51 @@ extension Strings {
         "Toggle on to ask about this page. Its content will be sent to Brave Leo along with your messages.",
       comment:
         "The title to display when the user taps on the information icon on the page context view. Brave Leo is the name of the product and should not be translated."
+    )
+    public static let leoSlashToolsButtonAccessibilityTitle = NSLocalizedString(
+      "aichat.leoSlashToolsButtonAccessibilityTitle",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value:
+        "Slash Tools",
+      comment:
+        "The text that's read aloud to the user when accessibility is enabled for the Slash Tools button"
+    )
+    public static let leoSlashToolsOptionNull = NSLocalizedString(
+      "aichat.leoSlashToolsOptionNull",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value:
+        "None",
+      comment:
+        "The text that's displayed when the user selects an invalid slash tools option"
+    )
+    public static let leoSlashToolsOptionUnknown = NSLocalizedString(
+      "aichat.leoSlashToolsOptionUnknown",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value:
+        "Unknown",
+      comment:
+        "The text that's displayed when the user selects an invalid slash tools option"
+    )
+    public static let leoImprovingAnswerBraveSearch = NSLocalizedString(
+      "aichat.leoImprovingAnswerBraveSearch",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value:
+        "Improving answer with Brave Search...",
+      comment:
+        "The text displayed on the loading screen when searching for a user query"
+    )
+    public static let leoImprovedAnswerBraveSearch = NSLocalizedString(
+      "aichat.leoImprovedAnswerBraveSearch",
+      tableName: "BraveLeo",
+      bundle: .module,
+      value:
+        "Improved answer searching for",
+      comment:
+        "The text displayed on the loading screen when searching for a user query"
     )
   }
 }

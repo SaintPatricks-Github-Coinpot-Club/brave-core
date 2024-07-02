@@ -21,8 +21,6 @@ class SendTokenStoreTests: XCTestCase {
       .mockMainnet: [.previewToken]
     ],
     selectedCoin: BraveWallet.CoinType = .eth,
-    selectedNetwork: BraveWallet.NetworkInfo = .mockGoerli,
-    allNetworks: [BraveWallet.NetworkInfo] = [.mockGoerli],
     balance: String = "0",
     erc20Balance: String = "0",
     erc721Balance: String = "0",
@@ -51,11 +49,8 @@ class SendTokenStoreTests: XCTestCase {
         )
       )
     }
-    let rpcService = BraveWallet.TestJsonRpcService()
-    rpcService._network = { $2(selectedNetwork) }
-    rpcService._allNetworks = { $1(allNetworks) }
-    rpcService._setNetwork = { _, _, _, completion in completion(true) }
-    rpcService._addObserver = { _ in }
+    let rpcService = MockJsonRpcService()
+    rpcService.hiddenNetworks.removeAll()
     rpcService._balance = { $3(balance, .success, "") }
     rpcService._erc20TokenBalance = { $3(erc20Balance, .success, "") }
     rpcService._erc721TokenBalance = { $4(erc721Balance, .success, "") }
@@ -109,6 +104,15 @@ class SendTokenStoreTests: XCTestCase {
     let solTxManagerProxy = BraveWallet.TestSolanaTxManagerProxy()
 
     let bitcoinWalletService = BraveWallet.TestBitcoinWalletService()
+    bitcoinWalletService._balance = { accountId, completion in
+      let bitcoinBalance: BraveWallet.BitcoinBalance = .init(
+        totalBalance: 100000,
+        availableBalance: 100000,
+        pendingBalance: 0,
+        balances: [:]
+      )
+      completion(bitcoinBalance, "")
+    }
 
     let mockAssetManager = TestableWalletUserAssetManager()
     mockAssetManager._getAllUserAssetsInNetworkAssetsByVisibility = { _, _ in
@@ -186,9 +190,6 @@ class SendTokenStoreTests: XCTestCase {
     rpcService._network = { coin, _, completion in
       completion(selectedNetwork)
     }
-    rpcService._allNetworks = { coin, completion in
-      completion(coin == .eth ? [.mockMainnet] : [.mockSolana])
-    }
     // simulate network switch when `setNetwork` is called
     rpcService._setNetwork = { chainId, coin, origin, completion in
       // verify network switched to SolanaMainnet
@@ -230,7 +231,7 @@ class SendTokenStoreTests: XCTestCase {
     let mockUserAssets: [BraveWallet.BlockchainToken] = [.previewToken, .previewDaiToken]
     let mockDecimalBalance: Double = 0.0896
     let numDecimals = Int(mockUserAssets[0].decimals)
-    let formatter = WeiFormatter(decimalFormatStyle: .decimals(precision: numDecimals))
+    let formatter = WalletAmountFormatter(decimalFormatStyle: .decimals(precision: numDecimals))
     let mockBalanceWei =
       formatter.weiString(from: mockDecimalBalance, radix: .hex, decimals: numDecimals) ?? ""
 
@@ -264,7 +265,7 @@ class SendTokenStoreTests: XCTestCase {
         }
         XCTAssertEqual(
           selectedSendToken.symbol,
-          BraveWallet.NetworkInfo.mockGoerli.nativeToken.symbol
+          BraveWallet.NetworkInfo.mockSepolia.nativeToken.symbol
         )
       }.store(in: &cancellables)
     let sendTokenBalanceExpectation = expectation(description: "update-sendTokenBalance")
@@ -371,9 +372,11 @@ class SendTokenStoreTests: XCTestCase {
       contractAddress: "0x0d8775f648430679a709e98d2b0cb6250d2887ef",
       name: "Basic Attention Token",
       logo: "",
+      isCompressed: false,
       isErc20: true,
       isErc721: false,
       isErc1155: false,
+      splTokenProgram: .unsupported,
       isNft: false,
       isSpam: false,
       symbol: batSymbol,
@@ -468,17 +471,15 @@ class SendTokenStoreTests: XCTestCase {
       bitcoinWalletService, _
     ) =
       setupServices()
-    let formatter = WeiFormatter(decimalFormatStyle: .decimals(precision: 18))
+    let formatter = WalletAmountFormatter(decimalFormatStyle: .decimals(precision: 18))
     let mockBalance = "47.156499657504857477"
     let mockBalanceWei = formatter.weiString(from: mockBalance, radix: .hex, decimals: 18) ?? ""
 
-    rpcService._chainIdForOrigin = { $2(BraveWallet.NetworkInfo.mockGoerli.chainId) }
-    rpcService._network = { $2(BraveWallet.NetworkInfo.mockGoerli) }
-    rpcService._allNetworks = { $1([.mockGoerli]) }
+    rpcService._chainIdForOrigin = { $2(BraveWallet.NetworkInfo.mockSepolia.chainId) }
+    rpcService._network = { $2(BraveWallet.NetworkInfo.mockSepolia) }
     rpcService._balance = { _, _, _, completion in
       completion(mockBalanceWei, .success, "")
     }
-    rpcService._addObserver = { _ in }
     rpcService._erc721Metadata = { _, _, _, completion in
       completion("", "", .internalError, "")
     }
@@ -541,7 +542,6 @@ class SendTokenStoreTests: XCTestCase {
     ) = setupServices(
       userAssets: [.mockSolana: [.mockSolToken]],
       selectedCoin: .sol,
-      selectedNetwork: .mockSolana,
       solanaBalance: mockBalance
     )
     solTxManagerProxy._makeSystemProgramTransferTxData = { _, _, _, completion in
@@ -584,10 +584,9 @@ class SendTokenStoreTests: XCTestCase {
     ) = setupServices(
       userAssets: [.mockSolana: [.mockSpdToken]],
       selectedCoin: .sol,
-      selectedNetwork: .mockSolana,
       splTokenBalance: splTokenBalance
     )
-    solTxManagerProxy._makeTokenProgramTransferTxData = { _, _, _, _, _, completion in
+    solTxManagerProxy._makeTokenProgramTransferTxData = { _, _, _, _, _, _, completion in
       completion(.init(), .success, "")
     }
     let store = SendTokenStore(
@@ -669,8 +668,8 @@ class SendTokenStoreTests: XCTestCase {
       userAssetManager: mockAssetManager
     )
     store.selectedSendToken = .mockBTCToken
-    let ex = expectation(description: "send-fil-transaction")
-    store.sendToken(amount: "1") { success, _ in
+    let ex = expectation(description: "send-btc-transaction")
+    store.sendToken(amount: "0.0005") { success, _ in
       defer { ex.fulfill() }
       XCTAssertTrue(success)
     }
@@ -688,7 +687,6 @@ class SendTokenStoreTests: XCTestCase {
     ) = setupServices(
       userAssets: [.mockSolana: [.mockSolToken, .mockSpdToken]],
       selectedCoin: .sol,
-      selectedNetwork: .mockSolana,
       solanaBalance: mockBalance
     )
     solTxManagerProxy._makeSystemProgramTransferTxData = { _, _, lamports, completion in
@@ -734,10 +732,9 @@ class SendTokenStoreTests: XCTestCase {
     ) = setupServices(
       userAssets: [.mockSolana: [.mockSolToken, .mockSpdToken]],
       selectedCoin: .sol,
-      selectedNetwork: .mockSolana,
       solanaBalance: mockBalance
     )
-    solTxManagerProxy._makeTokenProgramTransferTxData = { chainId, _, _, _, amount, completion in
+    solTxManagerProxy._makeTokenProgramTransferTxData = { chainId, _, _, _, amount, _, completion in
       let splValueString = "10000"  // 0.01 SPD
       XCTAssertNotNil(UInt64(splValueString))
       XCTAssertEqual(amount, UInt64(splValueString)!)
@@ -991,7 +988,6 @@ class SendTokenStoreTests: XCTestCase {
     ) = setupServices(
       selectedAccount: .mockSolAccount,
       selectedCoin: .sol,
-      selectedNetwork: .mockSolana,
       snsGetSolAddr: expectedAddress
     )
     var createdWithToAddress: String?
@@ -1196,7 +1192,6 @@ class SendTokenStoreTests: XCTestCase {
       bitcoinWalletService, mockAssetManager
     ) = setupServices(
       selectedCoin: .eth,
-      selectedNetwork: .mockMainnet,
       ensGetEthAddr: expectedAddress
     )
     var createdWithToAddress: String?
@@ -1385,7 +1380,6 @@ class SendTokenStoreTests: XCTestCase {
       bitcoinWalletService, mockAssetManager
     ) = setupServices(
       selectedCoin: .sol,
-      selectedNetwork: .mockSolana,
       unstoppableDomainsGetWalletAddr: expectedAddress
     )
 
@@ -1535,12 +1529,12 @@ class SendTokenStoreTests: XCTestCase {
   }
 
   private let account: BraveWallet.AccountInfo = .previewAccount
-  private let ethGoerli: BraveWallet.BlockchainToken = BraveWallet.NetworkInfo.mockGoerli
+  private let ethSepolia: BraveWallet.BlockchainToken = BraveWallet.NetworkInfo.mockSepolia
     .nativeToken
     .copy(asVisibleAsset: true)
-  private let usdcGoerli: BraveWallet.BlockchainToken = .mockUSDCToken
+  private let usdcSepolia: BraveWallet.BlockchainToken = .mockUSDCToken
     .copy(asVisibleAsset: true).then {
-      $0.chainId = BraveWallet.GoerliChainId
+      $0.chainId = BraveWallet.SepoliaChainId
     }
   private let account2: BraveWallet.AccountInfo = .init(
     accountId: .init(
@@ -1548,7 +1542,7 @@ class SendTokenStoreTests: XCTestCase {
       keyringId: BraveWallet.KeyringId.default,
       kind: .derived,
       address: "mock_eth_id_2",
-      bitcoinAccountIndex: 0,
+      accountIndex: 0,
       uniqueKey: "mock_eth_id_2"
     ),
     address: "mock_eth_id_2",
@@ -1563,9 +1557,8 @@ class SendTokenStoreTests: XCTestCase {
       bitcoinWalletService, mockAssetManager
     ) = setupServices(
       selectedAccount: account,
-      userAssets: [.mockGoerli: [ethGoerli, usdcGoerli]],
-      selectedCoin: .eth,
-      selectedNetwork: .mockGoerli
+      userAssets: [.mockSepolia: [ethSepolia, usdcSepolia]],
+      selectedCoin: .eth
     )
     let store = SendTokenStore(
       keyringService: keyringService,
@@ -1577,7 +1570,7 @@ class SendTokenStoreTests: XCTestCase {
       ethTxManagerProxy: ethTxManagerProxy,
       solTxManagerProxy: solTxManagerProxy,
       bitcoinWalletService: bitcoinWalletService,
-      prefilledToken: ethGoerli,
+      prefilledToken: ethSepolia,
       ipfsApi: TestIpfsAPI(),
       userAssetManager: mockAssetManager
     )
@@ -1586,7 +1579,7 @@ class SendTokenStoreTests: XCTestCase {
       .dropFirst()
       .sink { selectedSendToken in
         defer { sendTokenExpectation.fulfill() }
-        XCTAssertEqual(selectedSendToken, self.ethGoerli)
+        XCTAssertEqual(selectedSendToken, self.ethSepolia)
       }
       .store(in: &cancellables)
     store.update()
@@ -1599,26 +1592,25 @@ class SendTokenStoreTests: XCTestCase {
       .dropFirst()
       .sink { selectedSendToken in
         defer { didSelectSendTokenExpectation.fulfill() }
-        XCTAssertEqual(selectedSendToken, self.usdcGoerli)
+        XCTAssertEqual(selectedSendToken, self.usdcSepolia)
       }
       .store(in: &cancellables)
-    store.didSelect(account: account, token: usdcGoerli)
+    store.didSelect(account: account, token: usdcSepolia)
     await fulfillment(of: [didSelectSendTokenExpectation], timeout: 1)
   }
 
   /// Test `didSelect(account:token:)` with a new token that is not on the currently selected account but is on the currently selected network.
   @MainActor func testDidSelectNewAccountSameNetwork() async {
     let account: BraveWallet.AccountInfo = .previewAccount
-    let ethGoerli: BraveWallet.BlockchainToken = BraveWallet.NetworkInfo.mockGoerli.nativeToken
+    let ethSepolia: BraveWallet.BlockchainToken = BraveWallet.NetworkInfo.mockSepolia.nativeToken
       .copy(asVisibleAsset: true)
     let (
       keyringService, rpcService, walletService, ethTxManagerProxy, solTxManagerProxy,
       bitcoinWalletService, mockAssetManager
     ) = setupServices(
       selectedAccount: account,
-      userAssets: [.mockGoerli: [ethGoerli]],
-      selectedCoin: .eth,
-      selectedNetwork: .mockGoerli
+      userAssets: [.mockSepolia: [ethSepolia]],
+      selectedCoin: .eth
     )
     let setSelectedAccountExpectation = expectation(description: "setSelectedAccountExpectation")
     keyringService._setSelectedAccount = { accountId, completion in
@@ -1636,7 +1628,7 @@ class SendTokenStoreTests: XCTestCase {
       ethTxManagerProxy: ethTxManagerProxy,
       solTxManagerProxy: solTxManagerProxy,
       bitcoinWalletService: bitcoinWalletService,
-      prefilledToken: ethGoerli,
+      prefilledToken: ethSepolia,
       ipfsApi: TestIpfsAPI(),
       userAssetManager: mockAssetManager
     )
@@ -1645,7 +1637,7 @@ class SendTokenStoreTests: XCTestCase {
       .dropFirst()
       .sink { selectedSendToken in
         defer { sendTokenExpectation.fulfill() }
-        XCTAssertEqual(selectedSendToken, ethGoerli)
+        XCTAssertEqual(selectedSendToken, ethSepolia)
       }
       .store(in: &cancellables)
     store.update()
@@ -1653,7 +1645,7 @@ class SendTokenStoreTests: XCTestCase {
     await fulfillment(of: [sendTokenExpectation], timeout: 1)
     cancellables.removeAll()
 
-    store.didSelect(account: account2, token: ethGoerli)
+    store.didSelect(account: account2, token: ethSepolia)
     await fulfillment(of: [setSelectedAccountExpectation], timeout: 1)
   }
 
@@ -1662,15 +1654,13 @@ class SendTokenStoreTests: XCTestCase {
     let ethMainnet: BraveWallet.BlockchainToken = BraveWallet.NetworkInfo.mockMainnet.nativeToken
       .copy(asVisibleAsset: true)
     var selectedNetwork: BraveWallet.NetworkInfo = .mockMainnet
-    let allNetworks: [BraveWallet.NetworkInfo] = [.mockMainnet, .mockGoerli]
     let (
       keyringService, rpcService, walletService, ethTxManagerProxy, solTxManagerProxy,
       bitcoinWalletService, mockAssetManager
     ) = setupServices(
       selectedAccount: account,
-      userAssets: [.mockMainnet: [ethMainnet], .mockGoerli: [usdcGoerli]],
-      selectedCoin: .eth,
-      allNetworks: allNetworks
+      userAssets: [.mockMainnet: [ethMainnet], .mockSepolia: [usdcSepolia]],
+      selectedCoin: .eth
     )
     let setSelectedAccountExpectation = expectation(description: "setSelectedAccountExpectation")
     keyringService._setSelectedAccount = { accountId, completion in
@@ -1681,8 +1671,10 @@ class SendTokenStoreTests: XCTestCase {
     let setNetworkExpectation = expectation(description: "setNetworkExpectation")
     rpcService._setNetwork = { chainId, coin, origin, completion in
       defer { setNetworkExpectation.fulfill() }
-      XCTAssertEqual(chainId, self.usdcGoerli.chainId)
-      selectedNetwork = allNetworks.first(where: { $0.chainId == chainId }) ?? selectedNetwork
+      XCTAssertEqual(chainId, self.usdcSepolia.chainId)
+      selectedNetwork =
+        MockJsonRpcService.allKnownNetworks.first(where: { $0.chainId == chainId })
+        ?? selectedNetwork
       completion(true)
     }
     rpcService._network = { coin, origin, completion in
@@ -1720,10 +1712,10 @@ class SendTokenStoreTests: XCTestCase {
       .dropFirst()
       .sink { selectedSendToken in
         defer { didSelectSendTokenExpectation.fulfill() }
-        XCTAssertEqual(selectedSendToken, self.usdcGoerli)
+        XCTAssertEqual(selectedSendToken, self.usdcSepolia)
       }
       .store(in: &cancellables)
-    store.didSelect(account: account2, token: usdcGoerli)
+    store.didSelect(account: account2, token: usdcSepolia)
     await fulfillment(
       of: [didSelectSendTokenExpectation, setSelectedAccountExpectation, setNetworkExpectation],
       timeout: 1
@@ -1735,21 +1727,19 @@ class SendTokenStoreTests: XCTestCase {
     let solMainnet: BraveWallet.BlockchainToken = BraveWallet.NetworkInfo.mockSolana.nativeToken
       .copy(asVisibleAsset: true)
     let filTokenMainnet: BraveWallet.BlockchainToken = .mockFilToken.copy(asVisibleAsset: true)
-    var selectedNetwork: BraveWallet.NetworkInfo = .mockGoerli
+    var selectedNetwork: BraveWallet.NetworkInfo = .mockSepolia
     var selectedNetworkToBe: BraveWallet.NetworkInfo = .mockSolana
     var selectedAccount: BraveWallet.AccountInfo = account
-    let allNetworks: [BraveWallet.NetworkInfo] = [.mockGoerli, .mockSolana, .mockFilecoinMainnet]
     let (
       keyringService, rpcService, walletService, ethTxManagerProxy, solTxManagerProxy,
       bitcoinWalletService, mockAssetManager
     ) = setupServices(
       selectedAccount: selectedAccount,
       userAssets: [
-        .mockGoerli: [usdcGoerli], .mockSolana: [solMainnet],
+        .mockSepolia: [usdcSepolia], .mockSolana: [solMainnet],
         .mockFilecoinMainnet: [filTokenMainnet],
       ],
-      selectedCoin: .eth,
-      allNetworks: allNetworks
+      selectedCoin: .eth
     )
 
     let didSelectSendFilTokenExpectation = expectation(
@@ -1784,7 +1774,9 @@ class SendTokenStoreTests: XCTestCase {
         }
       }
       XCTAssertEqual(chainId, selectedNetworkToBe.chainId)
-      selectedNetwork = allNetworks.first(where: { $0.chainId == chainId }) ?? selectedNetwork
+      selectedNetwork =
+        MockJsonRpcService.allKnownNetworks.first(where: { $0.chainId == chainId })
+        ?? selectedNetwork
       completion(true)
     }
     rpcService._network = { coin, origin, completion in
@@ -1800,7 +1792,7 @@ class SendTokenStoreTests: XCTestCase {
       ethTxManagerProxy: ethTxManagerProxy,
       solTxManagerProxy: solTxManagerProxy,
       bitcoinWalletService: bitcoinWalletService,
-      prefilledToken: usdcGoerli,
+      prefilledToken: usdcSepolia,
       ipfsApi: TestIpfsAPI(),
       userAssetManager: mockAssetManager
     )
@@ -1809,7 +1801,7 @@ class SendTokenStoreTests: XCTestCase {
       .dropFirst()
       .sink { selectedSendToken in
         defer { sendTokenExpectation.fulfill() }
-        XCTAssertEqual(selectedSendToken, self.usdcGoerli)
+        XCTAssertEqual(selectedSendToken, self.usdcSepolia)
       }
       .store(in: &cancellables)
     store.update()

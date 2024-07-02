@@ -13,8 +13,10 @@
 
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
+#include "brave/components/brave_wallet/browser/simple_hash_client.h"
 #include "brave/components/brave_wallet/browser/solana_block_tracker.h"
 #include "brave/components/brave_wallet/browser/tx_manager.h"
+#include "brave/components/brave_wallet/common/solana_address.h"
 
 class PrefService;
 
@@ -67,8 +69,15 @@ class SolanaTxManager : public TxManager, public SolanaBlockTracker::Observer {
       mojom::SolanaTxManagerProxy::MakeTokenProgramTransferTxDataCallback;
   using MakeTxDataFromBase64EncodedTransactionCallback = mojom::
       SolanaTxManagerProxy::MakeTxDataFromBase64EncodedTransactionCallback;
-  using GetEstimatedTxFeeCallback =
-      mojom::SolanaTxManagerProxy::GetEstimatedTxFeeCallback;
+  using GetSolanaTxFeeEstimationCallback =
+      mojom::SolanaTxManagerProxy::GetSolanaTxFeeEstimationCallback;
+  using GetSolanaTxFeeEstimationForMetaCallback =
+      base::OnceCallback<void(std::unique_ptr<SolanaTxMeta> tx_meta,
+                              mojom::SolanaFeeEstimationPtr fee_estimation,
+                              mojom::SolanaProviderError error,
+                              const std::string& error_message)>;
+  using MakeBubbleGumProgramTransferTxDataCallback =
+      mojom::SolanaTxManagerProxy::MakeBubbleGumProgramTransferTxDataCallback;
   void MakeSystemProgramTransferTxData(
       const std::string& from,
       const std::string& to,
@@ -80,14 +89,25 @@ class SolanaTxManager : public TxManager, public SolanaBlockTracker::Observer {
       const std::string& from_wallet_address,
       const std::string& to_wallet_address,
       uint64_t amount,
+      uint8_t decimals,
       MakeTokenProgramTransferTxDataCallback callback);
   void MakeTxDataFromBase64EncodedTransaction(
       const std::string& encoded_transaction,
       const mojom::TransactionType tx_type,
       mojom::SolanaSendTransactionOptionsPtr send_options,
       MakeTxDataFromBase64EncodedTransactionCallback callback);
-  void GetEstimatedTxFee(const std::string& tx_meta_id,
-                         GetEstimatedTxFeeCallback callback);
+  void GetSolanaTxFeeEstimation(const std::string& chain_id,
+                                const std::string& tx_meta_id,
+                                GetSolanaTxFeeEstimationCallback callback);
+  void GetSolanaTxFeeEstimationForMeta(
+      std::unique_ptr<SolanaTxMeta> meta,
+      GetSolanaTxFeeEstimationForMetaCallback callback);
+  void MakeBubbleGumProgramTransferTxData(
+      const std::string& chain_id,
+      const std::string& token_address,
+      const std::string& from_wallet_address,
+      const std::string& to_wallet_address,
+      MakeBubbleGumProgramTransferTxDataCallback callback);
   void ProcessSolanaHardwareSignature(
       const std::string& tx_meta_id,
       const std::vector<uint8_t>& signature_bytes,
@@ -107,6 +127,10 @@ class SolanaTxManager : public TxManager, public SolanaBlockTracker::Observer {
   FRIEND_TEST_ALL_PREFIXES(SolanaTxManagerUnitTest,
                            ProcessSolanaHardwareSignature);
   FRIEND_TEST_ALL_PREFIXES(SolanaTxManagerUnitTest, RetryTransaction);
+  FRIEND_TEST_ALL_PREFIXES(SolanaTxManagerUnitTest, GetEstimatedTxFee);
+  FRIEND_TEST_ALL_PREFIXES(SolanaTxManagerUnitTest, GetSolanaTxFeeEstimation);
+  FRIEND_TEST_ALL_PREFIXES(SolanaTxManagerUnitTest,
+                           DecodeMerkleTreeAuthorityAndDepth);
   friend class SolanaTxManagerUnitTest;
 
   mojom::CoinType GetCoinType() const override;
@@ -167,21 +191,55 @@ class SolanaTxManager : public TxManager, public SolanaBlockTracker::Observer {
                         const std::string& from_associated_token_account,
                         const std::string& to_associated_token_account,
                         uint64_t amount,
+                        uint8_t decimals,
+                        mojom::SPLTokenProgram token_program,
                         MakeTokenProgramTransferTxDataCallback callback,
                         std::optional<SolanaAccountInfo> account_info,
                         mojom::SolanaProviderError error,
                         const std::string& error_message);
-  void OnGetLatestBlockhashForGetEstimatedTxFee(
+  void OnGetSPLTokenProgramByMint(
+      const std::string& chain_id,
+      const std::string& spl_token_mint_address,
+      const std::string& from_wallet_address,
+      const std::string& to_wallet_address,
+      uint64_t amount,
+      uint8_t decimals,
+      MakeTokenProgramTransferTxDataCallback callback,
+      mojom::SPLTokenProgram token_program,
+      mojom::SolanaProviderError error,
+      const std::string& error_message);
+
+  void ContinueAddUnapprovedTransaction(
+      AddUnapprovedTransactionCallback callback,
       std::unique_ptr<SolanaTxMeta> meta,
-      GetEstimatedTxFeeCallback callback,
+      mojom::SolanaFeeEstimationPtr estimation,
+      mojom::SolanaProviderError error,
+      const std::string& error_message);
+  void OnFetchCompressedNftProof(
+      const std::string& from_wallet_address,
+      const std::string& to_wallet_address,
+      MakeBubbleGumProgramTransferTxDataCallback callback,
+      std::optional<SolCompressedNftProofData> proof);
+
+  void OnGetMerkleTreeAccountInfo(
+      const std::string& to_wallet_address,
+      const SolCompressedNftProofData& proof,
+      MakeBubbleGumProgramTransferTxDataCallback callback,
+      std::optional<SolanaAccountInfo> account_info,
+      mojom::SolanaProviderError error,
+      const std::string& error_message);
+
+  std::optional<std::pair<uint32_t, SolanaAddress>>
+  DecodeMerkleTreeAuthorityAndDepth(const std::vector<uint8_t>& account_data);
+
+  void GetSolanaTxFeeEstimationWithBlockhash(
+      std::unique_ptr<SolanaTxMeta> meta,
+      bool reset_blockhash,
+      GetSolanaTxFeeEstimationForMetaCallback callback,
       const std::string& latest_blockhash,
       uint64_t last_valid_block_height,
       mojom::SolanaProviderError error,
       const std::string& error_message);
-  void OnGetFeeForMessage(GetEstimatedTxFeeCallback callback,
-                          uint64_t tx_fee,
-                          mojom::SolanaProviderError error,
-                          const std::string& error_message);
 
   // SolanaBlockTracker::Observer
   void OnLatestBlockhashUpdated(const std::string& chain_id,

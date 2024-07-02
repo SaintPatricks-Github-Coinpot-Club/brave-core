@@ -12,6 +12,7 @@
 #include "base/containers/contains.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/scoped_feature_list.h"
+#include "brave/app/brave_command_ids.h"
 #include "brave/browser/ui/brave_browser_command_controller.h"
 #include "brave/browser/ui/browser_commands.h"
 #include "brave/components/brave_vpn/common/buildflags/buildflags.h"
@@ -184,18 +185,6 @@ void CheckHelpCommandsAreInOrderInMenuModel(
   CheckCommandsAreInOrderInMenuModel(help_model, help_commands_in_order);
 }
 
-void CheckHistoryCommandsAreInOrderInMenuModel(
-    Browser* browser,
-    const std::vector<int>& history_commands_in_order) {
-  auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  BraveAppMenuModel model(browser_view->toolbar(), browser);
-  model.Init();
-  ui::SimpleMenuModel* history_model =
-      static_cast<ui::SimpleMenuModel*>(model.GetSubmenuModelAt(
-          model.GetIndexOfCommandId(IDC_RECENT_TABS_MENU).value()));
-  CheckCommandsAreInOrderInMenuModel(history_model, history_commands_in_order);
-}
-
 IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, CommandsExecutionTest) {
   RunCommandFromAppMenuModel(CreateIncognitoBrowser(),
                              IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS);
@@ -217,10 +206,14 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
       IDC_SHOW_BRAVE_VPN_PANEL,
 #endif
+#if defined(TOOLKIT_VIEWS)
+      IDC_SIDEBAR_SHOW_OPTION_MENU,
+#endif
       IDC_RECENT_TABS_MENU,
       IDC_BOOKMARKS_MENU,
       IDC_SHOW_DOWNLOADS,
       IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS,
+      IDC_CLEAR_BROWSING_DATA,
       IDC_ZOOM_MENU,
       IDC_PRINT,
       IDC_FIND_AND_EDIT_MENU,
@@ -245,12 +238,10 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
       IDC_SHOW_BRAVE_WEBCOMPAT_REPORTER,
   };
   CheckHelpCommandsAreInOrderInMenuModel(browser(), help_commands_in_order);
-  CheckHistoryCommandsAreInOrderInMenuModel(
-      browser(), {IDC_SHOW_HISTORY, IDC_CLEAR_BROWSING_DATA});
 
   std::vector<int> more_tools_in_order = {
-      IDC_ADD_NEW_PROFILE, IDC_OPEN_GUEST_PROFILE, IDC_SIDEBAR_SHOW_OPTION_MENU,
-      IDC_SHOW_BRAVE_SYNC, IDC_DEV_TOOLS,          IDC_TASK_MANAGER,
+      IDC_ADD_NEW_PROFILE, IDC_OPEN_GUEST_PROFILE, IDC_SHOW_BRAVE_SYNC,
+      IDC_DEV_TOOLS,       IDC_TASK_MANAGER,
   };
 
   if (!syncer::IsSyncAllowedByFlag()) {
@@ -272,6 +263,9 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
       IDC_NEW_OFFTHERECORD_WINDOW_TOR,
 #endif
       IDC_SHOW_BRAVE_WALLET,
+#if defined(TOOLKIT_VIEWS)
+      IDC_SIDEBAR_SHOW_OPTION_MENU,
+#endif
       IDC_BOOKMARKS_MENU,
       IDC_SHOW_DOWNLOADS,
       IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS,
@@ -285,10 +279,10 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
   };
 
   std::vector<int> commands_disabled_for_private_profile = {
-    IDC_NEW_TOR_CONNECTION_FOR_SITE,
-    IDC_RECENT_TABS_MENU,
+      IDC_NEW_TOR_CONNECTION_FOR_SITE,
+      IDC_RECENT_TABS_MENU,
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
-    IDC_SHOW_BRAVE_VPN_PANEL,
+      IDC_SHOW_BRAVE_VPN_PANEL,
 #endif
   };
 
@@ -324,17 +318,17 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
   CheckCommandsAreInOrderInMenuModel(guest_browser,
                                      commands_in_order_for_guest_profile);
   std::vector<int> commands_disabled_for_guest_profile = {
-    IDC_NEW_INCOGNITO_WINDOW,
+      IDC_NEW_INCOGNITO_WINDOW,
 #if BUILDFLAG(ENABLE_TOR)
-    IDC_NEW_OFFTHERECORD_WINDOW_TOR,
+      IDC_NEW_OFFTHERECORD_WINDOW_TOR,
 #endif
-    IDC_SHOW_BRAVE_WALLET,
+      IDC_SHOW_BRAVE_WALLET,
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
-    IDC_SHOW_BRAVE_VPN_PANEL,
+      IDC_SHOW_BRAVE_VPN_PANEL,
 #endif
-    IDC_RECENT_TABS_MENU,
-    IDC_BOOKMARKS_MENU,
-    IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS,
+      IDC_RECENT_TABS_MENU,
+      IDC_BOOKMARKS_MENU,
+      IDC_EXTENSIONS_SUBMENU_MANAGE_EXTENSIONS,
   };
 
   CheckCommandsAreDisabledInMenuModel(guest_browser,
@@ -342,7 +336,6 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
   CheckHelpCommandsAreInOrderInMenuModel(guest_browser, help_commands_in_order);
 
   std::vector<int> more_tools_in_order_for_guest_profile = {
-      IDC_SIDEBAR_SHOW_OPTION_MENU,
       IDC_DEV_TOOLS,
       IDC_TASK_MANAGER,
   };
@@ -383,9 +376,9 @@ IN_PROC_BROWSER_TEST_F(BraveAppMenuModelBrowserTest, MenuOrderTest) {
       IDC_OPTIONS,
   };
   std::vector<int> commands_disabled_for_tor_profile = {
-    IDC_RECENT_TABS_MENU,
+      IDC_RECENT_TABS_MENU,
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
-    IDC_SHOW_BRAVE_VPN_PANEL,
+      IDC_SHOW_BRAVE_VPN_PANEL,
 #endif
   };
   CheckCommandsAreInOrderInMenuModel(tor_browser,
@@ -524,9 +517,9 @@ void CheckMenuIcons(ui::MenuModel* menu,
 
     auto label = menu->GetLabelAt(i);
     auto icon = menu->GetIconAt(i);
-    EXPECT_FALSE(icon.IsEmpty()) << "\"" << path << label << "\""
-                                 << " for Command Id: " << command_id
-                                 << " (at index " << i << ") has no icon";
+    EXPECT_FALSE(icon.IsEmpty())
+        << "\"" << path << label << "\"" << " for Command Id: " << command_id
+        << " (at index " << i << ") has no icon";
 
     if (auto* submenu = menu->GetSubmenuModelAt(i)) {
       if (submenu_depth > 0) {

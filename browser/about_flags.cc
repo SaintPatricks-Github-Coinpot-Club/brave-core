@@ -15,6 +15,7 @@
 #include "brave/browser/ui/brave_ui_features.h"
 #include "brave/browser/ui/tabs/features.h"
 #include "brave/components/ai_chat/core/common/buildflags/buildflags.h"
+#include "brave/components/ai_rewriter/common/buildflags/buildflags.h"
 #include "brave/components/brave_ads/browser/ad_units/notification_ad/custom_notification_ad_feature.h"
 #include "brave/components/brave_ads/core/public/ad_units/notification_ad/notification_ad_feature.h"
 #include "brave/components/brave_ads/core/public/ads_feature.h"
@@ -37,6 +38,7 @@
 #include "brave/components/request_otr/common/buildflags/buildflags.h"
 #include "brave/components/skus/common/features.h"
 #include "brave/components/speedreader/common/buildflags/buildflags.h"
+#include "brave/components/webcompat/features.h"
 #include "build/build_config.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "components/content_settings/core/common/features.h"
@@ -51,6 +53,10 @@
 
 #if BUILDFLAG(ENABLE_AI_CHAT)
 #include "brave/components/ai_chat/core/common/features.h"
+#endif
+
+#if BUILDFLAG(ENABLE_AI_REWRITER)
+#include "brave/components/ai_rewriter/common/features.h"
 #endif
 
 #if BUILDFLAG(ENABLE_BRAVE_VPN)
@@ -452,6 +458,18 @@
 #define BRAVE_AI_CHAT_HISTORY
 #define BRAVE_AI_CHAT_CONTEXT_MENU_REWRITE_IN_PLACE
 #endif
+#if BUILDFLAG(ENABLE_AI_REWRITER)
+#define BRAVE_AI_REWRITER                                     \
+  EXPAND_FEATURE_ENTRIES({                                    \
+      "brave-ai-rewriter",                                    \
+      "Brave AI Rewriter",                                    \
+      "Enables the Brave AI rewriter dialog",                 \
+      kOsWin | kOsMac | kOsLinux,                             \
+      FEATURE_VALUE_TYPE(ai_rewriter::features::kAIRewriter), \
+  })
+#else
+#define BRAVE_AI_REWRITER
+#endif
 
 #define BRAVE_OMNIBOX_FEATURES                                                \
   EXPAND_FEATURE_ENTRIES(                                                     \
@@ -742,13 +760,6 @@
           FEATURE_VALUE_TYPE(net::features::kBraveForgetFirstPartyStorage),    \
       },                                                                       \
       {                                                                        \
-          "brave-rewards-vbat-notice",                                         \
-          "Enable Brave Rewards VBAT notices",                                 \
-          "Enables notices in the Brave Rewards UI about VBAT deadlines.",     \
-          kOsDesktop | kOsAndroid,                                             \
-          FEATURE_VALUE_TYPE(brave_rewards::features::kVBatNoticeFeature),     \
-      },                                                                       \
-      {                                                                        \
           "brave-rewards-verbose-logging",                                     \
           "Enable Brave Rewards verbose logging",                              \
           "Enables detailed logging of Brave Rewards system events to a log "  \
@@ -868,14 +879,6 @@
           FEATURE_VALUE_TYPE(blink::features::kBraveWebBluetoothAPI),          \
       },                                                                       \
       {                                                                        \
-          "brave-web-serial-api",                                              \
-          "Web Serial API",                                                    \
-          "Enables the Web Serial API, allowing websites to request access "   \
-          "to serial ports ",                                                  \
-          kOsDesktop,                                                          \
-          FEATURE_VALUE_TYPE(blink::features::kBraveWebSerialAPI),             \
-      },                                                                       \
-      {                                                                        \
           "navigator-connection-attribute",                                    \
           "Enable navigator.connection attribute",                             \
           "Enables the navigator.connection API. Enabling this API will "      \
@@ -993,6 +996,15 @@
           FEATURE_VALUE_TYPE(features::kBraveOverrideDownloadDangerLevel),     \
       },                                                                       \
       {                                                                        \
+          "brave-webcompat-exceptions-service",                                \
+          "Allow feature exceptions for webcompat",                            \
+          "Disables Brave features for specific websites when they break"      \
+          "website functionality.",                                            \
+          kOsAll,                                                              \
+          FEATURE_VALUE_TYPE(                                                  \
+              webcompat::features::kBraveWebcompatExceptionsService),          \
+      },                                                                       \
+      {                                                                        \
           "brave-web-view-rounded-corners",                                    \
           "Use rounded corners on main content areas",                         \
           "Renders the main content area and sidebar panel with rounded "      \
@@ -1021,6 +1033,7 @@
   BRAVE_AI_CHAT                                                                \
   BRAVE_AI_CHAT_HISTORY                                                        \
   BRAVE_AI_CHAT_CONTEXT_MENU_REWRITE_IN_PLACE                                  \
+  BRAVE_AI_REWRITER                                                            \
   BRAVE_OMNIBOX_FEATURES                                                       \
   BRAVE_PLAYER_FEATURE_ENTRIES                                                 \
   BRAVE_MIDDLE_CLICK_AUTOSCROLL_FEATURE_ENTRY                                  \

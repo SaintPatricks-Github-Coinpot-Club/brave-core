@@ -63,7 +63,7 @@ void ConfirmationStateManager::LoadCallback(
                                 "Failed to parse confirmation state");
       base::debug::DumpWithoutCrashing();
 
-      BLOG(3, "Failed to parse confirmation state: " << *json);
+      BLOG(1, "Failed to parse confirmation state: " << *json);
 
       return std::move(callback).Run(/*success=*/false);
     }
@@ -100,15 +100,12 @@ void ConfirmationStateManager::SaveState() {
 }
 
 std::string ConfirmationStateManager::ToJson() {
-  base::Value::Dict dict;
-
-  // Unblinded tokens
-  dict.Set("unblinded_tokens",
-           ConfirmationTokensToValue(confirmation_tokens_.GetAll()));
-
-  // Payment tokens
-  dict.Set("unblinded_payment_tokens",
-           PaymentTokensToValue(payment_tokens_.GetAllTokens()));
+  const base::Value::Dict dict =
+      base::Value::Dict()
+          .Set("unblinded_tokens",
+               ConfirmationTokensToValue(confirmation_tokens_.GetAll()))
+          .Set("unblinded_payment_tokens",
+               PaymentTokensToValue(payment_tokens_.GetAllTokens()));
 
   // Write to JSON
   std::string json;
@@ -128,6 +125,8 @@ bool ConfirmationStateManager::FromJson(const std::string& json) {
     SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                               "Malformed confirmation JSON state");
     base::debug::DumpWithoutCrashing();
+
+    BLOG(0, "Malformed confirmation JSON state");
 
     return false;
   }

@@ -50,7 +50,7 @@ TEST_F(BraveAdsNewTabPageAdServingTest, DoNotServeAdForUnsupportedVersion) {
   test::ForcePermissionRules();
 
   const CreativeNewTabPageAdInfo creative_ad =
-      test::BuildCreativeNewTabPageAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNewTabPageAd(/*should_generate_random_uuids=*/true);
   database::SaveCreativeNewTabPageAds({creative_ad});
 
   // Act & Assert
@@ -66,7 +66,7 @@ TEST_F(BraveAdsNewTabPageAdServingTest, ServeAd) {
   test::ForcePermissionRules();
 
   const CreativeNewTabPageAdInfo creative_ad =
-      test::BuildCreativeNewTabPageAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNewTabPageAd(/*should_generate_random_uuids=*/true);
   database::SaveCreativeNewTabPageAds({creative_ad});
   const NewTabPageAdInfo ad = BuildNewTabPageAd(creative_ad);
 
@@ -76,7 +76,7 @@ TEST_F(BraveAdsNewTabPageAdServingTest, ServeAd) {
   EXPECT_CALL(delegate_mock_, OnDidServeNewTabPageAd);
 
   base::MockCallback<MaybeServeNewTabPageAdCallback> callback;
-  EXPECT_CALL(callback, Run(::testing::Ne(std::nullopt)));
+  EXPECT_CALL(callback, Run(/*ad=*/::testing::Ne(std::nullopt)));
   MaybeServeAd(callback.Get());
 }
 
@@ -85,7 +85,7 @@ TEST_F(BraveAdsNewTabPageAdServingTest, DoNotServeAdIfMissingWallpapers) {
   test::ForcePermissionRules();
 
   CreativeNewTabPageAdInfo creative_ad =
-      test::BuildCreativeNewTabPageAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNewTabPageAd(/*should_generate_random_uuids=*/true);
   creative_ad.wallpapers.clear();
   database::SaveCreativeNewTabPageAds({creative_ad});
 
@@ -117,7 +117,7 @@ TEST_F(BraveAdsNewTabPageAdServingTest,
        DoNotServeAdIfNotAllowedDueToPermissionRules) {
   // Arrange
   const CreativeNewTabPageAdInfo creative_ad =
-      test::BuildCreativeNewTabPageAd(/*should_use_random_uuids=*/true);
+      test::BuildCreativeNewTabPageAd(/*should_generate_random_uuids=*/true);
   database::SaveCreativeNewTabPageAds({creative_ad});
 
   // Act & Assert

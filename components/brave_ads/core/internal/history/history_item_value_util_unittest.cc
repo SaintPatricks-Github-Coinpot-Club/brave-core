@@ -77,7 +77,7 @@ constexpr char kJson[] =
 
 HistoryItemList BuildHistoryItems() {
   const CreativeNotificationAdInfo creative_ad =
-      test::BuildCreativeNotificationAd(/*should_use_random_uuids=*/false);
+      test::BuildCreativeNotificationAd(/*should_generate_random_uuids=*/false);
   const NotificationAdInfo ad = BuildNotificationAd(creative_ad, kPlacementId);
 
   const HistoryItemInfo history_item = BuildHistoryItem(
@@ -97,9 +97,11 @@ TEST_F(BraveAdsHistoryItemValueUtilTest, FromValue) {
 
   const base::Value::List list = base::test::ParseJsonList(kJson);
 
-  // Act & Assert
-  EXPECT_THAT(HistoryItemsFromValue(list),
-              ::testing::ElementsAreArray(BuildHistoryItems()));
+  // Act
+  const HistoryItemList history_items = HistoryItemsFromValue(list);
+
+  // Assert
+  EXPECT_THAT(history_items, ::testing::ElementsAreArray(BuildHistoryItems()));
 }
 
 TEST_F(BraveAdsHistoryItemValueUtilTest, ToValue) {
@@ -108,9 +110,11 @@ TEST_F(BraveAdsHistoryItemValueUtilTest, ToValue) {
 
   const HistoryItemList history_items = BuildHistoryItems();
 
-  // Act & Assert
-  EXPECT_EQ(base::test::ParseJsonList(kJson),
-            HistoryItemsToValue(history_items));
+  // Act
+  const base::Value::List list = HistoryItemsToValue(history_items);
+
+  // Assert
+  EXPECT_EQ(base::test::ParseJsonList(kJson), list);
 }
 
 }  // namespace brave_ads

@@ -68,6 +68,10 @@ class MockEngineConsumer : public EngineConsumer {
               (override));
   MOCK_METHOD(void, SanitizeInput, (std::string&), (override));
   MOCK_METHOD(void, ClearAllQueries, (), (override));
+  MOCK_METHOD(void,
+              UpdateModelOptions,
+              (const mojom::ModelOptions&),
+              (override));
 };
 
 class AIChatRenderViewContextMenuBrowserTest : public InProcessBrowserTest {
@@ -83,7 +87,6 @@ class AIChatRenderViewContextMenuBrowserTest : public InProcessBrowserTest {
     mock_cert_verifier_.mock_cert_verifier()->set_default_result(net::OK);
     host_resolver()->AddRule("*", "127.0.0.1");
 
-    brave::RegisterPathProvider();
     base::FilePath test_data_dir =
         base::PathService::CheckedGet(brave::DIR_TEST_DATA)
             .AppendASCII("ai_chat");

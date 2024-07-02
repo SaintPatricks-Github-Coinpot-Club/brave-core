@@ -152,45 +152,57 @@ extension BrowserViewController {
 }
 
 extension Tab {
-  func reportPageLoad(to rewards: BraveRewards, redirectChain urls: [URL]) {
-    guard let webView = webView, let url = webView.url else { return }
+  func reportPageLoad(to rewards: BraveRewards, redirectChain: [URL]) {
+    guard let url = redirectChain.last, let webView = webView, !url.isLocal, !isPrivate
+    else {
+      return
+    }
 
-    if url.isLocal || self.isPrivate || !shouldNotifyAdsServiceTabContentDidChange { return }
+    if self.displayFavicon == nil {
+      adsRewardsLog.warning("No favicon found in \(self) to report to rewards panel")
+    }
+
+    if rewardsReportingState.wasRestored
+      || !rewardsReportingState.isNewNavigation
+      || rewardsReportingState.isErrorPage
+    {
+      return
+    }
 
     let group = DispatchGroup()
 
-    group.enter()
     var htmlContent: String?
-    webView.evaluateSafeJavaScript(
-      functionName: "new XMLSerializer().serializeToString",
-      args: ["document"],
-      contentWorld: WKContentWorld.defaultClient,
-      escapeArgs: false
-    ) { html, _ in
-      htmlContent = html as? String
-      group.leave()
-    }
-
-    group.enter()
     var textContent: String?
-    webView.evaluateSafeJavaScript(
-      functionName: "document?.body?.innerText",
-      contentWorld: .defaultClient,
-      asFunction: false
-    ) { text, _ in
-      textContent = text as? String
-      group.leave()
+
+    if rewards.isEnabled {
+      group.enter()
+      webView.evaluateSafeJavaScript(
+        functionName: "new XMLSerializer().serializeToString",
+        args: ["document"],
+        contentWorld: WKContentWorld.defaultClient,
+        escapeArgs: false
+      ) { html, _ in
+        htmlContent = html as? String
+        group.leave()
+      }
+
+      group.enter()
+      webView.evaluateSafeJavaScript(
+        functionName: "document?.body?.innerText",
+        contentWorld: .defaultClient,
+        asFunction: false
+      ) { text, _ in
+        textContent = text as? String
+        group.leave()
+      }
     }
 
     group.notify(queue: .main) {
-      if self.displayFavicon == nil {
-        adsRewardsLog.warning("No favicon found in \(self) to report to rewards panel")
-      }
       rewards.reportLoadedPage(
-        redirectChain: urls.isEmpty ? [url] : urls,
+        redirectChain: redirectChain,
         tabId: Int(self.rewardsId),
-        html: htmlContent ?? "",
-        adsInnerText: textContent
+        htmlContent: htmlContent,
+        textContent: textContent
       )
     }
   }

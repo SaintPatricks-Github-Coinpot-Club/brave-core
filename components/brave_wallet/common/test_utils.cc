@@ -13,8 +13,8 @@ namespace brave_wallet {
 
 bool AllCoinsTested() {
   // Change hardcoded values here only when all failed callers have adequate
-  // testing for newly added coin.
-  return 5 == std::size(kAllCoins) && 8 == std::size(kAllKeyrings);
+  // testing for newly added coin or keyring.
+  return 5 == std::size(kAllCoins) && 10 == std::size(kAllKeyrings);
 }
 
 mojom::NetworkInfo GetTestNetworkInfo1(const std::string& chain_id,
@@ -29,8 +29,7 @@ mojom::NetworkInfo GetTestNetworkInfo1(const std::string& chain_id,
           "symbol_name",
           11,
           coin,
-          GetSupportedKeyringsForNetwork(coin, chain_id),
-          false};
+          GetSupportedKeyringsForNetwork(coin, chain_id)};
 }
 
 mojom::NetworkInfo GetTestNetworkInfo2(const std::string& chain_id,
@@ -45,8 +44,22 @@ mojom::NetworkInfo GetTestNetworkInfo2(const std::string& chain_id,
           "symbol_name2",
           22,
           coin,
-          GetSupportedKeyringsForNetwork(coin, chain_id),
-          true};
+          GetSupportedKeyringsForNetwork(coin, chain_id)};
+}
+
+mojom::NetworkInfo GetTestNetworkInfoWithHttpURL(const std::string& chain_id,
+                                                 mojom::CoinType coin) {
+  return {chain_id,
+          "invalid_url",
+          {kHttpURL, kHttpLocalhostURL, "https://good.com"},
+          {kHttpURL, kHttpLocalhostURL, "https://good.com"},
+          0,
+          {GURL("https://good.com"), GURL(kHttpURL), GURL(kHttpLocalhostURL)},
+          "symbol2",
+          "symbol_name2",
+          22,
+          coin,
+          GetSupportedKeyringsForNetwork(coin, chain_id)};
 }
 
 namespace mojom {

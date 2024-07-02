@@ -59,7 +59,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, RefillConfirmationTokens) {
        {{net::HTTP_OK, test::BuildGetSignedTokensUrlResponseBody()}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens);
@@ -89,7 +89,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest,
           )"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -116,15 +116,17 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, IssuersPublicKeyMismatch) {
   MockUrlResponses(ads_client_mock_, url_responses);
 
   const IssuersInfo issuers = test::BuildIssuers(
-      7'200'000,
+      /*ping*/ 7'200'000,
+      /*confirmations_public_keys*/
       {{"qiy6l/i2WXc8AkDFt/QDxXoT0XKgL0xRSZ3Db+k2u3A=", 0.0},
        {"hKjGQd7WAXs0lcdf+SCHCTKsBLWtKaEubwlK4YA1NkA=", 0.0}},
+      /*payments_public_keys*/
       {{"JiwFR2EU/Adf1lgox+xqOVPuc6a/rxdy/LguFG5eaXg=", 0.0},
        {"bPE1QE65mkIgytffeu7STOfly+x10BXCGuk5pVlOHQU=", 0.1}});
 
   SetIssuers(issuers);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -151,7 +153,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest,
        {{net::HTTP_OK, test::BuildGetSignedTokensUrlResponseBody()}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   const ::testing::InSequence s;
@@ -176,7 +178,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, RequestSignedTokensMissingNonce) {
        {{net::HTTP_CREATED, /*response_body=*/"{}"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -206,7 +208,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest,
         {net::HTTP_OK, test::BuildGetSignedTokensUrlResponseBody()}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   const ::testing::InSequence s;
@@ -233,7 +235,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, GetSignedTokensInvalidResponse) {
        {{net::HTTP_OK, /*response_body=*/"{INVALID}"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -313,7 +315,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, GetSignedTokensMissingPublicKey) {
             })"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -393,7 +395,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest,
             })"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -423,7 +425,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest,
             })"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -505,7 +507,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, GetInvalidSignedTokens) {
             })"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -524,7 +526,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest,
 
   test::RefillConfirmationTokens(/*count=*/50);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens).Times(0);
@@ -588,7 +590,7 @@ TEST_F(BraveAdsRefillConfirmationTokensTest, RefillIfBelowTheMinimumThreshold) {
             })"}}}};
   MockUrlResponses(ads_client_mock_, url_responses);
 
-  const WalletInfo wallet = test::GetWallet();
+  const WalletInfo wallet = test::Wallet();
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRefillConfirmationTokens);

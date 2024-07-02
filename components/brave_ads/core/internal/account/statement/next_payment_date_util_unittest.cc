@@ -37,7 +37,7 @@ TEST_F(BraveAdsNextPaymentDateUtilTest,
   const TransactionInfo transaction = test::BuildTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
       ConfirmationType::kViewedImpression, /*reconciled_at=*/Now(),
-      /*should_use_random_uuids=*/true);
+      /*should_generate_random_uuids=*/true);
   transactions.push_back(transaction);
 
   AdvanceClockTo(TimeFromUTCString("1 February 2020"));
@@ -45,11 +45,13 @@ TEST_F(BraveAdsNextPaymentDateUtilTest,
   const base::Time next_token_redemption_at =
       TimeFromUTCString("5 February 2020");
 
-  // Act & Assert
-  const base::Time expected_next_payment_date =
-      TimeFromUTCString("5 February 2020 23:59:59.999");
-  EXPECT_EQ(expected_next_payment_date,
-            CalculateNextPaymentDate(next_token_redemption_at, transactions));
+  // Act
+  const base::Time next_payment_date =
+      CalculateNextPaymentDate(next_token_redemption_at, transactions);
+
+  // Assert
+  EXPECT_EQ(TimeFromUTCString("5 February 2020 23:59:59.999"),
+            next_payment_date);
 }
 
 TEST_F(BraveAdsNextPaymentDateUtilTest,
@@ -57,16 +59,15 @@ TEST_F(BraveAdsNextPaymentDateUtilTest,
   // Arrange
   AdvanceClockTo(TimeFromUTCString("1 February 2020"));
 
-  const TransactionList transactions;
-
   const base::Time next_token_redemption_at =
       TimeFromUTCString("5 February 2020");
 
-  // Act & Assert
-  const base::Time expected_next_payment_date =
-      TimeFromUTCString("5 March 2020 23:59:59.999");
-  EXPECT_EQ(expected_next_payment_date,
-            CalculateNextPaymentDate(next_token_redemption_at, transactions));
+  // Act
+  const base::Time next_payment_date =
+      CalculateNextPaymentDate(next_token_redemption_at, /*transactions*/ {});
+
+  // Assert
+  EXPECT_EQ(TimeFromUTCString("5 March 2020 23:59:59.999"), next_payment_date);
 }
 
 TEST_F(BraveAdsNextPaymentDateUtilTest,
@@ -78,17 +79,19 @@ TEST_F(BraveAdsNextPaymentDateUtilTest,
   const TransactionInfo transaction = test::BuildTransaction(
       /*value=*/0.01, AdType::kNotificationAd,
       ConfirmationType::kViewedImpression, /*reconciled_at=*/Now(),
-      /*should_use_random_uuids=*/true);
+      /*should_generate_random_uuids=*/true);
   transactions.push_back(transaction);
 
   const base::Time next_token_redemption_at =
       TimeFromUTCString("5 February 2020");
 
+  // Act
+  const base::Time next_payment_date =
+      CalculateNextPaymentDate(next_token_redemption_at, transactions);
+
   // Act & Assert
-  const base::Time expected_next_payment_date =
-      TimeFromUTCString("5 February 2020 23:59:59.999");
-  EXPECT_EQ(expected_next_payment_date,
-            CalculateNextPaymentDate(next_token_redemption_at, transactions));
+  EXPECT_EQ(TimeFromUTCString("5 February 2020 23:59:59.999"),
+            next_payment_date);
 }
 
 TEST_F(
@@ -97,16 +100,16 @@ TEST_F(
   // Arrange
   AdvanceClockTo(TimeFromUTCString("11 January 2020"));
 
-  const TransactionList transactions;
-
   const base::Time next_token_redemption_at =
       TimeFromUTCString("31 January 2020");
 
-  // Act & Assert
-  const base::Time expected_next_payment_date =
-      TimeFromUTCString("5 February 2020 23:59:59.999");
-  EXPECT_EQ(expected_next_payment_date,
-            CalculateNextPaymentDate(next_token_redemption_at, transactions));
+  // Act
+  const base::Time next_payment_date =
+      CalculateNextPaymentDate(next_token_redemption_at, /*transactions*/ {});
+
+  // Assert
+  EXPECT_EQ(TimeFromUTCString("5 February 2020 23:59:59.999"),
+            next_payment_date);
 }
 
 TEST_F(
@@ -115,16 +118,15 @@ TEST_F(
   // Arrange
   AdvanceClockTo(TimeFromUTCString("31 January 2020"));
 
-  const TransactionList transactions;
-
   const base::Time next_token_redemption_at =
       TimeFromUTCString("5 February 2020");
 
-  // Act & Assert
-  const base::Time expected_next_payment_date =
-      TimeFromUTCString("5 March 2020 23:59:59.999");
-  EXPECT_EQ(expected_next_payment_date,
-            CalculateNextPaymentDate(next_token_redemption_at, transactions));
+  // Act
+  const base::Time next_payment_date =
+      CalculateNextPaymentDate(next_token_redemption_at, /*transactions*/ {});
+
+  // Assert
+  EXPECT_EQ(TimeFromUTCString("5 March 2020 23:59:59.999"), next_payment_date);
 }
 
 }  // namespace brave_ads

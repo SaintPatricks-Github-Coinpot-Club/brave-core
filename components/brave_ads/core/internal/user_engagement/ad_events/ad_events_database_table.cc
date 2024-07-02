@@ -28,7 +28,7 @@ namespace {
 
 constexpr char kTableName[] = "ad_events";
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -60,6 +60,9 @@ size_t BindParameters(mojom::DBCommandInfo* command,
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid ad event");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid ad event");
+
       continue;
     }
 
@@ -81,7 +84,7 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   return count;
 }
 
-AdEventInfo GetFromRecord(mojom::DBRecordInfo* record) {
+AdEventInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   AdEventInfo ad_event;
@@ -109,6 +112,7 @@ void GetCallback(GetAdEventsCallback callback,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get ad events");
+
     return std::move(callback).Run(/*success=*/false, /*ad_events=*/{});
   }
 
@@ -123,6 +127,9 @@ void GetCallback(GetAdEventsCallback callback,
       SCOPED_CRASH_KEY_STRING64("Issue32066", "failure_reason",
                                 "Invalid ad event");
       base::debug::DumpWithoutCrashing();
+
+      BLOG(0, "Invalid ad event");
+
       continue;
     }
 
@@ -132,7 +139,7 @@ void GetCallback(GetAdEventsCallback callback,
   std::move(callback).Run(/*success=*/true, ad_events);
 }
 
-void MigrateToV5(mojom::DBTransactionInfo* transaction) {
+void MigrateToV5(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Recreate table to address a migration problem from older versions.
@@ -155,7 +162,7 @@ void MigrateToV5(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV13(mojom::DBTransactionInfo* transaction) {
+void MigrateToV13(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Create a temporary table:
@@ -195,13 +202,14 @@ void MigrateToV13(mojom::DBTransactionInfo* transaction) {
   RenameTable(transaction, "ad_events_temp", "ad_events");
 }
 
-void MigrateToV17(mojom::DBTransactionInfo* transaction) {
+void MigrateToV17(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
-  CreateTableIndex(transaction, "ad_events", /*columns=*/{"timestamp"});
+  CreateTableIndex(transaction, /*table_name=*/"ad_events",
+                   /*columns=*/{"timestamp"});
 }
 
-void MigrateToV28(mojom::DBTransactionInfo* transaction) {
+void MigrateToV28(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Create a temporary table:
@@ -248,10 +256,11 @@ void MigrateToV28(mojom::DBTransactionInfo* transaction) {
 
   RenameTable(transaction, "ad_events_temp", "ad_events");
 
-  CreateTableIndex(transaction, "ad_events", /*columns=*/{"created_at"});
+  CreateTableIndex(transaction, /*table_name=*/"ad_events",
+                   /*columns=*/{"created_at"});
 }
 
-void MigrateToV29(mojom::DBTransactionInfo* transaction) {
+void MigrateToV29(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Migrate `created_at` column from a UNIX timestamp to a WebKit/Chrome
@@ -269,7 +278,7 @@ void MigrateToV29(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV32(mojom::DBTransactionInfo* transaction) {
+void MigrateToV32(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // Migrate `confirmation_type` from 'saved' to 'bookmark'.
@@ -286,17 +295,17 @@ void MigrateToV32(mojom::DBTransactionInfo* transaction) {
   transaction->commands.push_back(std::move(command));
 }
 
-void MigrateToV35(mojom::DBTransactionInfo* transaction) {
+void MigrateToV35(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   DropTableIndex(transaction, "ad_events_created_at_index");
 
   // Optimize database query for `GetUnexpired`.
-  CreateTableIndex(transaction, "ad_events",
+  CreateTableIndex(transaction, /*table_name=*/"ad_events",
                    /*columns=*/{"created_at"});
 
   // Optimize database query for `GetUnexpiredForType`.
-  CreateTableIndex(transaction, "ad_events",
+  CreateTableIndex(transaction, /*table_name=*/"ad_events",
                    /*columns=*/{"type", "created_at"});
 }
 
@@ -562,7 +571,7 @@ std::string AdEvents::GetTableName() const {
   return kTableName;
 }
 
-void AdEvents::Create(mojom::DBTransactionInfo* transaction) {
+void AdEvents::Create(mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();

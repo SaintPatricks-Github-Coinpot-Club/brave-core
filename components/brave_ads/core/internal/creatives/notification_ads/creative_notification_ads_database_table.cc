@@ -39,7 +39,7 @@ constexpr char kTableName[] = "creative_ad_notifications";
 
 constexpr int kDefaultBatchSize = 50;
 
-void BindRecords(mojom::DBCommandInfo* command) {
+void BindRecords(mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   command->record_bindings = {
@@ -92,7 +92,7 @@ size_t BindParameters(mojom::DBCommandInfo* command,
   return count;
 }
 
-CreativeNotificationAdInfo GetFromRecord(mojom::DBRecordInfo* record) {
+CreativeNotificationAdInfo GetFromRecord(mojom::DBRecordInfo* const record) {
   CHECK(record);
 
   CreativeNotificationAdInfo creative_ad;
@@ -173,6 +173,7 @@ void GetForSegmentsCallback(const SegmentList& segments,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get creative notification ads");
+
     return std::move(callback).Run(/*success=*/false, segments,
                                    /*creative_ads=*/{});
   }
@@ -189,6 +190,7 @@ void GetAllCallback(GetCreativeNotificationAdsCallback callback,
       command_response->status !=
           mojom::DBCommandResponseInfo::StatusType::RESPONSE_OK) {
     BLOG(0, "Failed to get all creative notification ads");
+
     return std::move(callback).Run(/*success=*/false, /*segments=*/{},
                                    /*creative_ads=*/{});
   }
@@ -364,7 +366,8 @@ std::string CreativeNotificationAds::GetTableName() const {
   return kTableName;
 }
 
-void CreativeNotificationAds::Create(mojom::DBTransactionInfo* transaction) {
+void CreativeNotificationAds::Create(
+    mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   mojom::DBCommandInfoPtr command = mojom::DBCommandInfo::New();
@@ -401,7 +404,7 @@ void CreativeNotificationAds::Migrate(mojom::DBTransactionInfo* transaction,
 ///////////////////////////////////////////////////////////////////////////////
 
 void CreativeNotificationAds::MigrateToV35(
-    mojom::DBTransactionInfo* transaction) {
+    mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   // We can safely recreate the table because it will be repopulated after
@@ -412,7 +415,7 @@ void CreativeNotificationAds::MigrateToV35(
 
 // static
 void CreativeNotificationAds::MigrateToV37(
-    mojom::DBTransactionInfo* transaction) {
+    mojom::DBTransactionInfo* const transaction) {
   CHECK(transaction);
 
   DropTable(transaction, "embeddings");

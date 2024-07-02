@@ -64,12 +64,13 @@ TEST_F(BraveAdsConfirmationQueueTest, AddConfirmation) {
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   EXPECT_CALL(delegate_mock_, OnDidAddConfirmationToQueue(*confirmation));
-  EXPECT_CALL(delegate_mock_, OnWillProcessConfirmationQueue(
-                                  *confirmation, Now() + base::Minutes(5)));
+  EXPECT_CALL(delegate_mock_,
+              OnWillProcessConfirmationQueue(
+                  *confirmation, /*process_at=*/Now() + base::Minutes(5)));
 
   const ScopedDelayBeforeProcessingConfirmationQueueItemForTesting
       scoped_delay_before_processing_confirmation_queue_item(base::Minutes(5));
@@ -104,12 +105,13 @@ TEST_F(BraveAdsConfirmationQueueTest, ProcessConfirmation) {
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   EXPECT_CALL(delegate_mock_, OnDidAddConfirmationToQueue(*confirmation));
-  EXPECT_CALL(delegate_mock_, OnWillProcessConfirmationQueue(
-                                  *confirmation, Now() + base::Minutes(21)));
+  EXPECT_CALL(delegate_mock_,
+              OnWillProcessConfirmationQueue(
+                  *confirmation, /*process_at=*/Now() + base::Minutes(21)));
 
   const ScopedDelayBeforeProcessingConfirmationQueueItemForTesting
       scoped_delay_before_processing_confirmation_queue_item(base::Minutes(21));
@@ -126,12 +128,13 @@ TEST_F(BraveAdsConfirmationQueueTest, ProcessMultipleConfirmations) {
   test::DisableBraveRewards();
 
   const std::optional<ConfirmationInfo> confirmation_1 =
-      test::BuildNonRewardConfirmation(/*should_use_random_uuids=*/true);
+      test::BuildNonRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_1);
   {
     EXPECT_CALL(delegate_mock_, OnDidAddConfirmationToQueue(*confirmation_1));
-    EXPECT_CALL(delegate_mock_, OnWillProcessConfirmationQueue(
-                                    *confirmation_1, Now() + base::Minutes(7)));
+    EXPECT_CALL(delegate_mock_,
+                OnWillProcessConfirmationQueue(
+                    *confirmation_1, /*process_at=*/Now() + base::Minutes(7)));
 
     const ScopedDelayBeforeProcessingConfirmationQueueItemForTesting
         scoped_delay_before_processing_confirmation_queue_item(
@@ -144,7 +147,7 @@ TEST_F(BraveAdsConfirmationQueueTest, ProcessMultipleConfirmations) {
   const ScopedDelayBeforeProcessingConfirmationQueueItemForTesting
       scoped_delay_before_processing_confirmation_queue_item(base::Minutes(21));
   const std::optional<ConfirmationInfo> confirmation_2 =
-      test::BuildNonRewardConfirmation(/*should_use_random_uuids=*/true);
+      test::BuildNonRewardConfirmation(/*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation_2);
   {
     EXPECT_CALL(delegate_mock_, OnDidAddConfirmationToQueue(*confirmation_2));
@@ -166,9 +169,10 @@ TEST_F(BraveAdsConfirmationQueueTest, ProcessMultipleConfirmations) {
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidProcessConfirmationQueue(*confirmation_1));
 
-  EXPECT_CALL(delegate_mock_, OnWillProcessConfirmationQueue(
-                                  *confirmation_2, Now() + base::Minutes(7) +
-                                                       base::Minutes(21)));
+  EXPECT_CALL(delegate_mock_,
+              OnWillProcessConfirmationQueue(
+                  *confirmation_2,
+                  /*process_at=*/Now() + base::Minutes(7) + base::Minutes(21)));
 
   FastForwardClockToNextPendingTask();
 

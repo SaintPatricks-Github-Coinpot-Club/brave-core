@@ -298,6 +298,9 @@ extension BrowserViewController: WKNavigationDelegate {
     }
 
     let isPrivateBrowsing = privateBrowsingManager.isPrivateBrowsing
+    tab?.rewardsReportingState.isNewNavigation =
+      navigationAction.navigationType != WKNavigationType.backForward
+      && navigationAction.navigationType != WKNavigationType.reload
     tab?.currentRequestURL = requestURL
 
     // Website redirection logic
@@ -324,6 +327,22 @@ extension BrowserViewController: WKNavigationDelegate {
         // Clear the current page data if the page changes.
         // Do this before anything else so that we have a clean slate.
         tab?.currentPageData = PageData(mainFrameURL: mainDocumentURL)
+      }
+
+      // Handle the "forget me" feature on navigation
+      if let tab = tab, navigationAction.targetFrame?.isMainFrame == true {
+        // Cancel any forget data requests
+        tabManager.cancelForgetData(for: mainDocumentURL, in: tab)
+
+        // Forget any websites that have "forget me" enabled
+        // if we navigated away from the previous domain
+        if let currentURL = tab.url,
+          !InternalURL.isValid(url: currentURL),
+          let currentETLDP1 = currentURL.baseDomain,
+          mainDocumentURL.baseDomain != currentETLDP1
+        {
+          tabManager.forgetDataIfNeeded(for: currentURL, in: tab)
+        }
       }
 
       let domainForMainFrame = Domain.getOrCreate(
@@ -430,10 +449,17 @@ extension BrowserViewController: WKNavigationDelegate {
           return (.cancel, preferences)
         }
 
+        let domain = Domain.getOrCreate(forUrl: requestURL, persistent: !isPrivateBrowsing)
+        let adsBlockingShieldUp = domain.isShieldExpected(
+          .adblockAndTp,
+          considerAllShieldsOption: true
+        )
         tab?.braveSearchResultAdManager = BraveSearchResultAdManager(
           url: requestURL,
           rewards: rewards,
-          isPrivateBrowsing: isPrivateBrowsing
+          isPrivateBrowsing: isPrivateBrowsing,
+          isAggressiveAdsBlocking: domain.blockAdsAndTrackingLevel.isAggressive
+            && adsBlockingShieldUp
         )
       }
 
@@ -524,7 +550,7 @@ extension BrowserViewController: WKNavigationDelegate {
         )
 
         // Load rule lists
-        let ruleLists = await ContentBlockerManager.shared.ruleLists(for: domainForShields)
+        let ruleLists = await AdBlockGroupsManager.shared.ruleLists(for: domainForShields)
         tab?.contentBlocker.set(ruleLists: ruleLists)
       }
 
@@ -597,6 +623,8 @@ extension BrowserViewController: WKNavigationDelegate {
         {
 
           return await withCheckedContinuation { continuation in
+            // This alert does not need to be a BrowserAlertController because we return a policy
+            // without waiting for user action
             let alert = UIAlertController(
               title: Strings.unableToOpenURLErrorTitle,
               message: Strings.unableToOpenURLError,
@@ -685,12 +713,27 @@ extension BrowserViewController: WKNavigationDelegate {
       tab?.setCustomUserScript(scripts: scriptTypes)
     }
 
-    if let tab = tab,
-      let responseURL = responseURL,
-      InternalURL(responseURL)?.isSessionRestore == true
+    if let tab = tab, let responseURL = responseURL,
+      let response = response as? HTTPURLResponse
     {
-      tab.shouldNotifyAdsServiceTabDidChange = false
-      tab.shouldNotifyAdsServiceTabContentDidChange = false
+      let internalUrl = InternalURL(responseURL)
+
+      tab.rewardsReportingState.isErrorPage = internalUrl?.isErrorPage == true
+      if !tab.rewardsReportingState.isErrorPage {
+        let kHttpClientErrorResponseCodeClass = 4
+        let kHttpServerErrorResponseCodeClass = 5
+
+        let responseCodeClass = response.statusCode / 100
+        if responseCodeClass == kHttpClientErrorResponseCodeClass
+          || responseCodeClass == kHttpServerErrorResponseCodeClass
+        {
+          tab.rewardsReportingState.isErrorPage = true
+        }
+      }
+
+      if !tab.rewardsReportingState.wasRestored {
+        tab.rewardsReportingState.wasRestored = internalUrl?.isSessionRestore == true
+      }
     }
 
     var request: URLRequest?
@@ -758,7 +801,8 @@ extension BrowserViewController: WKNavigationDelegate {
       }
 
       // Open our helper and cancel this response from the webview.
-      if let downloadAlert = downloadHelper.downloadAlert(from: view, okAction: downloadAlertAction)
+      if tab === tabManager.selectedTab,
+        let downloadAlert = downloadHelper.downloadAlert(from: view, okAction: downloadAlertAction)
       {
         present(downloadAlert, animated: true, completion: nil)
       }
@@ -968,11 +1012,15 @@ extension BrowserViewController: WKNavigationDelegate {
 
     rewards.reportTabNavigation(tabId: tab.rewardsId)
 
-    if tabManager.selectedTab === tab {
-      updateUIForReaderHomeStateForTab(tab)
+    // The toolbar and url bar changes can not be
+    // on different tab than selected. Or the webview
+    // previews and etc will effect the status
+    guard tabManager.selectedTab === tab else {
+      return
     }
 
-    updateForwardStatusIfNeeded(webView: webView)
+    updateUIForReaderHomeStateForTab(tab)
+    updateBackForwardActionStatus(for: webView)
   }
 
   public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -1000,23 +1048,15 @@ extension BrowserViewController: WKNavigationDelegate {
       }
 
       navigateInTab(tab: tab, to: navigation)
-      if tab.navigationType != WKNavigationType.backForward {
-        if tab.shouldNotifyAdsServiceTabDidChange {
-          rewards.reportTabUpdated(
-            tab: tab,
-            isSelected: tabManager.selectedTab == tab,
-            isPrivate: privateBrowsingManager.isPrivateBrowsing
-          )
-        }
-        if tab.shouldNotifyAdsServiceTabContentDidChange {
-          tab.reportPageLoad(to: rewards, redirectChain: tab.redirectChain)
-        }
-      }
-      // Set `shouldNotifyAdsServiceTabDidChange` and
-      // `shouldNotifyAdsServiceTabContentDidChange` to `true` so that listeners
-      // are notified of tab changes after the tab is restored.
-      tab.shouldNotifyAdsServiceTabDidChange = true
-      tab.shouldNotifyAdsServiceTabContentDidChange = true
+      rewards.reportTabUpdated(
+        tab: tab,
+        isSelected: tabManager.selectedTab == tab,
+        isPrivate: privateBrowsingManager.isPrivateBrowsing
+      )
+      tab.reportPageLoad(to: rewards, redirectChain: tab.redirectChain)
+      // Reset `rewardsReportingState` tab property so that listeners
+      // can be notified of tab changes when a new navigation happens.
+      tab.rewardsReportingState = RewardsTabChangeReportingState()
 
       Task {
         await tab.updateEthereumProperties()
@@ -1025,7 +1065,7 @@ extension BrowserViewController: WKNavigationDelegate {
 
       if webView.url?.isLocal == false {
         // Set rewards inter site url as new page load url.
-        rewardsXHRLoadURL = webView.url
+        tab.rewardsXHRLoadURL = webView.url
       }
 
       if tab.walletEthProvider != nil {
@@ -1345,7 +1385,7 @@ extension BrowserViewController: WKUIDelegate {
       }
     }()
     let title = String.localizedStringWithFormat(titleFormat, origin.host)
-    let alertController = UIAlertController(title: title, message: nil, preferredStyle: .alert)
+    let alertController = BrowserAlertController(title: title, message: nil, preferredStyle: .alert)
     alertController.addAction(
       .init(
         title: Strings.requestCaptureDevicePermissionAllowButtonTitle,
@@ -1364,6 +1404,9 @@ extension BrowserViewController: WKUIDelegate {
         }
       )
     )
+    alertController.dismissedWithoutAction = {
+      decisionHandler(.prompt)
+    }
     if webView.fullscreenState == .inFullscreen || webView.fullscreenState == .enteringFullscreen {
       webView.closeAllMediaPresentations {
         self.present(alertController, animated: true)
@@ -1456,8 +1499,7 @@ extension BrowserViewController: WKUIDelegate {
       return
     }
     promptingTab.alertShownCount += 1
-    let suppressBlock: JSAlertInfo.SuppressHandler = { [weak self, weak webView] suppress in
-      guard let self, let webView else { return }
+    let suppressBlock: JSAlertInfo.SuppressHandler = { [unowned self] suppress in
       if suppress {
         func suppressDialogues(_: UIAlertAction) {
           self.suppressJSAlerts(webView: webView)
@@ -1526,18 +1568,14 @@ extension BrowserViewController: WKUIDelegate {
     return false
   }
 
-  public func webView(
+  @MainActor public func webView(
     _ webView: WKWebView,
-    contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
-    completionHandler: @escaping (UIContextMenuConfiguration?) -> Void
-  ) {
-
+    contextMenuConfigurationFor elementInfo: WKContextMenuElementInfo
+  ) async -> UIContextMenuConfiguration? {
     // Only show context menu for valid links such as `http`, `https`, `data`. Safari does not show it for anything else.
     // This is because you cannot open `javascript:something` URLs in a new page, or share it, or anything else.
     guard let url = elementInfo.linkURL, url.isWebPage() else {
-      return completionHandler(
-        UIContextMenuConfiguration(identifier: nil, previewProvider: nil, actionProvider: nil)
-      )
+      return UIContextMenuConfiguration(identifier: nil, previewProvider: nil, actionProvider: nil)
     }
 
     let actionProvider: UIContextMenuActionProvider = { _ -> UIMenu? in
@@ -1687,13 +1725,11 @@ extension BrowserViewController: WKUIDelegate {
     }
 
     let linkPreviewProvider = Preferences.General.enableLinkPreview.value ? linkPreview : nil
-    let config = UIContextMenuConfiguration(
+    return UIContextMenuConfiguration(
       identifier: nil,
       previewProvider: linkPreviewProvider,
       actionProvider: actionProvider
     )
-
-    completionHandler(config)
   }
 
   public func webView(

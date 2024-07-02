@@ -34,15 +34,19 @@ TEST_F(BraveAdsConfirmationQueueItemDelayTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
   const ConfirmationQueueItemInfo confirmation_queue_item =
       BuildConfirmationQueueItem(*confirmation,
                                  /*process_at=*/Now() + base::Hours(1));
 
-  // Act & Assert
-  EXPECT_EQ(base::Hours(1), CalculateDelayBeforeProcessingConfirmationQueueItem(
-                                confirmation_queue_item));
+  // Act
+  const base::TimeDelta delay_before_processing_confirmation_queue_item =
+      CalculateDelayBeforeProcessingConfirmationQueueItem(
+          confirmation_queue_item);
+
+  // Assert
+  EXPECT_EQ(base::Hours(1), delay_before_processing_confirmation_queue_item);
 }
 
 TEST_F(BraveAdsConfirmationQueueItemDelayTest,
@@ -54,15 +58,19 @@ TEST_F(BraveAdsConfirmationQueueItemDelayTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
   const ConfirmationQueueItemInfo confirmation_queue_item =
       BuildConfirmationQueueItem(*confirmation, /*process_at=*/DistantPast());
 
-  // Act & Assert
+  // Act
+  const base::TimeDelta delay_before_processing_confirmation_queue_item =
+      CalculateDelayBeforeProcessingConfirmationQueueItem(
+          confirmation_queue_item);
+
+  // Assert
   EXPECT_EQ(kMinimumDelayBeforeProcessingConfirmationQueueItem,
-            CalculateDelayBeforeProcessingConfirmationQueueItem(
-                confirmation_queue_item));
+            delay_before_processing_confirmation_queue_item);
 }
 
 TEST_F(BraveAdsConfirmationQueueItemDelayTest,
@@ -74,16 +82,20 @@ TEST_F(BraveAdsConfirmationQueueItemDelayTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
   const ConfirmationQueueItemInfo confirmation_queue_item =
       BuildConfirmationQueueItem(*confirmation,
                                  /*process_at=*/Now() + base::Milliseconds(1));
 
-  // Act & Assert
+  // Act
+  const base::TimeDelta delay_before_processing_confirmation_queue_item =
+      CalculateDelayBeforeProcessingConfirmationQueueItem(
+          confirmation_queue_item);
+
+  // Assert
   EXPECT_EQ(kMinimumDelayBeforeProcessingConfirmationQueueItem,
-            CalculateDelayBeforeProcessingConfirmationQueueItem(
-                confirmation_queue_item));
+            delay_before_processing_confirmation_queue_item);
 }
 
 }  // namespace brave_ads

@@ -64,6 +64,8 @@ TEST(BlockchainListParseUnitTest, ParseTokenList) {
   EXPECT_EQ(mainnet_token_list[0]->logo, "CryptoKitties-Kitty-13733.svg");
   EXPECT_EQ(mainnet_token_list[0]->decimals, 0);
   EXPECT_TRUE(mainnet_token_list[0]->coingecko_id.empty());
+  EXPECT_EQ(mainnet_token_list[0]->spl_token_program,
+            mojom::SPLTokenProgram::kUnsupported);
 
   EXPECT_EQ(mainnet_token_list[1]->name, "Basic Attention Token");
   EXPECT_EQ(mainnet_token_list[1]->contract_address,
@@ -76,6 +78,8 @@ TEST(BlockchainListParseUnitTest, ParseTokenList) {
   EXPECT_EQ(mainnet_token_list[1]->logo, "bat.svg");
   EXPECT_EQ(mainnet_token_list[1]->decimals, 18);
   EXPECT_EQ(mainnet_token_list[1]->coingecko_id, "basic-attention-token");
+  EXPECT_EQ(mainnet_token_list[1]->spl_token_program,
+            mojom::SPLTokenProgram::kUnsupported);
 
   const auto& goerli_token_list = token_list_map["ethereum.0x5"];
   EXPECT_EQ(goerli_token_list[0]->name, "Uniswap");
@@ -88,7 +92,9 @@ TEST(BlockchainListParseUnitTest, ParseTokenList) {
   EXPECT_EQ(goerli_token_list[0]->symbol, "UNI");
   EXPECT_EQ(goerli_token_list[0]->logo, "uni.svg");
   EXPECT_EQ(goerli_token_list[0]->decimals, 18);
-  EXPECT_TRUE(mainnet_token_list[0]->coingecko_id.empty());
+  EXPECT_TRUE(goerli_token_list[0]->coingecko_id.empty());
+  EXPECT_EQ(goerli_token_list[0]->spl_token_program,
+            mojom::SPLTokenProgram::kUnsupported);
 
   std::string solana_json(R"(
     {
@@ -114,6 +120,7 @@ TEST(BlockchainListParseUnitTest, ParseTokenList) {
         "name": "Tesla Inc.",
         "logo": "2inRoG4DuMRRzZxAt913CCdNZCu2eGsDD9kZTrsj2DAZ.png",
         "erc20": false,
+        "token2022": true,
         "symbol": "TSLA",
         "decimals": 8,
         "chainId": "0x65"
@@ -125,16 +132,18 @@ TEST(BlockchainListParseUnitTest, ParseTokenList) {
   auto wrapped_sol = mojom::BlockchainToken::New(
       "So11111111111111111111111111111111111111112", "Wrapped SOL",
       "So11111111111111111111111111111111111111112.png", false, false, false,
-      false, false, "SOL", 9, true, "", "solana", "0x65", mojom::CoinType::SOL);
+      false, mojom::SPLTokenProgram::kToken, false, false, "SOL", 9, true, "",
+      "solana", "0x65", mojom::CoinType::SOL);
   auto usdc = mojom::BlockchainToken::New(
       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "USD Coin",
       "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v.png", false, false, false,
-      false, false, "USDC", 6, true, "", "usd-coin", "0x65",
-      mojom::CoinType::SOL);
+      false, mojom::SPLTokenProgram::kToken, false, false, "USDC", 6, true, "",
+      "usd-coin", "0x65", mojom::CoinType::SOL);
   auto tsla = mojom::BlockchainToken::New(
       "2inRoG4DuMRRzZxAt913CCdNZCu2eGsDD9kZTrsj2DAZ", "Tesla Inc.",
       "2inRoG4DuMRRzZxAt913CCdNZCu2eGsDD9kZTrsj2DAZ.png", false, false, false,
-      false, false, "TSLA", 8, true, "", "", "0x65", mojom::CoinType::SOL);
+      false, mojom::SPLTokenProgram::kToken2022, false, false, "TSLA", 8, true,
+      "", "", "0x65", mojom::CoinType::SOL);
   std::vector<mojom::BlockchainTokenPtr> solana_token_list;
   solana_token_list.push_back(std::move(tsla));
   solana_token_list.push_back(std::move(usdc));
@@ -177,6 +186,8 @@ TEST(BlockchainListParseUnitTest, ParseChainList) {
       "rpc": [
         "https://mainnet.infura.io/v3/${INFURA_API_KEY}",
         "wss://mainnet.infura.io/ws/v3/${INFURA_API_KEY}",
+        "http://api.com/eth",
+        "http://127.0.0.1:5566/eth",
         "https://api.mycryptoapi.com/eth",
         "https://cloudflare-eth.com"
       ],
@@ -192,6 +203,16 @@ TEST(BlockchainListParseUnitTest, ParseChainList) {
         {
           "name": "etherscan",
           "url": "https://etherscan.io",
+          "standard": "EIP3091"
+        },
+        {
+          "name": "invalid http",
+          "url": "http://test.com",
+          "standard": "EIP3091"
+        },
+        {
+          "name": "localhost",
+          "url": "http://localhost:8080",
           "standard": "EIP3091"
         }
       ]
@@ -236,18 +257,18 @@ TEST(BlockchainListParseUnitTest, ParseChainList) {
   EXPECT_THAT(
       chain1->rpc_endpoints,
       ElementsAreArray({GURL("https://mainnet.infura.io/v3/${INFURA_API_KEY}"),
-                        GURL("wss://mainnet.infura.io/ws/v3/${INFURA_API_KEY}"),
+                        GURL("http://127.0.0.1:5566/eth"),
                         GURL("https://api.mycryptoapi.com/eth"),
                         GURL("https://cloudflare-eth.com")}));
-  EXPECT_EQ(2, chain1->active_rpc_endpoint_index);
-  EXPECT_THAT(chain1->block_explorer_urls,
-              ElementsAreArray({"https://etherscan.io"}));
+  EXPECT_EQ(1, chain1->active_rpc_endpoint_index);
+  EXPECT_THAT(
+      chain1->block_explorer_urls,
+      ElementsAreArray({"https://etherscan.io", "http://localhost:8080"}));
   EXPECT_EQ("Ether", chain1->symbol_name);
   EXPECT_EQ("ETH", chain1->symbol);
   EXPECT_EQ(18, chain1->decimals);
   EXPECT_EQ(0u, chain1->icon_urls.size());
   EXPECT_EQ(chain1->coin, mojom::CoinType::ETH);
-  EXPECT_FALSE(chain1->is_eip1559);
 
   auto& chain2 = result[1];
   ASSERT_TRUE(chain2);
@@ -269,7 +290,6 @@ TEST(BlockchainListParseUnitTest, ParseChainList) {
   EXPECT_EQ(18, chain2->decimals);
   EXPECT_EQ(0u, chain2->icon_urls.size());
   EXPECT_EQ(chain2->coin, mojom::CoinType::ETH);
-  EXPECT_FALSE(chain2->is_eip1559);
 }
 
 TEST(BlockchainListParseUnitTest, ParseDappLists) {

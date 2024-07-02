@@ -16,9 +16,11 @@ class WalletUserAssetBalanceTests: CoreDataTestCase {
     contractAddress: "0x123",
     name: "mockAsset",
     logo: "",
+    isCompressed: false,
     isErc20: true,
     isErc721: false,
     isErc1155: false,
+    splTokenProgram: .unsupported,
     isNft: false,
     isSpam: false,
     symbol: "MA",
@@ -33,9 +35,11 @@ class WalletUserAssetBalanceTests: CoreDataTestCase {
     contractAddress: "0x123",
     name: "mockAsset2",
     logo: "",
+    isCompressed: false,
     isErc20: false,
     isErc721: false,
     isErc1155: false,
+    splTokenProgram: .unknown,
     isNft: false,
     isSpam: false,
     symbol: "MA2",
@@ -60,8 +64,7 @@ class WalletUserAssetBalanceTests: CoreDataTestCase {
     symbolName: "SOL",
     decimals: 9,
     coin: .sol,
-    supportedKeyrings: [],
-    isEip1559: false
+    supportedKeyrings: []
   )
 
   let fetchRequest = NSFetchRequest<WalletUserAssetBalance>(

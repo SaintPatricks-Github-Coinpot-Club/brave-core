@@ -7,8 +7,10 @@
 
 #define AddMaterialUiColorMixer AddMaterialUiColorMixer_UnUsed
 
-#include "src/ui/color/material_ui_color_mixer.cc"
+#include "ui/color/color_transform.h"
 #include "ui/gfx/color_palette.h"
+
+#include "src/ui/color/material_ui_color_mixer.cc"
 
 #undef AddMaterialUiColorMixer
 
@@ -38,6 +40,10 @@ void AddMaterialUiColorMixer(ColorProvider* provider,
   mixer[ui::kColorComboboxInkDropHovered] = {ui::kColorSysStateHoverOnSubtle};
   mixer[ui::kColorComboboxInkDropRipple] = {
       ui::kColorSysStateRippleNeutralOnSubtle};
+  mixer[kColorComboboxBackground] = {kColorSysSurface};
+  mixer[kColorComboboxBackgroundDisabled] = {GetResultingPaintColor(
+      {kColorSysStateDisabledContainer}, {kColorComboboxBackground})};
+  mixer[kColorComboboxContainerOutline] = {kColorSysNeutralOutline};
   mixer[ui::kColorToolbarSearchFieldBackground] = {
       ui::kColorSysBaseContainerElevated};
   mixer[ui::kColorToolbarSearchFieldBackgroundHover] = {
@@ -65,6 +71,11 @@ void AddMaterialUiColorMixer(ColorProvider* provider,
   mixer[ui::kColorToggleButtonTrackOn] = {ui::kColorSysPrimary};
   mixer[ui::kColorToggleButtonTrackOnDisabled] = {
       ui::kColorSysStateDisabledContainer};
+
+  mixer[kColorAppMenuRowBackgroundHovered] = {kColorSysStateHoverOnSubtle};
+  mixer[kColorAppMenuUpgradeRowBackground] = {
+      is_dark ? SkColorSetRGB(0x37, 0x2C, 0xBF)
+              : SkColorSetRGB(0xDF, 0xE1, 0xFF)};
 }
 
 }  // namespace ui

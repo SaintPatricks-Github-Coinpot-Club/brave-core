@@ -62,6 +62,7 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/browser/ui/frame/window_frame_util.h"
+#include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_layout_manager.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
@@ -247,15 +248,12 @@ BraveBrowserView::BraveBrowserView(std::unique_ptr<Browser> browser)
   }
 
   pref_change_registrar_.Init(GetProfile()->GetPrefs());
-  if (!WindowFrameUtil::IsWindowsTabSearchCaptionButtonEnabled(
-          browser_.get())) {
-    pref_change_registrar_.Add(
-        kTabsSearchShow,
-        base::BindRepeating(&BraveBrowserView::OnPreferenceChanged,
-                            base::Unretained(this)));
-    // Show the correct value in settings on initial start
-    UpdateSearchTabsButtonState();
-  }
+  pref_change_registrar_.Add(
+      kTabsSearchShow,
+      base::BindRepeating(&BraveBrowserView::OnPreferenceChanged,
+                          base::Unretained(this)));
+  // Show the correct value in settings on initial start
+  UpdateSearchTabsButtonState();
 
   auto* rewards_service =
       brave_rewards::RewardsServiceFactory::GetForProfile(browser_->profile());
@@ -320,7 +318,7 @@ BraveBrowserView::BraveBrowserView(std::unique_ptr<Browser> browser)
     secondary_contents_web_view_ =
         contents_container_->AddChildView(std::move(contents_web_view));
     split_view_separator_ = contents_container_->AddChildView(
-        std::make_unique<SplitViewSeparator>());
+        std::make_unique<SplitViewSeparator>(browser_.get()));
 
     auto* contents_layout_manager = static_cast<BraveContentsLayoutManager*>(
         contents_container()->GetLayoutManager());
@@ -470,22 +468,22 @@ void BraveBrowserView::UpdateContentsWebViewBorder() {
   DCHECK(split_view_browser_data);
 
   if (split_view_browser_data->GetTile(GetActiveTabHandle())) {
-    auto create_border = [this](SkColor color) {
-      constexpr auto kFocusRingThickness = 2;
+    auto create_border = [this](SkColor color, int border_thickness) {
       return BraveBrowser::ShouldUseBraveWebViewRoundedCorners(browser_.get())
                  ? views::CreateRoundedRectBorder(
-                       kFocusRingThickness,
+                       border_thickness,
                        BraveContentsViewUtil::kBorderRadius +
-                           kFocusRingThickness / 2,
+                           border_thickness / 2,
                        color)
-                 : views::CreateSolidBorder(kFocusRingThickness, color);
+                 : views::CreateSolidBorder(border_thickness, color);
     };
 
-    contents_web_view_->SetBorder(create_border(leo::kColorPrimitivePrimary40));
-
     if (auto* cp = GetColorProvider()) {
+      contents_web_view_->SetBorder(
+          create_border(leo::kColorPrimitivePrimary40, 2));
+
       secondary_contents_web_view_->SetBorder(create_border(
-          cp->GetColor(kColorBraveSplitViewInactiveWebViewBorder)));
+          cp->GetColor(kColorBraveSplitViewInactiveWebViewBorder), 1));
     }
   } else {
     contents_web_view_->SetBorder(nullptr);
@@ -841,6 +839,15 @@ void BraveBrowserView::OnWillBreakTile(const SplitViewBrowserData::Tile& tile) {
                                 weak_ptr_.GetWeakPtr()));
 }
 
+void BraveBrowserView::OnSwapTabsInTile(
+    const SplitViewBrowserData::Tile& tile) {
+  if (!IsActiveWebContentsTiled(tile)) {
+    return;
+  }
+
+  UpdateSecondaryContentsWebViewVisibility();
+}
+
 void BraveBrowserView::CreateWalletBubble() {
   DCHECK(GetWalletButton());
   GetWalletButton()->ShowWalletBubble();
@@ -1067,8 +1074,7 @@ void BraveBrowserView::OnThemeChanged() {
 }
 
 TabSearchBubbleHost* BraveBrowserView::GetTabSearchBubbleHost() {
-  if (!tabs::utils::ShouldShowVerticalTabs(browser()) ||
-      WindowFrameUtil::IsWindowsTabSearchCaptionButtonEnabled(browser())) {
+  if (!tabs::utils::ShouldShowVerticalTabs(browser())) {
     return BrowserView::GetTabSearchBubbleHost();
   }
 
@@ -1084,7 +1090,44 @@ void BraveBrowserView::OnActiveTabChanged(content::WebContents* old_contents,
   const bool supports_split_view =
       base::FeatureList::IsEnabled(tabs::features::kBraveSplitView) &&
       browser()->is_type_normal();
+  bool need_to_update_secondary_web_view = false;
   if (supports_split_view) {
+    // In order to minimize flickering during tab activation, we should update
+    // split view only when it's needed.
+    auto* browser_data = SplitViewBrowserData::FromBrowser(browser_.get());
+    auto* tab_strip_model = browser_->tab_strip_model();
+    if (auto tile =
+            browser_data->GetTile(tab_strip_model->GetTabHandleAt(index))) {
+      auto* main_web_contents = tab_strip_model->GetWebContentsAt(
+          tab_strip_model->GetIndexOfTab(tile->first));
+      auto* secondary_web_contents = tab_strip_model->GetWebContentsAt(
+          tab_strip_model->GetIndexOfTab(tile->second));
+      if (main_web_contents != new_contents) {
+        std::swap(main_web_contents, secondary_web_contents);
+      }
+
+      need_to_update_secondary_web_view =
+          contents_web_view_->web_contents() != main_web_contents ||
+          secondary_contents_web_view_->web_contents() !=
+              secondary_web_contents;
+    } else {
+      // Old contents was in a split view. We should hide split view.
+      need_to_update_secondary_web_view =
+          secondary_contents_web_view_->web_contents();
+    }
+  }
+
+  if (need_to_update_secondary_web_view) {
+    // This helps reduce flickering when switching between tiled tabs.
+    contents_web_view_->SetFastResize(true);
+    secondary_contents_web_view_->SetFastResize(true);
+
+    if (!SplitViewBrowserData::FromBrowser(browser_.get())
+             ->GetTile(browser_->tab_strip_model()->GetTabHandleAt(index))) {
+      // This will help reduce flickering when switching to non tiled tab.
+      UpdateSecondaryContentsWebViewVisibility();
+    }
+
     secondary_contents_web_view_->SetWebContents(nullptr);
   }
 
@@ -1095,6 +1138,14 @@ void BraveBrowserView::OnActiveTabChanged(content::WebContents* old_contents,
 
     // Setting nullptr doesn't detach the previous contents.
     UpdateContentsWebViewVisual();
+
+    if (need_to_update_secondary_web_view) {
+      // Revert back to default state.
+      contents_web_view_->SetFastResize(false);
+      secondary_contents_web_view_->SetFastResize(false);
+      contents_web_view_->DeprecatedLayoutImmediately();
+      secondary_contents_web_view_->DeprecatedLayoutImmediately();
+    }
   }
 }
 
@@ -1112,8 +1163,11 @@ bool BraveBrowserView::AcceleratorPressed(const ui::Accelerator& accelerator) {
       }
     }
   }
-
   return BrowserView::AcceleratorPressed(accelerator);
+}
+
+bool BraveBrowserView::IsInTabDragging() const {
+  return frame()->tab_drag_kind() == TabDragKind::kAllTabs;
 }
 
 bool BraveBrowserView::IsSidebarVisible() const {

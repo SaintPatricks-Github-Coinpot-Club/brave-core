@@ -20,6 +20,7 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/pref_names.h"
@@ -155,7 +156,7 @@ std::string ControlTypeToString(ControlType type) {
     case ControlType::DEFAULT:
       return "default";
     default:
-      NOTREACHED();
+      NOTREACHED_IN_MIGRATION();
       return "invalid";
   }
 }
@@ -170,7 +171,7 @@ ControlType ControlTypeFromString(const std::string& string) {
   } else if (string == "default") {
     return ControlType::DEFAULT;
   } else {
-    NOTREACHED();
+    NOTREACHED_IN_MIGRATION();
     return ControlType::DEFAULT;
   }
 }
@@ -489,7 +490,7 @@ void SetCookieControlType(HostContentSettingsMap* map,
                 content_settings::CookieControlsMode::kBlockThirdParty));
         break;
       default:
-        NOTREACHED() << "Invalid ControlType for cookies";
+        NOTREACHED_IN_MIGRATION() << "Invalid ControlType for cookies";
     }
     return;
   }
@@ -524,7 +525,7 @@ void SetCookieControlType(HostContentSettingsMap* map,
                                        : CONTENT_SETTING_BLOCK);
       break;
     case ControlType::DEFAULT:
-      NOTREACHED() << "Invalid ControlType for cookies";
+      NOTREACHED_IN_MIGRATION() << "Invalid ControlType for cookies";
   }
 }
 
@@ -845,6 +846,39 @@ ShieldsSettingCounts GetAdsSettingCount(HostContentSettingsMap* map) {
   ContentSettingsForOneType cosmetic_rules =
       map->GetSettingsForOneType(ContentSettingsType::BRAVE_COSMETIC_FILTERING);
   return GetAdsSettingCountFromRules(cosmetic_rules);
+}
+
+void SetWebcompatFeatureSetting(HostContentSettingsMap* map,
+                                ContentSettingsType webcompat_settings_type,
+                                ControlType type,
+                                const GURL& url,
+                                PrefService* local_state) {
+  DCHECK(map);
+
+  if (!url.SchemeIsHTTPOrHTTPS() && !url.is_empty()) {
+    return;
+  }
+
+  auto primary_pattern = GetPatternFromURL(url);
+  if (!primary_pattern.IsValid()) {
+    return;
+  }
+
+  ContentSetting setting;
+  if (type == ControlType::ALLOW) {
+    // Unprotect feature
+    setting = CONTENT_SETTING_ALLOW;
+  } else if (type == ControlType::BLOCK) {
+    // Protect feature
+    setting = CONTENT_SETTING_BLOCK;
+  } else {
+    // Fall back to default
+    setting = CONTENT_SETTING_DEFAULT;
+  }
+  map->SetContentSettingCustomScope(primary_pattern,
+                                    ContentSettingsPattern::Wildcard(),
+                                    webcompat_settings_type, setting);
+  RecordShieldsSettingChanged(local_state);
 }
 
 }  // namespace brave_shields

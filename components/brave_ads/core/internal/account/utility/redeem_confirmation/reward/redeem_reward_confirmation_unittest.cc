@@ -58,7 +58,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest, Redeem) {
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -80,7 +80,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest, RetryRedeemingIfNoIssuers) {
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/true);
+                                    /*should_generate_random_uuids=*/true);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -112,7 +112,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -146,7 +146,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -183,7 +183,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -219,7 +219,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -256,7 +256,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -273,7 +273,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 }
 
 TEST_F(BraveAdsRedeemRewardConfirmationTest,
-       RetryRedeemingIfInvalidJsonResponseBody) {
+       RetryRedeemingIfInvalidResponseBody) {
   // Arrange
   test::BuildAndSetIssuers();
 
@@ -292,14 +292,14 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
   EXPECT_CALL(delegate_mock_, OnDidRedeemConfirmation).Times(0);
 
   EXPECT_CALL(delegate_mock_,
-              OnFailedToRedeemConfirmation(::testing::_,
+              OnFailedToRedeemConfirmation(*confirmation,
                                            /*should_retry=*/true));
 
   RedeemRewardConfirmation::CreateAndRedeem(
@@ -341,7 +341,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -391,7 +391,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -434,7 +434,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -483,7 +483,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -533,7 +533,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -582,7 +582,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -631,7 +631,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -681,7 +681,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -728,7 +728,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -775,7 +775,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -825,7 +825,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest,
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert
@@ -860,7 +860,7 @@ TEST_F(BraveAdsRedeemRewardConfirmationTest, FetchPaymentTokenAfter) {
 
   const std::optional<ConfirmationInfo> confirmation =
       test::BuildRewardConfirmation(&token_generator_mock_,
-                                    /*should_use_random_uuids=*/false);
+                                    /*should_generate_random_uuids=*/false);
   ASSERT_TRUE(confirmation);
 
   // Act & Assert

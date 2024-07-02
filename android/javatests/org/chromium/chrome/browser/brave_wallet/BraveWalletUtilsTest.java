@@ -15,6 +15,7 @@ import androidx.test.filters.SmallTest;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import org.chromium.base.test.BaseJUnit4ClassRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.brave_wallet.mojom.AccountId;
 import org.chromium.brave_wallet.mojom.BlockchainToken;
@@ -28,7 +29,6 @@ import org.chromium.brave_wallet.mojom.TxData;
 import org.chromium.brave_wallet.mojom.TxData1559;
 import org.chromium.chrome.browser.crypto_wallet.util.Utils;
 import org.chromium.chrome.browser.crypto_wallet.util.Validations;
-import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.url.mojom.Url;
 
 import java.util.Arrays;
@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Locale;
 
 @Batch(Batch.PER_CLASS)
-@RunWith(ChromeJUnit4ClassRunner.class)
+@RunWith(BaseJUnit4ClassRunner.class)
 public class BraveWalletUtilsTest {
     @Test
     @SmallTest
@@ -523,11 +523,15 @@ public class BraveWalletUtilsTest {
                 java.lang.Object v = f.get(testStruct);
                 if (!t.isPrimitive()) {
                     String varName = f.getName();
-                    if (varName.equals("chainId") || varName.equals("chainName")
-                            || varName.equals("blockExplorerUrls") || varName.equals("iconUrls")
-                            || varName.equals("rpcEndpoints") || varName.equals("supportedKeyrings")
-                            || varName.equals("activeRpcEndpointIndex") || varName.equals("symbol")
-                            || varName.equals("symbolName") || varName.equals("isEip1559")) {
+                    if (varName.equals("chainId")
+                            || varName.equals("chainName")
+                            || varName.equals("blockExplorerUrls")
+                            || varName.equals("iconUrls")
+                            || varName.equals("rpcEndpoints")
+                            || varName.equals("supportedKeyrings")
+                            || varName.equals("activeRpcEndpointIndex")
+                            || varName.equals("symbol")
+                            || varName.equals("symbolName")) {
                         continue;
                     }
                     if (v == null) {

@@ -25,9 +25,6 @@ struct AIChatIntroMessageView: View {
     case .chatExpanded:
       return Strings.AIChat.introMessageMixtralModelDescription
 
-    case .chatClaudeInstant:
-      return Strings.AIChat.introMessageClaudeInstantModelDescription
-
     case .chatClaudeHaiku:
       return Strings.AIChat.introMessageClaudeHaikuModelDescription
 
@@ -47,9 +44,6 @@ struct AIChatIntroMessageView: View {
 
     case .chatExpanded:
       return Strings.AIChat.introMessageMixtralMessageDescription
-
-    case .chatClaudeInstant:
-      return Strings.AIChat.introMessageClaudeInstantMessageDescription
 
     case .chatClaudeHaiku:
       return Strings.AIChat.introMessageClaudeHaikuMessageDescription
@@ -142,15 +136,19 @@ struct AIChatIntroMessageView_Previews: PreviewProvider {
     AIChatIntroMessageView(
       model:
         .init(
+          options: .init(
+            leoModelOptions: .init(
+              name: "Mixtral-8x7b",
+              displayMaker: "Powerful, fast and adaptive",
+              engineType: .llamaRemote,
+              category: .chat,
+              access: .basicAndPremium,
+              maxPageContentLength: 9000,
+              longConversationWarningCharacterLimit: 20000
+            )
+          ),
           key: "mixtral_8x7b",
-          name: "Mixtral-8x7b",
-          displayName: "Mixtral 8x7b",
-          displayMaker: "Powerful, fast and adaptive",
-          engineType: .llamaRemote,
-          category: .chat,
-          access: .basicAndPremium,
-          maxPageContentLength: 9000,
-          longConversationWarningCharacterLimit: 20000
+          displayName: "Mixtral 8x7b"
         )
     )
     .previewLayout(.sizeThatFits)

@@ -14,7 +14,9 @@ import org.chromium.brave_wallet.mojom.BraveWalletP3a;
 import org.chromium.brave_wallet.mojom.OnboardingAction;
 import org.chromium.chrome.browser.crypto_wallet.fragments.UnlockWalletFragment;
 import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingBackupWalletFragment;
+import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingConfirmationFragment;
 import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingCreatingWalletFragment;
+import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingFingerprintUnlockFragment;
 import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingInitWalletFragment;
 import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingNetworkSelectionFragment;
 import org.chromium.chrome.browser.crypto_wallet.fragments.onboarding.OnboardingRecoveryPhraseFragment;
@@ -123,13 +125,17 @@ public class WalletOnboardingPagerAdapter extends FragmentStateAdapter {
                 } else if (position == 3) {
                     return new OnboardingSecurePasswordFragment();
                 } else if (position == 4) {
-                    return new OnboardingCreatingWalletFragment();
+                    return new OnboardingFingerprintUnlockFragment();
                 } else if (position == 5) {
-                    return OnboardingBackupWalletFragment.newInstance(isOnboarding);
+                    return new OnboardingCreatingWalletFragment();
                 } else if (position == 6) {
-                    return OnboardingRecoveryPhraseFragment.newInstance(isOnboarding);
+                    return OnboardingBackupWalletFragment.newInstance(isOnboarding);
                 } else if (position == 7) {
+                    return OnboardingRecoveryPhraseFragment.newInstance(isOnboarding);
+                } else if (position == 8) {
                     return OnboardingVerifyRecoveryPhraseFragment.newInstance(isOnboarding);
+                } else if (position == 9) {
+                    return new OnboardingConfirmationFragment();
                 } else {
                     throw new IllegalStateException(
                             String.format(
@@ -149,7 +155,11 @@ public class WalletOnboardingPagerAdapter extends FragmentStateAdapter {
                 } else if (position == 3) {
                     return OnboardingRestoreWalletFragment.newInstance();
                 } else if (position == 4) {
+                    return new OnboardingFingerprintUnlockFragment();
+                } else if (position == 5) {
                     return new OnboardingCreatingWalletFragment();
+                } else if (position == 6) {
+                    return new OnboardingConfirmationFragment();
                 } else {
                     throw new IllegalStateException(
                             String.format(
@@ -167,7 +177,11 @@ public class WalletOnboardingPagerAdapter extends FragmentStateAdapter {
                 } else if (position == 1) {
                     return OnboardingRestoreWalletFragment.newInstance();
                 } else if (position == 2) {
+                    return new OnboardingFingerprintUnlockFragment();
+                } else if (position == 3) {
                     return new OnboardingCreatingWalletFragment();
+                } else if (position == 4) {
+                    return new OnboardingConfirmationFragment();
                 } else {
                     throw new IllegalStateException(
                             String.format(
@@ -200,13 +214,13 @@ public class WalletOnboardingPagerAdapter extends FragmentStateAdapter {
         if (mWalletAction == WalletAction.ONBOARDING) {
             return 1;
         } else if (mWalletAction == WalletAction.PASSWORD_CREATION) {
-            return 8;
+            return 10;
         } else if (mWalletAction == WalletAction.ONBOARDING_RESTORE) {
-            return 5;
+            return 7;
         } else if (mWalletAction == WalletAction.UNLOCK) {
             return 1;
         } else if (mWalletAction == WalletAction.RESTORE) {
-            return 3;
+            return 5;
         } else if (mWalletAction == WalletAction.BACKUP) {
             return 3;
         }

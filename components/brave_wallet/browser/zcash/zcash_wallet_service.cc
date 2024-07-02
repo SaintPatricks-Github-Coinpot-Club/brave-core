@@ -25,13 +25,6 @@ namespace {
 const uint32_t kDefaultBlockHeightDelta = 20;
 }  // namespace
 
-mojo::PendingRemote<mojom::ZCashWalletService>
-ZCashWalletService::MakeRemote() {
-  mojo::PendingRemote<mojom::ZCashWalletService> remote;
-  receivers_.Add(this, remote.InitWithNewPipeAndPassReceiver());
-  return remote;
-}
-
 void ZCashWalletService::Bind(
     mojo::PendingReceiver<mojom::ZCashWalletService> receiver) {
   receivers_.Add(this, std::move(receiver));
@@ -70,7 +63,7 @@ void ZCashWalletService::GetBalance(const std::string& chain_id,
 void ZCashWalletService::GetReceiverAddress(
     mojom::AccountIdPtr account_id,
     GetReceiverAddressCallback callback) {
-  auto id = mojom::ZCashKeyId::New(account_id->bitcoin_account_index, 0, 0);
+  auto id = mojom::ZCashKeyId::New(account_id->account_index, 0, 0);
   auto addr = keyring_service_->GetZCashAddress(*account_id, *id);
   if (!addr) {
     std::move(callback).Run(
@@ -261,6 +254,11 @@ void ZCashWalletService::SignAndPostTransaction(
           &ZCashWalletService::OnResolveLastBlockHeightForSendTransaction,
           weak_ptr_factory_.GetWeakPtr(), chain_id, account_id.Clone(),
           std::move(zcash_transaction), std::move(callback)));
+}
+
+void ZCashWalletService::SetZCashRpcForTesting(
+    std::unique_ptr<ZCashRpc> zcash_rpc) {
+  zcash_rpc_ = std::move(zcash_rpc);
 }
 
 void ZCashWalletService::ValidateZCashAddress(

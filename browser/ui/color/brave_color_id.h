@@ -34,16 +34,12 @@
 
 #define BRAVE_SEARCH_CONVERSION_COLOR_IDS                             \
     E_CPONLY(kColorSearchConversionCloseButton)                       \
+    E_CPONLY(kColorSearchConversionBannerTypeBackground)              \
     E_CPONLY(kColorSearchConversionBannerTypeBackgroundBorder)        \
     E_CPONLY(kColorSearchConversionBannerTypeBackgroundBorderHovered) \
     E_CPONLY(kColorSearchConversionBannerTypeBackgroundGradientFrom)  \
     E_CPONLY(kColorSearchConversionBannerTypeBackgroundGradientTo)    \
-    E_CPONLY(kColorSearchConversionBannerTypeDescText)                \
-    E_CPONLY(kColorSearchConversionButtonTypeBackgroundNormal)        \
-    E_CPONLY(kColorSearchConversionButtonTypeBackgroundHovered)       \
-    E_CPONLY(kColorSearchConversionButtonTypeDescNormal)              \
-    E_CPONLY(kColorSearchConversionButtonTypeDescHovered)             \
-    E_CPONLY(kColorSearchConversionButtonTypeInputAppend)
+    E_CPONLY(kColorSearchConversionBannerTypeDescText)
 
 #define BRAVE_SIDEBAR_COLOR_IDS                               \
     E_CPONLY(kColorSidebarAddBubbleBackground)                \
@@ -129,7 +125,12 @@
 
 #define BRAVE_SPLIT_VIEW_COLOR_IDS \
     E_CPONLY(kColorBraveSplitViewTileBackground)        \
+    E_CPONLY(kColorBraveSplitViewActiveWebViewBorder) \
     E_CPONLY(kColorBraveSplitViewInactiveWebViewBorder) \
+    E_CPONLY(kColorBraveSplitViewMenuButtonIcon)        \
+    E_CPONLY(kColorBraveSplitViewMenuButtonBackground)  \
+    E_CPONLY(kColorBraveSplitViewMenuButtonBorder)      \
+    E_CPONLY(kColorBraveSplitViewMenuItemIcon)
 
 #define BRAVE_PLAYLIST_COLOR_IDS                                      \
     E_CPONLY(kColorBravePlaylistAddedIcon)                            \
@@ -145,6 +146,12 @@
     E_CPONLY(kColorBraveOmniboxResultViewSeparator) \
     E_CPONLY(kColorBravePlayerActionViewBorder)
 
+#define BRAVE_EXTENSION_MENU_COLOR_IDS \
+    E_CPONLY(kColorBraveExtensionMenuIcon)
+
+#define BRAVE_APP_MENU_COLOR_IDS \
+    E_CPONLY(kColorBraveAppMenuAccentColor)
+
 #define BRAVE_COLOR_IDS               \
     BRAVE_COMMON_COLOR_IDS            \
     BRAVE_SEARCH_CONVERSION_COLOR_IDS \
@@ -156,7 +163,9 @@
     BRAVE_SPLIT_VIEW_COLOR_IDS        \
     BRAVE_PLAYLIST_COLOR_IDS          \
     BRAVE_OMNIBOX_COLOR_IDS           \
-    BRAVE_WAYBACK_MACHINE_COLOR_IDS
+    BRAVE_WAYBACK_MACHINE_COLOR_IDS   \
+    BRAVE_EXTENSION_MENU_COLOR_IDS    \
+    BRAVE_APP_MENU_COLOR_IDS
 
 #include "ui/color/color_id_macros.inc"
 

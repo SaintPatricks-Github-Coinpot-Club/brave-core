@@ -54,12 +54,12 @@ class Confirmations final : public ConfirmationQueueDelegate,
       const ConfirmationInfo& confirmation) override;
   void OnDidExhaustConfirmationQueue() override;
 
-  raw_ptr<ConfirmationDelegate> delegate_ = nullptr;
-
   const raw_ptr<TokenGeneratorInterface> token_generator_ =
       nullptr;  // NOT OWNED
 
-  ConfirmationQueue queue_;
+  raw_ptr<ConfirmationDelegate> delegate_ = nullptr;
+
+  ConfirmationQueue confirmation_queue_;
 
   base::WeakPtrFactory<Confirmations> weak_factory_{this};
 };

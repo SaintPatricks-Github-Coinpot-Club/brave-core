@@ -61,7 +61,7 @@ mojom::DBCommandResponseInfoPtr Database::RunTransaction(
 
 void Database::RunTransactionImpl(
     mojom::DBTransactionInfoPtr transaction,
-    mojom::DBCommandResponseInfo* command_response) {
+    mojom::DBCommandResponseInfo* const command_response) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   CHECK(transaction);
@@ -127,7 +127,7 @@ void Database::RunTransactionImpl(
 mojom::DBCommandResponseInfo::StatusType Database::Initialize(
     const int32_t version,
     const int32_t compatible_version,
-    mojom::DBCommandResponseInfo* command_response) {
+    mojom::DBCommandResponseInfo* const command_response) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   CHECK(command_response);
@@ -161,14 +161,14 @@ mojom::DBCommandResponseInfo::StatusType Database::Initialize(
 }
 
 mojom::DBCommandResponseInfo::StatusType Database::Execute(
-    mojom::DBCommandInfo* command) {
+    const mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   if (!is_initialized_) {
     return mojom::DBCommandResponseInfo::StatusType::INITIALIZATION_ERROR;
   }
 
-  if (!db_.Execute(command->sql.c_str())) {
+  if (!db_.Execute(command->sql)) {
     VLOG(0) << "Database error: " << db_.GetErrorMessage();
     return mojom::DBCommandResponseInfo::StatusType::COMMAND_ERROR;
   }
@@ -177,7 +177,7 @@ mojom::DBCommandResponseInfo::StatusType Database::Execute(
 }
 
 mojom::DBCommandResponseInfo::StatusType Database::Run(
-    mojom::DBCommandInfo* command) {
+    const mojom::DBCommandInfo* const command) {
   CHECK(command);
 
   if (!is_initialized_) {
@@ -185,7 +185,7 @@ mojom::DBCommandResponseInfo::StatusType Database::Run(
   }
 
   sql::Statement statement;
-  statement.Assign(db_.GetUniqueStatement(command->sql.c_str()));
+  statement.Assign(db_.GetUniqueStatement(command->sql));
   if (!statement.is_valid()) {
     VLOG(0) << "Invalid database statement " << statement.GetSQLStatement();
     return mojom::DBCommandResponseInfo::StatusType::COMMAND_ERROR;
@@ -203,8 +203,8 @@ mojom::DBCommandResponseInfo::StatusType Database::Run(
 }
 
 mojom::DBCommandResponseInfo::StatusType Database::Read(
-    mojom::DBCommandInfo* command,
-    mojom::DBCommandResponseInfo* command_response) {
+    const mojom::DBCommandInfo* const command,
+    mojom::DBCommandResponseInfo* const command_response) {
   CHECK(command);
   CHECK(command_response);
 
@@ -213,7 +213,7 @@ mojom::DBCommandResponseInfo::StatusType Database::Read(
   }
 
   sql::Statement statement;
-  statement.Assign(db_.GetUniqueStatement(command->sql.c_str()));
+  statement.Assign(db_.GetUniqueStatement(command->sql));
   if (!statement.is_valid()) {
     VLOG(0) << "Invalid database statement " << statement.GetSQLStatement();
     return mojom::DBCommandResponseInfo::StatusType::COMMAND_ERROR;
@@ -269,7 +269,7 @@ int Database::GetTablesCount() {
 }
 
 void Database::ErrorCallback(const int extended_error,
-                             sql::Statement* statement) {
+                             sql::Statement* const statement) {
   // Attempt to recover a corrupt database, if it is eligible to be recovered.
   if (sql::Recovery::RecoverIfPossible(
           &db_, extended_error,
