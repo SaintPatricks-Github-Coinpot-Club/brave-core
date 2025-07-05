@@ -59,6 +59,8 @@
 
     height: 100%;
     width: 100%;
+
+    overflow: hidden;
   }
 
   display: contents;
@@ -70,6 +72,11 @@
   align-self: stretch;
   position: sticky;
   top: 0;
+
+  grid-column: 2;
+  grid-row: 1 / 3;
+
+  max-height: min(90vh, 720px);
 
   overflow: hidden;
 }
@@ -228,4 +235,11 @@
 
 .feedbackForm {
   padding: 0 16px;
+}
+
+.aichatIframeContainer {
+  // Negative margin to account for the additional height
+  // added to the iframe.
+  // See https://github.com/brave/brave-browser/issues/46042
+  margin-bottom: calc(-1 * var(--iframe-additional-margin-for-menus));
 }

@@ -68,6 +68,10 @@ constexpr char kIsMetaMask[] = "isMetaMask";
 constexpr char kMetaMask[] = "_metamask";
 constexpr char kIsUnlocked[] = "isUnlocked";
 
+constexpr char kEthereumChainChangedEvent[] = "chainChanged";
+constexpr char kEthereumAccountsChangedEvent[] = "accountsChanged";
+constexpr char kEthereumMessageEvent[] = "message";
+
 }  // namespace
 
 namespace brave_wallet {
@@ -506,6 +510,11 @@ void JSEthereumProvider::SendAsync(gin::Arguments* args) {
       content::V8ValueConverter::Create()->FromV8Value(
           input, isolate->GetCurrentContext());
 
+  if (!input_value) {
+    args->ThrowError();
+    return;
+  }
+
   ethereum_provider_->SendAsync(
       std::move(*input_value),
       base::BindOnce(&JSEthereumProvider::OnRequestOrSendAsync,
@@ -526,6 +535,10 @@ v8::Local<v8::Promise> JSEthereumProvider::Request(v8::Isolate* isolate,
   std::unique_ptr<base::Value> input_value =
       content::V8ValueConverter::Create()->FromV8Value(
           input, isolate->GetCurrentContext());
+
+  if (!input_value) {
+    return v8::Local<v8::Promise>();
+  }
 
   if (!EnsureConnected()) {
     return v8::Local<v8::Promise>();
@@ -555,17 +568,13 @@ void JSEthereumProvider::OnRequestOrSendAsync(
     std::unique_ptr<v8::Global<v8::Function>> global_callback,
     v8::Global<v8::Promise::Resolver> promise_resolver,
     v8::Isolate* isolate,
-    base::Value id,
-    base::Value formed_response,
-    const bool reject,
-    const std::string& first_allowed_account,
-    const bool update_bind_js_properties) {
-  if (update_bind_js_properties) {
-    first_allowed_account_ = first_allowed_account;
+    mojom::EthereumProviderResponsePtr response) {
+  if (response->update_bind_js_properties) {
+    first_allowed_account_ = response->first_allowed_account;
   }
-  SendResponse(std::move(id), std::move(global_context),
+  SendResponse(std::move(response->id), std::move(global_context),
                std::move(global_callback), std::move(promise_resolver), isolate,
-               std::move(formed_response), !reject);
+               std::move(response->formed_response), !response->reject);
 }
 
 v8::Local<v8::Promise> JSEthereumProvider::Enable(v8::Isolate* isolate) {
@@ -642,7 +651,7 @@ void JSEthereumProvider::ChainChangedEvent(const std::string& chain_id) {
     return;
   }
 
-  FireEvent(ethereum::kChainChangedEvent, base::Value(chain_id));
+  FireEvent(kEthereumChainChangedEvent, base::Value(chain_id));
   chain_id_ = chain_id;
 }
 
@@ -656,7 +665,7 @@ void JSEthereumProvider::AccountsChangedEvent(
   if (accounts.size() > 0) {
     first_allowed_account_ = accounts[0];
   }
-  FireEvent(ethereum::kAccountsChangedEvent, event_args);
+  FireEvent(kEthereumAccountsChangedEvent, event_args);
 }
 
 void JSEthereumProvider::MessageEvent(const std::string& subscription_id,
@@ -667,7 +676,7 @@ void JSEthereumProvider::MessageEvent(const std::string& subscription_id,
   data.Set("result", std::move(result));
   event_args.Set("type", "eth_subscription");
   event_args.Set("data", std::move(data));
-  FireEvent(ethereum::kMessageEvent, event_args);
+  FireEvent(kEthereumMessageEvent, event_args);
 }
 
 void JSEthereumProvider::OnProviderRequested() {

@@ -42,6 +42,7 @@ import Attachments from '../attachments'
 import { useIsElementSmall } from '../../hooks/useIsElementSmall'
 import useHasConversationStarted from '../../hooks/useHasConversationStarted'
 import { useExtractedQuery } from '../filter_menu/query'
+import TabsMenu from '../filter_menu/tabs_menu'
 
 // Amount of pixels user has to scroll up to break out of
 // automatic scroll to bottom when new response lines are generated.
@@ -242,7 +243,10 @@ function Main() {
                   </div>
                 )}
 
-                <div ref={scrollAnchor}>
+                <div
+                  className={styles.aichatIframeContainer}
+                  ref={scrollAnchor}
+                >
                   {!!conversationContext.conversationUuid &&
                     <aiChatContext.conversationEntriesComponent
                       onIsContentReady={setIsContentReady}
@@ -339,16 +343,17 @@ function Main() {
             categories={aiChatContext.actionList}
             handleClick={conversationContext.handleActionTypeClick}
           />
+          {!hasConversationStarted && <TabsMenu />}
           <InputBox
             conversationStarted={hasConversationStarted}
             context={{ ...conversationContext, ...aiChatContext }}
             maybeShowSoftKeyboard={maybeShowSoftKeyboard}
           />
         </div>
-        <DeleteConversationModal />
-        <OpenExternalLinkModal />
-        <RateMessagePrivacyModal />
       </div>
+      <DeleteConversationModal />
+      <OpenExternalLinkModal />
+      <RateMessagePrivacyModal />
     </main>
   )
 }

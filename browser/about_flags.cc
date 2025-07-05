@@ -11,6 +11,7 @@
 #include "brave/browser/brave_features_internal_names.h"
 #include "brave/browser/ui/brave_ui_features.h"
 #include "brave/browser/ui/tabs/features.h"
+#include "brave/browser/updater/buildflags.h"
 #include "brave/components/ai_chat/core/common/features.h"
 #include "brave/components/ai_rewriter/common/buildflags/buildflags.h"
 #include "brave/components/brave_ads/browser/ad_units/notification_ad/custom_notification_ad_feature.h"
@@ -41,6 +42,7 @@
 #include "components/content_settings/core/common/features.h"
 #include "components/history/core/browser/features.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/sync/base/command_line_switches.h"
 #include "components/translate/core/browser/translate_prefs.h"
 #include "components/webui/flags/feature_entry.h"
 #include "components/webui/flags/feature_entry_macros.h"
@@ -92,8 +94,8 @@
 #include "brave/components/containers/core/common/features.h"
 #endif
 
-#if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
-#include "brave/browser/mac_features.h"
+#if BUILDFLAG(ENABLE_OMAHA4)
+#include "brave/browser/updater/features.h"
 #endif
 
 #define EXPAND_FEATURE_ENTRIES(...) __VA_ARGS__,
@@ -115,6 +117,10 @@ const flags_ui::FeatureEntry::FeatureVariation kZCashFeatureVariations[] = {
      std::size(kZCashShieldedTransactionsEnabled), nullptr}
 #endif  // BUILDFLAG(ENABLE_ORCHARD)
 };
+
+namespace {
+const char* const kBraveSyncImplLink[1] = {"https://github.com/brave/go-sync"};
+}
 
 #define SPEEDREADER_FEATURE_ENTRIES                                        \
   IF_BUILDFLAG(                                                            \
@@ -512,14 +518,14 @@ const flags_ui::FeatureEntry::FeatureVariation kZCashFeatureVariations[] = {
 #define BRAVE_EDUCATION_FEATURE_ENTRIES
 #endif
 
-#if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
-#define BRAVE_UPDATER_FEATURE_ENTRIES                  \
-  EXPAND_FEATURE_ENTRIES({                             \
-      "brave-use-omaha4-alpha",                        \
-      "Use Omaha 4 Alpha",                             \
-      "Use the new automatic update system",           \
-      kOsDesktop | kOsMac,                             \
-      FEATURE_VALUE_TYPE(brave::kBraveUseOmaha4Alpha), \
+#if BUILDFLAG(ENABLE_OMAHA4)
+#define BRAVE_UPDATER_FEATURE_ENTRIES                          \
+  EXPAND_FEATURE_ENTRIES({                                     \
+      "brave-use-omaha4-alpha",                                \
+      "Use Omaha 4 Alpha",                                     \
+      "Use the new automatic update system",                   \
+      kOsMac,                                                  \
+      FEATURE_VALUE_TYPE(brave_updater::kBraveUseOmaha4Alpha), \
   })
 #else
 #define BRAVE_UPDATER_FEATURE_ENTRIES
@@ -954,6 +960,14 @@ const flags_ui::FeatureEntry::FeatureVariation kZCashFeatureVariations[] = {
           FEATURE_VALUE_TYPE(features::kBraveCopyCleanLinkByDefault),          \
       },                                                                       \
       {                                                                        \
+          "brave-clean-link-js-api",                                           \
+          "Sanitize URLs in the clipboard",                                    \
+          "Sanitize URLs in the clipboard when they are added via the JS API " \
+          "(share/copy buttons). ",                                            \
+          kOsWin | kOsLinux | kOsMac,                                          \
+          FEATURE_VALUE_TYPE(features::kBraveCopyCleanLinkFromJs),             \
+      },                                                                       \
+      {                                                                        \
           "brave-global-privacy-control-enabled",                              \
           "Enable Global Privacy Control",                                     \
           "Enable the Sec-GPC request header and the "                         \
@@ -1011,6 +1025,20 @@ const flags_ui::FeatureEntry::FeatureVariation kZCashFeatureVariations[] = {
           "corners, padding, and a drop shadow",                               \
           kOsWin | kOsLinux | kOsMac,                                          \
           FEATURE_VALUE_TYPE(features::kBraveWebViewRoundedCorners),           \
+      },                                                                       \
+      {                                                                        \
+          "brave-override-sync-server-url",                                    \
+          "Override Brave Sync server URL",                                    \
+          "Allows you to use a self-hosted server with Brave Sync. You can "   \
+          "learn more about the server implementation in the repository link " \
+          "mentioned below. "                                                  \
+          "Note: Only HTTPS URLs are supported by default. HTTP URLs are "     \
+          "only allowed for potentially trustworthy origins like localhost."   \
+          "Insecure URLs that don't meet these requirements will be ignored"   \
+          "in favor of the official Brave-hosted server",                      \
+          kOsAll,                                                              \
+          ORIGIN_LIST_VALUE_TYPE(syncer::kSyncServiceURL, ""),                 \
+          kBraveSyncImplLink,                                                  \
       })                                                                       \
   BRAVE_NATIVE_WALLET_FEATURE_ENTRIES                                          \
   BRAVE_NEWS_FEATURE_ENTRIES                                                   \
@@ -1038,11 +1066,13 @@ const flags_ui::FeatureEntry::FeatureVariation kZCashFeatureVariations[] = {
 namespace flags_ui {
 namespace {
 
-// Unused function to reference Brave feature entries for clang checks.
+// Unused function to reference Brave feature entries for clang
+// checks.
 [[maybe_unused]] void UseBraveAboutFlags() {
   // These vars are declared in anonymous namespace in
-  // //chrome/browser/about_flags.cc. We declare them here manually to
-  // instantiate BRAVE_ABOUT_FLAGS_FEATURE_ENTRIES without errors.
+  // //chrome/browser/about_flags.cc. We declare them here
+  // manually to instantiate BRAVE_ABOUT_FLAGS_FEATURE_ENTRIES
+  // without errors.
   constexpr int kOsAll = 0;
   constexpr int kOsDesktop = 0;
 
