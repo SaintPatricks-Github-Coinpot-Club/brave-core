@@ -309,6 +309,10 @@ brave_java_sources = [
   "../../brave/android/java/org/chromium/chrome/browser/preferences/website/BraveShieldsContentSettingsObserver.java",
   "../../brave/android/java/org/chromium/chrome/browser/privacy/secure_dns/BraveSecureDnsProviderPreference.java",
   "../../brave/android/java/org/chromium/chrome/browser/privacy/settings/BravePrivacySettings.java",
+  "../../brave/android/java/org/chromium/chrome/browser/qrreader/BarcodeTracker.java",
+  "../../brave/android/java/org/chromium/chrome/browser/qrreader/BarcodeTrackerFactory.java",
+  "../../brave/android/java/org/chromium/chrome/browser/qrreader/CameraSource.java",
+  "../../brave/android/java/org/chromium/chrome/browser/qrreader/CameraSourcePreview.java",
   "../../brave/android/java/org/chromium/chrome/browser/quickactionsearchwidget/BraveQuickActionSearchWidgetProvider.java",
   "../../brave/android/java/org/chromium/chrome/browser/rate/BraveAskPlayStoreRatingDialog.java",
   "../../brave/android/java/org/chromium/chrome/browser/rate/BraveRateDialogFragment.java",
@@ -512,6 +516,7 @@ brave_java_sources += brave_fullscreen_java_sources
 brave_browser_ui_android_appmenu_internal_sources = [
   "//brave/browser/ui/android/appmenu/internal/java/src/org/chromium/chrome/browser/ui/appmenu/BraveAppMenu.java",
   "//brave/browser/ui/android/appmenu/internal/java/src/org/chromium/chrome/browser/ui/appmenu/BraveAppMenuDummySuper.java",
+  "//brave/browser/ui/android/appmenu/internal/java/src/org/chromium/chrome/browser/ui/appmenu/BraveAppMenuHandlerImpl.java",
 ]
 
 brave_browser_ui_android_default_browser_promo_java_sources = [
